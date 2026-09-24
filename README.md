@@ -32,5 +32,13 @@ Open `script.js` and fill in the **SITE** block at the top. Anything left blank 
 - `prayerEndpoint` — a URL that accepts a JSON POST (Formspree, Supabase edge function, etc.). If blank but `email` is set, the form opens the visitor's email app instead.
 - `eventStart` / `eventEnd` — drive the Manifests Conference countdown
 
+
+## Nav, alignment, responsiveness & animation upgrade (this pass)
+- **Fixed a real layout bug:** the announcement bar (when enabled in the manager) used to render underneath the fixed header. It's now a proper fixed top bar, the header sits right below it, and every anchor link / the hero's top spacing adjusts automatically to match — including when you dismiss the bar.
+- **Mobile nav rebuilt:** it now slides in as a real off-canvas panel with a dimmed backdrop, staggered link entrance, body-scroll lock while open, and an animated hamburger ↔ close icon, instead of an instant show/hide.
+- **Tablet breakpoint added** (~900–1180px) so the 3-column Foundation cards and the 4-column quick links no longer jump straight to a single column — they now step through 2 columns first.
+- **Section reveals now stagger per-card** (Foundation, Gallery, Contact, Quick Links) instead of fading the whole block in at once.
+- Respects `prefers-reduced-motion` throughout.
+
 ## Content to confirm with the ministry
 The Mission, Vision, Values, Statement of Faith and "Our Story" text are drafts written for the site. Replace them with the church's official wording before launch. A higher-resolution logo file (the current one is 191×115px) will look sharper on retina screens.

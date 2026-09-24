@@ -132,21 +132,40 @@ const showToast = (msg, isSuccess = true) => {
 };
 
 // Header & mobile nav
-const header = $('.site-header'), nav = $('.nav'), toggle = $('.menu-toggle');
+const header = $('.site-header'), nav = $('.nav'), toggle = $('.menu-toggle'), navBackdrop = $('#nav-backdrop');
 const setMenu = o => {
   nav?.classList.toggle('open', o);
+  navBackdrop?.classList.toggle('open', o);
   toggle?.setAttribute('aria-expanded', o);
+  document.body.classList.toggle('nav-open', o);
   if (toggle) {
-    toggle.textContent = o ? '✕' : '☰';
+    toggle.classList.toggle('is-open', o);
     toggle.setAttribute('aria-label', o ? 'Close menu' : 'Open menu');
   }
 };
 toggle?.addEventListener('click', () => setMenu(!nav.classList.contains('open')));
+navBackdrop?.addEventListener('click', () => setMenu(false));
 $$('.nav a').forEach(a => a.addEventListener('click', () => setMenu(false)));
 addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
 const onScroll = () => header?.classList.toggle('scrolled', scrollY > 30);
 onScroll();
 addEventListener('scroll', onScroll, { passive: true });
+
+// Keep the fixed header (and anchor scrolling) correctly offset below the announcement bar
+const syncHeaderOffset = () => {
+  const ab = $('#announcement-bar');
+  const annH = (ab && !ab.hidden) ? ab.offsetHeight : 0;
+  const headerH = header ? header.offsetHeight : 78;
+  document.documentElement.style.setProperty('--ann-h', annH + 'px');
+  document.documentElement.style.setProperty('--header-h', (annH + headerH) + 'px');
+};
+addEventListener('resize', syncHeaderOffset);
+addEventListener('load', syncHeaderOffset);
+syncHeaderOffset();
+$('#announcement-close')?.addEventListener('click', () => {
+  const ab = $('#announcement-bar');
+  if (ab) { ab.hidden = true; syncHeaderOffset(); }
+});
 
 // Hero photo switcher
 const heroMedia = $('#hero-media'), switchBtns = $$('.hero-switch-btn');
@@ -205,6 +224,7 @@ const applySettings = (s) => {
     } else {
       ab.hidden = true;
     }
+    syncHeaderOffset();
   }
 
   // Hero Section
