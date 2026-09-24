@@ -1,0 +1,111 @@
+{
+  "passkey": "prayerarmy",
+  "general": {
+    "churchName": "Prayer Army International",
+    "slogan": "Raising Generals, Transforming Generations",
+    "region": "Upper West Region of Ghana",
+    "founder": "Prophet Suglo Prosper"
+  },
+  "hero": {
+    "eyebrow": "PRAYER ARMY INTERNATIONAL",
+    "titleMain": "Raising Generals,",
+    "titleAccent": "Transforming Generations.",
+    "copy": "A prophetic ministry headquartered in the Upper West Region of Ghana, founded by Prophet Suglo Prosper.",
+    "tagline": "Faith • Prayer • Prophetic Ministry",
+    "btnPrimaryText": "Watch Sermons",
+    "btnPrimaryLink": "#sermons",
+    "btnSecondaryText": "Watch Live",
+    "btnSecondaryLink": "#live",
+    "bgImage": "assets/images/FB_IMG_1790281482379.jpg"
+  },
+  "about": {
+    "eyebrow": "WELCOME TO PAI",
+    "heading": "A people of prayer, faith and purpose.",
+    "p1": "Prayer Army International is a prophetic church headquartered in the Upper West Region of Ghana and founded by Prophet Suglo Prosper.",
+    "p2": "The ministry's public identity is centered on prayer, prophetic ministry, worship, teaching and the transformation of lives through the message of Jesus Christ.",
+    "founderName": "PROPHET SUGLO PROSPER",
+    "founderRole": "Founder",
+    "stat1Title": "PAI",
+    "stat1Desc": "Prayer Army International",
+    "stat2Title": "Ghana",
+    "stat2Desc": "Headquartered in the Upper West Region",
+    "stat3Title": "Prophetic",
+    "stat3Desc": "Ministry expression"
+  },
+  "foundation": {
+    "missionTitle": "To raise people of prayer, faith and spiritual purpose.",
+    "missionText": "Prayer Army International exists to proclaim Jesus Christ, cultivate a life of prayer, teach God's Word, develop believers for purposeful Christian living, and equip people to serve their generation with faith, courage and love.",
+    "visionTitle": "To raise generals who transform generations.",
+    "visionText": "We envision a growing community of Spirit-filled believers who know God, walk in truth, pray with confidence, live with integrity and become a positive spiritual influence in their families, communities and nations.",
+    "valuesTitle": "Prayer. Word. Faith. Love. Service.",
+    "valuesText": "We value a life of prayer, biblical truth, faith in God, Christlike love, integrity, excellence, discipleship, evangelism and practical service to people.",
+    "storyTitle": "A prophetic ministry with a heart for people.",
+    "storyText": "Prayer Army International is a prophetic church headquartered in the Upper West Region of Ghana and founded by Prophet Suglo Prosper. The ministry's public expression brings together prayer, prophetic ministry, worship, teaching and the call to transformed Christian living.",
+    "founderBio": "Founder of Prayer Army International and a minister whose public ministry is expressed through preaching, prayer, prophetic ministry and the raising of believers for purposeful Christian service."
+  },
+  "live": {
+    "isLiveNow": false,
+    "title": "Prophetic & Prayer Service Live",
+    "description": "Join Prayer Army International online from anywhere in the world. When we go live, tap below to worship and pray with us in real time.",
+    "url": "https://www.youtube.com/@prophetsugloprosper/live",
+    "statusNote": "Regular Sunday and Prophetic Services streamed live"
+  },
+  "sermons": {
+    "heading": "Messages that build faith.",
+    "libraryUrl": "https://www.youtube.com/@prophetsugloprosper/videos",
+    "featuredKicker": "PROPHETIC MESSAGE",
+    "featuredTitle": "Experience the ministry of the Word",
+    "featuredDesc": "Prophetic preaching, prayer and teaching from Prophet Suglo Prosper — messages to strengthen your faith and stir your spirit.",
+    "featuredUrl": "https://www.youtube.com/@prophetsugloprosper/videos",
+    "mini1Kicker": "PRAYER",
+    "mini1Title": "Moments of prayer and ministry",
+    "mini1Url": "https://www.youtube.com/@prophetsugloprosper/videos",
+    "mini2Kicker": "MINISTRY",
+    "mini2Title": "Prayer and prophetic ministry",
+    "mini2Url": "https://www.youtube.com/@prophetsugloprosper/videos"
+  },
+  "event": {
+    "title": "Manifests Conference 2026",
+    "dates": "23–27 November 2026",
+    "description": "Five days of prayer, worship and prophetic ministry. Follow our channels for venue, program and updates.",
+    "start": "2026-11-23T00:00:00Z",
+    "end": "2026-11-28T00:00:00Z",
+    "link": "",
+    "stackCaption": "Every gathering is an opportunity to seek God together."
+  },
+  "prayer": {
+    "eyebrow": "WE WOULD LOVE TO PRAY WITH YOU",
+    "heading": "Bring your request. Leave it in prayer.",
+    "copy": "Whether you are seeking direction, strength, healing, provision or simply want someone to stand with you in prayer, submit your request to the ministry.",
+    "recipientEmail": "prayerarmyinternational@gmail.com",
+    "endpoint": ""
+  },
+  "giving": {
+    "heading": "Support the work.",
+    "info": "Your giving and partnership help carry the message of Jesus Christ, sustain prayer ministry and reach more people across the Upper West Region and beyond. Every seed is received with gratitude.",
+    "momo": "",
+    "link": ""
+  },
+  "contact": {
+    "address": "Headquarters: Upper West Region, Ghana",
+    "phone": "",
+    "whatsapp": "",
+    "email": "prayerarmyinternational@gmail.com"
+  },
+  "social": {
+    "youtube": "https://www.youtube.com/@prophetsugloprosper",
+    "facebook": "https://www.facebook.com/prayerarmyinternational",
+    "instagram": "https://www.instagram.com/prayerarmyinternational",
+    "tiktok": "https://www.tiktok.com/@prayerarmyinternational",
+    "x": "https://x.com/prayerarmyint",
+    "whatsapp": "https://wa.me/233241234567",
+    "telegram": "",
+    "threads": "",
+    "linkedin": "",
+    "spotify": ""
+  },
+  "announcement": {
+    "enabled": false,
+    "text": "Join our upcoming prophetic services and prayer gatherings. Raising Generals, Transforming Generations!"
+  }
+}

@@ -1,0 +1,1799 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Site Manager Console | Prayer Army International</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="assets/images/prayer-army-logo.png">
+  <meta name="theme-color" content="#080c14">
+  <style>
+    :root {
+      --bg: #080c14;
+      --panel: #0e1422;
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --panel-hover: #141c2e;
+      --gold: #d4af37;
+      --gold2: #f3e5ab;
+      --gold-glow: rgba(212, 175, 55, 0.25);
+      --text: #f0f3f8;
+      --text-muted: #8c97a8;
+      --text-dim: #5a6474;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.12);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --radius: 8px;
+      --sidebar-w: 260px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    /* Auth Overlay */
+    #auth-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, #111827 0%, #060910 100%);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-card {
+      background: var(--panel);
+      border: 1px solid var(--gold);
+      border-radius: 14px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8), 0 0 35px var(--gold-glow);
+      width: 100%;
+      max-width: 420px;
+      padding: 36px 32px;
+      text-align: center;
+    }
+
+    .auth-logo {
+      height: 65px;
+      width: auto;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 4px 12px rgba(212,175,55,.3));
+    }
+
+    .auth-card h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 24px;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .auth-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .auth-input-group {
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .auth-input-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold2);
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .passkey-wrap {
+      position: relative;
+    }
+
+    .passkey-wrap input {
+      width: 100%;
+      background: #06090f;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 12px 42px 12px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .passkey-wrap input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-glow);
+    }
+
+    .toggle-pw-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .auth-error {
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 600;
+      min-height: 20px;
+      margin-bottom: 12px;
+    }
+
+    .btn-auth {
+      width: 100%;
+      background: linear-gradient(135deg, #d4af37 0%, #b89727 100%);
+      color: #0b0f17;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 13px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-auth:hover {
+      background: linear-gradient(135deg, #f3e5ab 0%, #d4af37 100%);
+      box-shadow: 0 4px 20px rgba(212,175,55,0.4);
+    }
+
+    /* Main App Layout */
+    #admin-app {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      background: rgba(14, 20, 34, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--panel-border);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .top-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .top-brand img {
+      height: 38px;
+      width: auto;
+    }
+
+    .top-brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-brand-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    .top-brand-sub {
+      font-size: 11px;
+      color: var(--gold);
+      font-weight: 600;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .live-pill.active {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    .live-pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #718096;
+    }
+
+    .live-pill.active .live-pill-dot {
+      background: var(--danger);
+      box-shadow: 0 0 10px var(--danger);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.7; }
+    }
+
+    .btn-live-site {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-live-site:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-save-master {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--gold);
+      color: #0c1018;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 9px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px var(--gold-glow);
+    }
+
+    .btn-save-master:hover {
+      background: var(--gold2);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(212,175,55,0.4);
+    }
+
+    .btn-logout {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-logout:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+      background: var(--danger-bg);
+    }
+
+    /* Content Layout */
+    .app-body {
+      display: flex;
+      flex: 1;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--panel);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 12px;
+      gap: 4px;
+      position: sticky;
+      top: 64px;
+      height: calc(100vh - 64px);
+      overflow-y: auto;
+    }
+
+    .nav-group-title {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 12px 10px 4px;
+    }
+
+    .sidebar-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+    }
+
+    .sidebar-btn:hover {
+      background: var(--panel-hover);
+      color: #fff;
+    }
+
+    .sidebar-btn.active {
+      background: rgba(212, 175, 55, 0.14);
+      color: var(--gold2);
+      font-weight: 700;
+      border-left: 3px solid var(--gold);
+    }
+
+    .sidebar-btn .badge-pill {
+      margin-left: auto;
+      background: var(--danger);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    /* Main Work Area */
+    .main-area {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .tab-view {
+      display: none;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .tab-view.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .view-header {
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .view-header-text h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 26px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .view-header-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Form and Panel Styles */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .form-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #ccd4e0;
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+    }
+
+    .form-group small {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="email"],
+    input[type="password"],
+    input[type="datetime-local"],
+    textarea,
+    select {
+      width: 100%;
+      background: #06090f;
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-glow);
+    }
+
+    textarea {
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    /* Social field with Test Link Button */
+    .field-with-btn {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-test-link {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      color: var(--gold2);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 0 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .btn-test-link:hover {
+      background: var(--gold);
+      color: #0b0f17;
+      border-color: var(--gold);
+    }
+
+    .social-icon-row-admin {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 16px;
+      background: #06090f;
+      border-radius: 8px;
+      border: 1px solid var(--panel-border);
+      min-height: 64px;
+    }
+
+    .social-icon-btn-admin {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .social-icon-btn-admin svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Switch Component */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .toggle-info strong {
+      display: block;
+      font-size: 14px;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .toggle-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #242e42;
+      transition: .3s;
+      border-radius: 26px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--gold);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+      background-color: #090d15;
+    }
+
+    /* Media Manager & Upload Dropzone */
+    .upload-dropzone {
+      border: 2px dashed var(--panel-border);
+      border-radius: 12px;
+      padding: 40px 24px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 24px;
+    }
+
+    .upload-dropzone:hover, .upload-dropzone.dragover {
+      border-color: var(--gold);
+      background: rgba(212, 175, 55, 0.05);
+    }
+
+    .upload-dropzone-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      color: var(--gold);
+    }
+
+    .upload-dropzone h4 {
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .upload-dropzone p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .btn-select-files {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-select-files:hover {
+      background: var(--gold);
+      color: #090d15;
+      border-color: var(--gold);
+    }
+
+    .upload-progress-box {
+      margin-bottom: 24px;
+      display: none;
+    }
+
+    .progress-bar-bg {
+      background: #1a2333;
+      border-radius: 6px;
+      height: 8px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-bar-fill {
+      background: linear-gradient(90deg, var(--gold) 0%, #10b981 100%);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    /* Media Grid */
+    .media-filter-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .media-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .media-tab-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .media-tab-btn.active, .media-tab-btn:hover {
+      background: var(--gold);
+      color: #0c1018;
+      border-color: var(--gold);
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .media-card {
+      background: #0b101c;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .media-card:hover {
+      border-color: rgba(212, 175, 55, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .media-thumb-wrap {
+      position: relative;
+      height: 140px;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .media-thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .media-thumb-wrap video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .media-type-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .media-type-badge.video {
+      background: rgba(239, 68, 68, 0.85);
+    }
+
+    .media-info {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .media-filename {
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .media-size {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .media-actions {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .media-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-media-action {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      flex: 1;
+    }
+
+    .btn-media-action:hover {
+      background: var(--gold);
+      color: #0b0f17;
+      border-color: var(--gold);
+    }
+
+    .btn-media-action.delete:hover {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+
+    /* Live Stream Preview Box */
+    .stream-preview-box {
+      background: #000;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 14px;
+      position: relative;
+      padding-top: 56.25%; /* 16:9 Aspect Ratio */
+    }
+
+    .stream-preview-box iframe,
+    .stream-preview-box video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .stream-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #111827;
+      border: 1px solid var(--gold);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 9999;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    #toast.success { border-color: var(--success); }
+    #toast.error { border-color: var(--danger); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .app-body { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px 12px;
+      }
+      .sidebar-btn { white-space: nowrap; }
+      .nav-group-title { display: none; }
+      .main-area { padding: 20px 16px; }
+      .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Passkey Authentication Gate -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <img src="assets/images/prayer-army-logo.png" alt="Prayer Army International" class="auth-logo">
+      <h1>Site Manager Console</h1>
+      <p>Enter the manager passkey to edit website content, broadcast live services, and upload pictures or videos.</p>
+      
+      <form id="auth-form">
+        <div class="auth-input-group">
+          <label for="passkey-input">Manager Passkey</label>
+          <div class="passkey-wrap">
+            <input type="password" id="passkey-input" placeholder="Enter passkey" autocomplete="current-password" autofocus required>
+            <button type="button" class="toggle-pw-btn" id="toggle-pw-btn" title="Toggle password visibility">👁</button>
+          </div>
+        </div>
+        <div class="auth-error" id="auth-error"></div>
+        <button type="submit" class="btn-auth" id="btn-auth-submit">Unlock Console</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Main Admin Dashboard -->
+  <div id="admin-app">
+    <!-- Top Navigation Header -->
+    <header class="top-bar">
+      <div class="top-left">
+        <a href="/" class="top-brand" title="View Public Church Website" target="_blank">
+          <img src="assets/images/prayer-army-logo.png" alt="Prayer Army Logo">
+          <div class="top-brand-text">
+            <span class="top-brand-title">PRAYER ARMY INTERNATIONAL</span>
+            <span class="top-brand-sub">Site Manager Console</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="top-right">
+        <div class="live-pill" id="live-broadcast-pill" title="Click to toggle Live broadcast status">
+          <span class="live-pill-dot"></span>
+          <span id="live-pill-label">OFFLINE</span>
+        </div>
+
+        <a href="/" target="_blank" class="btn-live-site">
+          <span>Public Site</span> <span>↗</span>
+        </a>
+
+        <button type="button" class="btn-save-master" id="btn-save-all">
+          <span>💾</span> Save Changes
+        </button>
+
+        <button type="button" class="btn-logout" id="btn-logout" title="Lock Manager Portal">
+          Lock
+        </button>
+      </div>
+    </header>
+
+    <div class="app-body">
+      <!-- Sidebar Navigation -->
+      <aside class="sidebar">
+        <div class="nav-group-title">Live & Broadcast</div>
+        <button type="button" class="sidebar-btn active" data-view="view-live">
+          <span>📡</span> Live Stream
+          <span class="badge-pill" id="sidebar-live-badge" style="display:none">LIVE</span>
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-media">
+          <span>📁</span> Media Uploader
+        </button>
+
+        <div class="nav-group-title">Site Content</div>
+        <button type="button" class="sidebar-btn" data-view="view-hero">
+          <span>⚡</span> Hero Banner
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-general">
+          <span>🏛</span> General & Contacts
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-sermons">
+          <span>📖</span> Sermons & Videos
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-events">
+          <span>📅</span> Events & Programs
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-about">
+          <span>🕊</span> About & Foundation
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-give">
+          <span>💛</span> Giving & MoMo
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-prayer">
+          <span>🙏</span> Prayer Ministry
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-banner">
+          <span>📢</span> Announcement Bar
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-social">
+          <span>🌐</span> Social Channels
+        </button>
+
+        <div class="nav-group-title">System</div>
+        <button type="button" class="sidebar-btn" data-view="view-security">
+          <span>🔒</span> Passkey & Backup
+        </button>
+      </aside>
+
+      <!-- Main Content Panels -->
+      <main class="main-area">
+        <form id="settings-form">
+
+          <!-- 1. LIVE STREAM & BROADCAST VIEW -->
+          <section class="tab-view active" id="view-live">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>📡</span> Live Services & Broadcast</h2>
+                <p>Control live broadcast status, configure YouTube/Facebook live links, and preview your live feed.</p>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <strong>Broadcasting Live Now</strong>
+                <p>When turned on, a glowing "● LIVE SERVICE" badge appears across the website navigation and hero section.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="field-is-live">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Live Stream Configuration</h3>
+              <div class="form-group">
+                <label for="field-live-url">Live Stream URL (YouTube Live, Facebook Live, or Video Stream)</label>
+                <input type="url" id="field-live-url" placeholder="https://www.youtube.com/@prophetsugloprosper/live">
+                <small>Visitors clicking "Watch Live" on the website are taken directly to this live video or channel stream.</small>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-live-title">Live Section Title</label>
+                  <input type="text" id="field-live-title" placeholder="Prophetic & Prayer Service Live">
+                </div>
+                <div class="form-group">
+                  <label for="field-live-status-note">Schedule / Status Note</label>
+                  <input type="text" id="field-live-status-note" placeholder="Regular Sunday and Prophetic Services streamed live">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="field-live-desc">Live Section Description</label>
+                <textarea id="field-live-desc" rows="3" placeholder="Join Prayer Army International online from anywhere in the world..."></textarea>
+              </div>
+
+              <!-- Live Stream Preview -->
+              <div class="form-group" style="margin-top: 16px;">
+                <label>Stream Preview</label>
+                <div class="stream-preview-box" id="stream-preview-container">
+                  <div class="stream-placeholder" id="stream-placeholder">
+                    <span>Enter a YouTube Live or video URL above to preview the stream.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2. MEDIA UPLOADER & LIBRARY VIEW -->
+          <section class="tab-view" id="view-media">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>📁</span> Media Uploader & Library</h2>
+                <p>Upload photos and video clips to the church website. Copy URLs or assign them directly as hero backgrounds or featured videos.</p>
+              </div>
+            </div>
+
+            <!-- Upload Dropzone -->
+            <div class="upload-dropzone" id="dropzone">
+              <div class="upload-dropzone-icon">☁️</div>
+              <h4>Drag & drop pictures or videos here</h4>
+              <p>Supports JPG, PNG, WebP, GIF, MP4, WebM, and MOV files up to 100MB</p>
+              <label class="btn-select-files">
+                Browse Files
+                <input type="file" id="media-file-input" multiple accept="image/*,video/*" style="display: none;">
+              </label>
+            </div>
+
+            <!-- Upload Progress -->
+            <div class="card upload-progress-box" id="upload-progress-box">
+              <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600;">
+                <span id="upload-status-text">Uploading files...</span>
+                <span id="upload-percent-text">0%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="upload-progress-fill"></div>
+              </div>
+            </div>
+
+            <!-- Media Library Grid -->
+            <div class="card">
+              <div class="media-filter-bar">
+                <h3 class="card-title" style="margin-bottom: 0;">Church Media Files (<span id="media-count">0</span>)</h3>
+                <div class="media-tabs">
+                  <button type="button" class="media-tab-btn active" data-filter="all">All Media</button>
+                  <button type="button" class="media-tab-btn" data-filter="upload">Uploads</button>
+                  <button type="button" class="media-tab-btn" data-filter="image">Photos</button>
+                  <button type="button" class="media-tab-btn" data-filter="video">Videos</button>
+                </div>
+              </div>
+
+              <div class="media-grid" id="media-grid-container">
+                <!-- Injected via JavaScript -->
+              </div>
+            </div>
+          </section>
+
+          <!-- 3. HERO BANNER VIEW -->
+          <section class="tab-view" id="view-hero">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>⚡</span> Hero Banner & Welcome</h2>
+                <p>Edit the main greeting headlines, call-to-action buttons, and hero background picture or video.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Headlines & Copy</h3>
+              <div class="form-group">
+                <label for="field-hero-eyebrow">Eyebrow Text</label>
+                <input type="text" id="field-hero-eyebrow" placeholder="PRAYER ARMY INTERNATIONAL">
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-hero-title-main">Main Title Line</label>
+                  <input type="text" id="field-hero-title-main" placeholder="Raising Generals,">
+                </div>
+                <div class="form-group">
+                  <label for="field-hero-title-accent">Accent Line (Gold / Italic)</label>
+                  <input type="text" id="field-hero-title-accent" placeholder="Transforming Generations.">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="field-hero-copy">Hero Subtitle / Copy</label>
+                <textarea id="field-hero-copy" rows="3" placeholder="A prophetic ministry headquartered in the Upper West Region of Ghana, founded by Prophet Suglo Prosper."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="field-hero-tagline">Bottom Tagline</label>
+                <input type="text" id="field-hero-tagline" placeholder="Faith • Prayer • Prophetic Ministry">
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Call-to-Action Buttons</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-hero-btn-primary-text">Primary Button Label</label>
+                  <input type="text" id="field-hero-btn-primary-text" placeholder="Watch Sermons">
+                </div>
+                <div class="form-group">
+                  <label for="field-hero-btn-primary-link">Primary Button Link</label>
+                  <input type="text" id="field-hero-btn-primary-link" placeholder="#sermons">
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-hero-btn-secondary-text">Secondary Button Label</label>
+                  <input type="text" id="field-hero-btn-secondary-text" placeholder="Watch Live">
+                </div>
+                <div class="form-group">
+                  <label for="field-hero-btn-secondary-link">Secondary Button Link</label>
+                  <input type="text" id="field-hero-btn-secondary-link" placeholder="#live">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Hero Background Media</h3>
+              <div class="form-group">
+                <label for="field-hero-bg">Background Picture or Video URL / Path</label>
+                <input type="text" id="field-hero-bg" placeholder="assets/images/FB_IMG_1790281482379.jpg">
+                <small>You can upload a photo or MP4 video in the <strong>Media Uploader</strong> tab and click "Set as Hero Media".</small>
+              </div>
+              <div id="hero-media-preview-box" style="margin-top: 12px; height: 180px; border-radius: 8px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; border: 1px solid var(--panel-border);">
+                <!-- Preview injected here -->
+              </div>
+            </div>
+          </section>
+
+          <!-- 4. GENERAL & CHURCH CONTACTS -->
+          <section class="tab-view" id="view-general">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🏛</span> Church Info & Contacts</h2>
+                <p>Update headquarters details, founder profile, phone, WhatsApp direct chat, and email address.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Church Identity</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-church-name">Ministry Name</label>
+                  <input type="text" id="field-church-name" placeholder="Prayer Army International">
+                </div>
+                <div class="form-group">
+                  <label for="field-founder-name">Founder</label>
+                  <input type="text" id="field-founder-name" placeholder="Prophet Suglo Prosper">
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-church-slogan">Motto / Slogan</label>
+                  <input type="text" id="field-church-slogan" placeholder="Raising Generals, Transforming Generations">
+                </div>
+                <div class="form-group">
+                  <label for="field-church-region">Headquarters Location</label>
+                  <input type="text" id="field-church-region" placeholder="Upper West Region of Ghana">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Contact Channels</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-contact-phone">Phone Number</label>
+                  <input type="text" id="field-contact-phone" placeholder="+233 24 123 4567">
+                  <small>Displayed for direct phone calls.</small>
+                </div>
+                <div class="form-group">
+                  <label for="field-contact-whatsapp">WhatsApp Number</label>
+                  <input type="text" id="field-contact-whatsapp" placeholder="+233 24 123 4567">
+                  <small>Automatically links visitors to instant WhatsApp chat.</small>
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-contact-email">Official Ministry Email</label>
+                  <input type="email" id="field-contact-email" placeholder="prayerarmyinternational@gmail.com">
+                </div>
+                <div class="form-group">
+                  <label for="field-contact-address">Physical Address / Description</label>
+                  <input type="text" id="field-contact-address" placeholder="Headquarters: Upper West Region, Ghana">
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Link to Social Channels -->
+            <div class="card" style="background: rgba(212,175,55,0.06); border: 1px dashed rgba(212,175,55,0.35);">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div>
+                  <h4 style="color: var(--gold); font-size: 14px; margin-bottom: 4px; font-weight: 700;">🌐 Looking to update Social Media Profiles?</h4>
+                  <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Configure Facebook, YouTube, Instagram, TikTok, WhatsApp, X, and more to display interactive icons on footer & contact.</p>
+                </div>
+                <button type="button" class="btn-sm btn-subtle jump-to-social-btn" style="border-color: var(--gold); color: var(--gold); cursor: pointer; padding: 6px 14px;">Go to Social Channels ➔</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- 5. SERMONS & VIDEOS -->
+          <section class="tab-view" id="view-sermons">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>📖</span> Sermons & Videos</h2>
+                <p>Update sermon playlist links, featured prophetic preachings, and teaching series.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Sermons Header & Channel</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-sermons-heading">Section Heading</label>
+                  <input type="text" id="field-sermons-heading" placeholder="Messages that build faith.">
+                </div>
+                <div class="form-group">
+                  <label for="field-sermons-library-url">YouTube Channel / Sermons Playlist URL</label>
+                  <input type="url" id="field-sermons-library-url" placeholder="https://www.youtube.com/@prophetsugloprosper/videos">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Featured Sermon Message</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-sermon-feat-kicker">Kicker / Badge</label>
+                  <input type="text" id="field-sermon-feat-kicker" placeholder="PROPHETIC MESSAGE">
+                </div>
+                <div class="form-group">
+                  <label for="field-sermon-feat-title">Title</label>
+                  <input type="text" id="field-sermon-feat-title" placeholder="Experience the ministry of the Word">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="field-sermon-feat-desc">Description</label>
+                <textarea id="field-sermon-feat-desc" rows="2" placeholder="Prophetic preaching, prayer and teaching from Prophet Suglo Prosper..."></textarea>
+              </div>
+              <div class="form-group">
+                <label for="field-sermon-feat-url">Video Link (YouTube video or uploaded MP4)</label>
+                <input type="url" id="field-sermon-feat-url" placeholder="https://www.youtube.com/watch?v=...">
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Mini Sermon Cards</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-sermon-mini1-title">Card 1 Title</label>
+                  <input type="text" id="field-sermon-mini1-title" placeholder="Moments of prayer and ministry">
+                </div>
+                <div class="form-group">
+                  <label for="field-sermon-mini1-url">Card 1 URL</label>
+                  <input type="url" id="field-sermon-mini1-url" placeholder="https://www.youtube.com/@prophetsugloprosper/videos">
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-sermon-mini2-title">Card 2 Title</label>
+                  <input type="text" id="field-sermon-mini2-title" placeholder="Prayer and prophetic ministry">
+                </div>
+                <div class="form-group">
+                  <label for="field-sermon-mini2-url">Card 2 URL</label>
+                  <input type="url" id="field-sermon-mini2-url" placeholder="https://www.youtube.com/@prophetsugloprosper/videos">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 6. EVENTS & CONFERENCES -->
+          <section class="tab-view" id="view-events">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>📅</span> Events & Conferences</h2>
+                <p>Configure major conferences (such as Manifests Conference), countdown timers, and registration links.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Featured Program Details</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-event-title">Program / Conference Title</label>
+                  <input type="text" id="field-event-title" placeholder="Manifests Conference 2026">
+                </div>
+                <div class="form-group">
+                  <label for="field-event-dates">Display Dates Text</label>
+                  <input type="text" id="field-event-dates" placeholder="23–27 November 2026">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="field-event-desc">Event Description</label>
+                <textarea id="field-event-desc" rows="3" placeholder="Five days of prayer, worship and prophetic ministry..."></textarea>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-event-start">Countdown Start Date & Time</label>
+                  <input type="datetime-local" id="field-event-start">
+                  <small>Website live timer counts down to this moment.</small>
+                </div>
+                <div class="form-group">
+                  <label for="field-event-end">Countdown End Date & Time</label>
+                  <input type="datetime-local" id="field-event-end">
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-event-link">Registration / Flyer Link (Optional)</label>
+                  <input type="url" id="field-event-link" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                  <label for="field-event-caption">Event Photo Quote / Caption</label>
+                  <input type="text" id="field-event-caption" placeholder="Every gathering is an opportunity to seek God together.">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 7. ABOUT & FOUNDATION -->
+          <section class="tab-view" id="view-about">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🕊</span> About & Foundation</h2>
+                <p>Update the ministry's mission, vision, core values, founder story, and statistics.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Welcome Section</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-about-eyebrow">Eyebrow</label>
+                  <input type="text" id="field-about-eyebrow" placeholder="WELCOME TO PAI">
+                </div>
+                <div class="form-group">
+                  <label for="field-about-heading">Heading</label>
+                  <input type="text" id="field-about-heading" placeholder="A people of prayer, faith and purpose.">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="field-about-p1">First Paragraph</label>
+                <textarea id="field-about-p1" rows="3"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="field-about-p2">Second Paragraph</label>
+                <textarea id="field-about-p2" rows="3"></textarea>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Foundation & Core Convictions</h3>
+              <div class="form-group">
+                <label for="field-mission-title">Mission Headline</label>
+                <input type="text" id="field-mission-title" placeholder="To raise people of prayer, faith and spiritual purpose.">
+              </div>
+              <div class="form-group">
+                <label for="field-mission-text">Mission Statement</label>
+                <textarea id="field-mission-text" rows="3"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="field-vision-title">Vision Headline</label>
+                <input type="text" id="field-vision-title" placeholder="To raise generals who transform generations.">
+              </div>
+              <div class="form-group">
+                <label for="field-vision-text">Vision Statement</label>
+                <textarea id="field-vision-text" rows="3"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="field-values-title">Values Headline</label>
+                <input type="text" id="field-values-title" placeholder="Prayer. Word. Faith. Love. Service.">
+              </div>
+              <div class="form-group">
+                <label for="field-values-text">Values Statement</label>
+                <textarea id="field-values-text" rows="2"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="field-founder-bio">Founder Story / Bio</label>
+                <textarea id="field-founder-bio" rows="3"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- 8. GIVING & PARTNERSHIP -->
+          <section class="tab-view" id="view-give">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>💛</span> Giving & Mobile Money Partnership</h2>
+                <p>Update Mobile Money details (MTN MoMo, Telecel Cash), bank details, and online seed portals.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Giving Information</h3>
+              <div class="form-group">
+                <label for="field-give-heading">Giving Section Title</label>
+                <input type="text" id="field-give-heading" placeholder="Support the work.">
+              </div>
+
+              <div class="form-group">
+                <label for="field-give-info">Giving Invitation Message</label>
+                <textarea id="field-give-info" rows="3" placeholder="Your giving and partnership help carry the message of Jesus Christ..."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="field-give-momo">Mobile Money & Bank Account Details</label>
+                <textarea id="field-give-momo" rows="3" placeholder="MTN MoMo: 024XXXXXXX (Name: Prayer Army) / Telecel Cash: 020XXXXXXX"></textarea>
+                <small>This displays in a golden partnership card on the giving section of the website.</small>
+              </div>
+
+              <div class="form-group">
+                <label for="field-give-link">Online Giving URL (Paystack, Flutterwave, PayPal, etc.)</label>
+                <input type="url" id="field-give-link" placeholder="https://...">
+              </div>
+            </div>
+          </section>
+
+          <!-- 9. PRAYER MINISTRY -->
+          <section class="tab-view" id="view-prayer">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🙏</span> Prayer Requests</h2>
+                <p>Configure how prayer requests submitted on the public website are handled.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Prayer Section Setup</h3>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-prayer-eyebrow">Eyebrow</label>
+                  <input type="text" id="field-prayer-eyebrow" placeholder="WE WOULD LOVE TO PRAY WITH YOU">
+                </div>
+                <div class="form-group">
+                  <label for="field-prayer-heading">Heading</label>
+                  <input type="text" id="field-prayer-heading" placeholder="Bring your request. Leave it in prayer.">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="field-prayer-copy">Invitation Copy</label>
+                <textarea id="field-prayer-copy" rows="3" placeholder="Whether you are seeking direction, strength, healing, provision..."></textarea>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-prayer-email">Recipient Email Address</label>
+                  <input type="email" id="field-prayer-email" placeholder="prayerarmyinternational@gmail.com">
+                  <small>Submitted requests can be emailed directly to this address.</small>
+                </div>
+                <div class="form-group">
+                  <label for="field-prayer-endpoint">Custom API Webhook / Formspree URL (Optional)</label>
+                  <input type="url" id="field-prayer-endpoint" placeholder="https://formspree.io/f/...">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 10. ANNOUNCEMENT BANNER -->
+          <section class="tab-view" id="view-banner">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>📢</span> Top Announcement Banner</h2>
+                <p>Display an alert bar at the very top of the website for urgent notices, upcoming conferences, or special events.</p>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <strong>Enable Announcement Banner</strong>
+                <p>When enabled, this message displays above the main navigation on every page.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="field-banner-enabled">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Banner Message</h3>
+              <div class="form-group">
+                <label for="field-banner-text">Announcement Text</label>
+                <textarea id="field-banner-text" rows="3" placeholder="Join our upcoming prophetic services and prayer gatherings. Raising Generals, Transforming Generations!"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- 11. SOCIAL CHANNELS -->
+          <section class="tab-view" id="view-social">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🌐</span> Social Media Channels</h2>
+                <p>Input and update your ministry's social media profile URLs. These automatically render as interactive brand icons in the website footer and contact sections.</p>
+              </div>
+            </div>
+
+            <!-- Live Preview Card -->
+            <div class="card">
+              <h3 class="card-title">Live Preview (How Visitors See It in Footer & Contact)</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">Icons will appear automatically on the public website for any channel with a filled URL:</p>
+              <div class="social-icon-row-admin" id="admin-social-preview">
+                <!-- Preview icons will render here -->
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Official Social Media Profiles</h3>
+              
+              <!-- YouTube & Facebook -->
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-social-youtube">YouTube Channel / Stream URL</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-youtube" placeholder="https://www.youtube.com/@prophetsugloprosper">
+                    <button type="button" class="btn-test-link" data-for="field-social-youtube">Test ↗</button>
+                  </div>
+                  <small>Links directly to sermons and live broadcasts.</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="field-social-facebook">Facebook Page URL</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-facebook" placeholder="https://facebook.com/prayerarmyinternational">
+                    <button type="button" class="btn-test-link" data-for="field-social-facebook">Test ↗</button>
+                  </div>
+                  <small>Official ministry Facebook page or community.</small>
+                </div>
+              </div>
+
+              <!-- Instagram & TikTok -->
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-social-instagram">Instagram Profile URL</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-instagram" placeholder="https://instagram.com/prayerarmyinternational">
+                    <button type="button" class="btn-test-link" data-for="field-social-instagram">Test ↗</button>
+                  </div>
+                  <small>Daily ministry moments and prophetic words.</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="field-social-tiktok">TikTok Profile URL</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-tiktok" placeholder="https://tiktok.com/@prayerarmyinternational">
+                    <button type="button" class="btn-test-link" data-for="field-social-tiktok">Test ↗</button>
+                  </div>
+                  <small>Short sermon clips and worship highlights.</small>
+                </div>
+              </div>
+
+              <!-- Twitter / X & WhatsApp -->
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-social-x">X / Twitter Profile URL</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-x" placeholder="https://x.com/prayerarmyint">
+                    <button type="button" class="btn-test-link" data-for="field-social-x">Test ↗</button>
+                  </div>
+                  <small>Ministry proclamations and announcements.</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="field-social-whatsapp">WhatsApp Community / Channel URL</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-whatsapp" placeholder="https://chat.whatsapp.com/... or https://wa.me/233241234567">
+                    <button type="button" class="btn-test-link" data-for="field-social-whatsapp">Test ↗</button>
+                  </div>
+                  <small>Public church group, channel, or direct broadcast link.</small>
+                </div>
+              </div>
+
+              <!-- Telegram & Threads -->
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-social-telegram">Telegram Channel URL (Optional)</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-telegram" placeholder="https://t.me/prayerarmyinternational">
+                    <button type="button" class="btn-test-link" data-for="field-social-telegram">Test ↗</button>
+                  </div>
+                  <small>Audio recordings, prayer schedules, and broadcast channel.</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="field-social-threads">Threads Profile URL (Optional)</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-threads" placeholder="https://threads.net/@prayerarmyinternational">
+                    <button type="button" class="btn-test-link" data-for="field-social-threads">Test ↗</button>
+                  </div>
+                  <small>Threads community conversations and thoughts.</small>
+                </div>
+              </div>
+
+              <!-- LinkedIn & Spotify -->
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-social-linkedin">LinkedIn Page URL (Optional)</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-linkedin" placeholder="https://linkedin.com/company/prayerarmyinternational">
+                    <button type="button" class="btn-test-link" data-for="field-social-linkedin">Test ↗</button>
+                  </div>
+                  <small>Institutional and professional networking profile.</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="field-social-spotify">Spotify / Audio Podcast URL (Optional)</label>
+                  <div class="field-with-btn">
+                    <input type="url" id="field-social-spotify" placeholder="https://open.spotify.com/show/...">
+                    <button type="button" class="btn-test-link" data-for="field-social-spotify">Test ↗</button>
+                  </div>
+                  <small>Sermon podcasts, worship audio, and messages.</small>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- 12. SECURITY & BACKUP -->
+          <section class="tab-view" id="view-security">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🔒</span> Security & Settings Backup</h2>
+                <p>Change your manager passkey or export and restore a full backup of website settings.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Change Manager Passkey</h3>
+              <div class="form-group">
+                <label for="field-manager-passkey">New Passkey</label>
+                <input type="password" id="field-manager-passkey" placeholder="Enter new passkey">
+                <small>Used to unlock this Manager Console on any computer or mobile phone. Default: <code>prayerarmy</code></small>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Backup & Restore</h3>
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Export the complete website configuration as a JSON file, or restore from a previous backup.</p>
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button type="button" class="btn-live-site" id="btn-export-backup">
+                  <span>⬇</span> Download Backup JSON
+                </button>
+                <label class="btn-live-site" style="cursor: pointer;">
+                  <span>⬆</span> Restore from Backup JSON
+                  <input type="file" id="backup-file-input" accept=".json" style="display: none;">
+                </label>
+                <button type="button" class="btn-logout" id="btn-reset-defaults" style="margin-left: auto;">
+                  Reset to Defaults
+                </button>
+              </div>
+            </div>
+          </section>
+
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
