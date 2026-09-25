@@ -109,7 +109,10 @@ authForm?.addEventListener('submit', async (e) => {
       showDashboard();
       showToast('Unlocked Site Manager Console', 'success');
     } else {
-      authError.textContent = 'Incorrect passkey. Please check and try again.';
+      const body = await res.json().catch(() => ({}));
+      authError.textContent = res.status === 429
+        ? (body.error || 'Too many attempts. Please wait before trying again.')
+        : 'Incorrect passkey. Please check and try again.';
       passkeyInput.select();
     }
   } catch (err) {
@@ -196,6 +199,8 @@ const populateForm = (s) => {
   $('#field-church-slogan').value = s.general?.slogan || '';
   $('#field-church-region').value = s.general?.region || '';
   $('#field-founder-name').value = s.general?.founder || '';
+  $('#field-logo-url').value = s.general?.logoUrl || '';
+  $('#logo-preview').src = s.general?.logoUrl || 'assets/images/prayer-army-logo.png';
 
   // Contacts
   $('#field-contact-phone').value = s.contact?.phone || '';
@@ -240,6 +245,7 @@ const populateForm = (s) => {
   $('#field-values-title').value = s.foundation?.valuesTitle || '';
   $('#field-values-text').value = s.foundation?.valuesText || '';
   $('#field-founder-bio').value = s.foundation?.founderBio || '';
+  $('#field-faith-image').value = s.foundation?.faithImage || '';
 
   // Giving
   $('#field-give-heading').value = s.giving?.heading || '';
@@ -285,7 +291,8 @@ const collectFormData = () => {
       churchName: $('#field-church-name').value.trim(),
       slogan: $('#field-church-slogan').value.trim(),
       region: $('#field-church-region').value.trim(),
-      founder: $('#field-founder-name').value.trim()
+      founder: $('#field-founder-name').value.trim(),
+      logoUrl: $('#field-logo-url').value.trim()
     },
     hero: {
       eyebrow: $('#field-hero-eyebrow').value.trim(),
@@ -322,7 +329,8 @@ const collectFormData = () => {
       valuesText: $('#field-values-text').value.trim(),
       storyTitle: currentSettings.foundation?.storyTitle || 'A prophetic ministry with a heart for people.',
       storyText: currentSettings.foundation?.storyText || '',
-      founderBio: $('#field-founder-bio').value.trim()
+      founderBio: $('#field-founder-bio').value.trim(),
+      faithImage: $('#field-faith-image').value.trim()
     },
     live: {
       isLiveNow: $('#field-is-live').checked,
@@ -466,6 +474,11 @@ fieldLiveUrl?.addEventListener('input', () => {
 // Hero Media Preview
 const fieldHeroBg = $('#field-hero-bg');
 const heroMediaPreviewBox = $('#hero-media-preview-box');
+
+// Logo live preview
+$('#field-logo-url')?.addEventListener('input', (e) => {
+  $('#logo-preview').src = e.target.value.trim() || 'assets/images/prayer-army-logo.png';
+});
 
 // Social Icons Preview in Admin Console
 const SOCIAL_ICONS_MAP = {
@@ -775,6 +788,14 @@ const renderMediaGrid = () => {
               <button type="button" class="btn-media-action btn-set-hero" data-url="${item.url}">
                 ⚡ Hero
               </button>
+              ${!isVideo ? `
+                <button type="button" class="btn-media-action btn-set-logo" data-url="${item.url}">
+                  🖼 Logo
+                </button>
+                <button type="button" class="btn-media-action btn-set-faith" data-url="${item.url}">
+                  ✝ Faith
+                </button>
+              ` : ''}
               ${isVideo ? `
                 <button type="button" class="btn-media-action btn-set-stream" data-url="${item.url}">
                   📡 Stream
@@ -812,6 +833,23 @@ const renderMediaGrid = () => {
       $('#field-hero-bg').value = url;
       updateHeroMediaPreview(url);
       showToast('Set as Hero Media! Remember to click "Save Changes".', 'success');
+    });
+  });
+
+  $$('.btn-set-logo', mediaGridContainer).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const url = btn.dataset.url;
+      $('#field-logo-url').value = url;
+      $('#logo-preview').src = url;
+      showToast('Set as Church Logo! Remember to click "Save Changes".', 'success');
+    });
+  });
+
+  $$('.btn-set-faith', mediaGridContainer).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const url = btn.dataset.url;
+      $('#field-faith-image').value = url;
+      showToast('Set as Statement of Faith picture! Remember to click "Save Changes".', 'success');
     });
   });
 
@@ -897,7 +935,8 @@ const saveSettings = async (showNotification = true) => {
         showToast('✓ All changes saved and published to website!', 'success');
       }
     } else {
-      showToast('Failed to save settings to server', 'error');
+      const body = await res.json().catch(() => ({}));
+      showToast(body.error || 'Failed to save settings to server', 'error');
     }
   } catch (err) {
     showToast('Network error while saving settings', 'error');

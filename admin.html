@@ -1265,6 +1265,18 @@
             </div>
 
             <div class="card">
+              <h3 class="card-title">Church Logo</h3>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:-8px;margin-bottom:14px;">Upload a logo in the Media Uploader tab, then click "🖼 Logo" on it -- or paste a URL below. Leave blank to keep the default logo.</p>
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+                <img id="logo-preview" src="assets/images/prayer-army-logo.png" alt="Logo preview" style="width:70px;height:70px;object-fit:contain;background:#0d1420;border:1px solid #2a3444;border-radius:6px;padding:6px;">
+                <div class="form-group" style="flex:1;margin:0;">
+                  <label for="field-logo-url">Logo Image URL</label>
+                  <input type="text" id="field-logo-url" placeholder="assets/images/prayer-army-logo.png">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
               <h3 class="card-title">Church Identity</h3>
               <div class="form-grid-2">
                 <div class="form-group">
@@ -1516,6 +1528,15 @@
                 <textarea id="field-founder-bio" rows="3"></textarea>
               </div>
             </div>
+
+            <div class="card">
+              <h3 class="card-title">Statement of Faith Picture</h3>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:-8px;margin-bottom:14px;">Upload a photo in the Media Uploader tab, then click "🖼 Faith" on it -- or paste a URL below. Leave blank to show the section with no image.</p>
+              <div class="form-group">
+                <label for="field-faith-image">Statement of Faith Picture URL</label>
+                <input type="text" id="field-faith-image" placeholder="assets/images/your-photo.jpg">
+              </div>
+            </div>
           </section>
 
           <!-- 8. GIVING & PARTNERSHIP -->
@@ -1764,8 +1785,8 @@
               <h3 class="card-title">Change Manager Passkey</h3>
               <div class="form-group">
                 <label for="field-manager-passkey">New Passkey</label>
-                <input type="password" id="field-manager-passkey" placeholder="Enter new passkey">
-                <small>Used to unlock this Manager Console on any computer or mobile phone. Default: <code>prayerarmy</code></small>
+                <input type="password" id="field-manager-passkey" placeholder="Leave blank to keep current passkey" minlength="8">
+                <small>Must be at least 8 characters. Used to unlock this Manager Console on any computer or mobile phone.</small>
               </div>
             </div>
 

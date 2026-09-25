@@ -11,7 +11,8 @@ const DEFAULT_SETTINGS = {
     churchName: "Prayer Army International",
     slogan: "Raising Generals, Transforming Generations",
     region: "Upper West Region of Ghana",
-    founder: "Prophet Suglo Prosper"
+    founder: "Prophet Suglo Prosper",
+    logoUrl: ""
   },
   hero: {
     eyebrow: "PRAYER ARMY INTERNATIONAL",
@@ -48,7 +49,8 @@ const DEFAULT_SETTINGS = {
     valuesText: "We value a life of prayer, biblical truth, faith in God, Christlike love, integrity, excellence, discipleship, evangelism and practical service to people.",
     storyTitle: "A prophetic ministry with a heart for people.",
     storyText: "Prayer Army International is a prophetic church headquartered in the Upper West Region of Ghana and founded by Prophet Suglo Prosper. The ministry's public expression brings together prayer, prophetic ministry, worship, teaching and the call to transformed Christian living.",
-    founderBio: "Founder of Prayer Army International and a minister whose public ministry is expressed through preaching, prayer, prophetic ministry and the raising of believers for purposeful Christian service."
+    founderBio: "Founder of Prayer Army International and a minister whose public ministry is expressed through preaching, prayer, prophetic ministry and the raising of believers for purposeful Christian service.",
+    faithImage: "assets/images/statement-of-faith.png"
   },
   live: {
     isLiveNow: false,
@@ -228,6 +230,14 @@ const updateCountdown = () => {
    ========================================================================= */
 const applySettings = (s) => {
   currentSettings = s;
+
+  // Church Logo (header, footer, favicon)
+  if (s.general?.logoUrl) {
+    const logoHeader = $('#site-logo-header'), logoFooter = $('#site-logo-footer'), favicon = $('#site-favicon');
+    if (logoHeader) logoHeader.src = s.general.logoUrl;
+    if (logoFooter) logoFooter.src = s.general.logoUrl;
+    if (favicon) favicon.href = s.general.logoUrl;
+  }
 
   // Announcement Bar
   const ab = $('#announcement-bar'), abMsg = $('#announcement-msg');
@@ -442,6 +452,13 @@ const applySettings = (s) => {
   if (s.foundation?.storyTitle && $('#foundation-story-title')) $('#foundation-story-title').textContent = s.foundation.storyTitle;
   if (s.foundation?.storyText && $('#foundation-story-text')) $('#foundation-story-text').textContent = s.foundation.storyText;
   if (s.foundation?.founderBio && $('#foundation-founder-bio')) $('#foundation-founder-bio').textContent = s.foundation.founderBio;
+  const faithImg = $('#foundation-faith-image'), faithMediaBox = $('#faith-media');
+  if (s.foundation?.faithImage && faithImg && faithMediaBox) {
+    faithImg.src = s.foundation.faithImage;
+    faithMediaBox.style.display = '';
+  } else if (faithMediaBox) {
+    faithMediaBox.style.display = 'none';
+  }
 
   // Sermons Section
   if (s.sermons?.heading && $('#sermons-heading')) $('#sermons-heading').textContent = s.sermons.heading;
