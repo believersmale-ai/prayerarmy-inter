@@ -2,17 +2,8 @@
   "name": "prayer-army-international",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
-    "build": "echo 'No build step required'"
-  },
-  "dependencies": {
-    "express": "^4.21.2",
-    "multer": "^2.4.0"
-  },
-  "devDependencies": {
-    "pngjs": "^7.0.0"
+    "dev": "python3 -m http.server 8000",
+    "build": "echo 'Static site, no build step required'"
   }
 }

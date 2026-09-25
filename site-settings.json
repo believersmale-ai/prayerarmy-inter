@@ -1,5 +1,4 @@
 {
-  "passkey": "prayerarmy",
   "general": {
     "churchName": "Prayer Army International",
     "slogan": "Raising Generals, Transforming Generations",
@@ -11,7 +10,7 @@
     "titleMain": "Raising Generals,",
     "titleAccent": "Transforming Generations.",
     "copy": "A prophetic ministry headquartered in the Upper West Region of Ghana, founded by Prophet Suglo Prosper.",
-    "tagline": "Faith • Prayer • Prophetic Ministry",
+    "tagline": "Faith \u2022 Prayer \u2022 Prophetic Ministry",
     "btnPrimaryText": "Watch Sermons",
     "btnPrimaryLink": "#sermons",
     "btnSecondaryText": "Watch Live",
@@ -55,7 +54,7 @@
     "libraryUrl": "https://www.youtube.com/@prophetsugloprosper/videos",
     "featuredKicker": "PROPHETIC MESSAGE",
     "featuredTitle": "Experience the ministry of the Word",
-    "featuredDesc": "Prophetic preaching, prayer and teaching from Prophet Suglo Prosper — messages to strengthen your faith and stir your spirit.",
+    "featuredDesc": "Prophetic preaching, prayer and teaching from Prophet Suglo Prosper \u2014 messages to strengthen your faith and stir your spirit.",
     "featuredUrl": "https://www.youtube.com/@prophetsugloprosper/videos",
     "mini1Kicker": "PRAYER",
     "mini1Title": "Moments of prayer and ministry",
@@ -66,7 +65,7 @@
   },
   "event": {
     "title": "Manifests Conference 2026",
-    "dates": "23–27 November 2026",
+    "dates": "23\u201327 November 2026",
     "description": "Five days of prayer, worship and prophetic ministry. Follow our channels for venue, program and updates.",
     "start": "2026-11-23T00:00:00Z",
     "end": "2026-11-28T00:00:00Z",

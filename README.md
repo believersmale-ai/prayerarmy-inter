@@ -1,3 +1,37 @@
+## Deployment & backend (read this first)
+
+This site deploys to Vercel as a **plain static site** — no server, no build
+step. All admin-editable content (the text throughout the site) and media
+uploaded through the Site Manager (`/admin`) are stored in Supabase, not on
+disk, so nothing is lost between deploys or requests:
+
+- **`site_settings` table** — holds all the editable site copy. Publicly
+  readable (that's how the homepage loads it), writable only through the
+  `save-settings` Edge Function.
+- **`admin_config` table** — holds the manager passkey. Not readable by
+  anyone except the service role inside Edge Functions.
+- **`media` storage bucket** — holds files uploaded through the Site
+  Manager. Publicly readable, writable only through the `upload-media` /
+  `delete-media` Edge Functions.
+- **Edge Functions** (`verify-passkey`, `save-settings`, `upload-media`,
+  `delete-media`, `change-passkey`) — every one of these re-checks the
+  passkey server-side before touching anything, so the passkey itself is
+  never exposed in a public API response (it used to be, in the old
+  file-based version).
+
+The Supabase URL and anon key are embedded directly in `script.js` and
+`admin.js` — that's expected, the anon key can only do what Row Level
+Security explicitly allows (read public settings/media). Nothing secret is
+in the client code.
+
+To change the manager passkey, log into `/admin`, go to Settings, type a
+new passkey into "New Passkey", and click Save — no code changes needed.
+
+Just push this folder to Vercel (or any static host). There's no `PORT`,
+no environment variables, and no server process to configure.
+
+---
+
 # Prayer Army International — Website Starter
 
 This is a responsive, production-style static website concept built using the **exact photographs supplied in the conversation**. No stock images or generated images are used.

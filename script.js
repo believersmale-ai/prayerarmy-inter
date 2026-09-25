@@ -1,6 +1,12 @@
 /* ========= PRAYER ARMY INTERNATIONAL - COMPLETE SITE CONTROLLER ========= */
+
+// Supabase project used for the site's live content + media storage.
+// The anon key is safe to expose publicly -- it can only read what Row
+// Level Security explicitly allows (site_settings, published media).
+const SUPABASE_URL = "https://rftshprvuniszeorgrvd.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdHNocHJ2dW5pc3plb3JncnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyODY0MDAsImV4cCI6MjEwNTg2MjQwMH0.l2avLrx2ftsC7sbS-1F_Z05OShGLoCak-iWcU0YTJos";
+
 const DEFAULT_SETTINGS = {
-  passkey: "prayerarmy",
   general: {
     churchName: "Prayer Army International",
     slogan: "Raising Generals, Transforming Generations",
@@ -602,11 +608,15 @@ if (urlParams.has("manage") || urlParams.has("admin")) {
 const loadInitialSettings = async () => {
   let loaded = null;
 
-  // Try server first
+  // Try Supabase first
   try {
-    const res = await fetch('/api/settings');
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/site_settings?select=data&id=eq.1`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+    );
     if (res.ok) {
-      const data = await res.json();
+      const rows = await res.json();
+      const data = rows?.[0]?.data;
       if (data && Object.keys(data).length > 0) {
         loaded = data;
       }

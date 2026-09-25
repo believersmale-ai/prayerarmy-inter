@@ -2,6 +2,27 @@
    PRAYER ARMY INTERNATIONAL - DEDICATED SITE MANAGER CONTROLLER
    ========================================================================= */
 
+// Supabase project backing this admin panel. The anon key is safe to expose --
+// every privileged action (save settings, upload/delete media, change passkey)
+// goes through an Edge Function that re-checks the passkey server-side against
+// the service-role-only admin_config table before touching anything.
+const SUPABASE_URL = "https://rftshprvuniszeorgrvd.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdHNocHJ2dW5pc3plb3JncnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyODY0MDAsImV4cCI6MjEwNTg2MjQwMH0.l2avLrx2ftsC7sbS-1F_Z05OShGLoCak-iWcU0YTJos";
+const EDGE_BASE = `${SUPABASE_URL}/functions/v1`;
+
+const getPasskey = () =>
+  sessionStorage.getItem('pai_manager_passkey') || localStorage.getItem('pai_manager_passkey') || '';
+
+const setStoredPasskey = (passkey) => {
+  sessionStorage.setItem('pai_manager_passkey', passkey);
+  localStorage.setItem('pai_manager_passkey', passkey);
+};
+
+const clearStoredPasskey = () => {
+  sessionStorage.removeItem('pai_manager_passkey');
+  localStorage.removeItem('pai_manager_passkey');
+};
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -42,8 +63,9 @@ const togglePwBtn = $('#toggle-pw-btn');
 const btnLogout = $('#btn-logout');
 
 const checkAuthSession = () => {
-  const isAuth = sessionStorage.getItem('pai_manager_authenticated') === 'true' ||
-                 localStorage.getItem('pai_manager_authenticated') === 'true';
+  const isAuth = (sessionStorage.getItem('pai_manager_authenticated') === 'true' ||
+                 localStorage.getItem('pai_manager_authenticated') === 'true') &&
+                 getPasskey() !== '';
   if (isAuth) {
     showDashboard();
   } else {
@@ -74,15 +96,16 @@ authForm?.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Verifying...';
 
   try {
-    const res = await fetch('/api/verify-passkey', {
+    const res = await fetch(`${EDGE_BASE}/verify-passkey`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
       body: JSON.stringify({ passkey })
     });
-    
+
     if (res.ok) {
       sessionStorage.setItem('pai_manager_authenticated', 'true');
       localStorage.setItem('pai_manager_authenticated', 'true');
+      setStoredPasskey(passkey);
       showDashboard();
       showToast('Unlocked Site Manager Console', 'success');
     } else {
@@ -100,6 +123,7 @@ authForm?.addEventListener('submit', async (e) => {
 btnLogout?.addEventListener('click', () => {
   sessionStorage.removeItem('pai_manager_authenticated');
   localStorage.removeItem('pai_manager_authenticated');
+  clearStoredPasskey();
   adminApp.style.display = 'none';
   authScreen.style.display = 'flex';
   passkeyInput.value = '';
@@ -129,9 +153,13 @@ sidebarButtons.forEach(btn => {
    ========================================================================= */
 const loadSettings = async () => {
   try {
-    const res = await fetch('/api/settings');
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/site_settings?select=data&id=eq.1`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+    );
     if (res.ok) {
-      currentSettings = await res.json();
+      const rows = await res.json();
+      currentSettings = rows?.[0]?.data || {};
       populateForm(currentSettings);
     }
   } catch (err) {
@@ -243,14 +271,16 @@ const populateForm = (s) => {
   if ($('#field-social-spotify')) $('#field-social-spotify').value = s.social?.spotify || '';
   updateAdminSocialPreview();
 
-  // Passkey
-  $('#field-manager-passkey').value = s.passkey || '';
+  // Passkey (never populated from settings -- it's not stored there anymore.
+  // This field is write-only: fill it in to set a NEW passkey.)
+  $('#field-manager-passkey').value = '';
+  $('#field-manager-passkey').placeholder = 'Leave blank to keep current passkey';
 };
 
-// Collect Form Fields into JSON
+// Collect Form Fields into JSON (site content only -- the passkey lives in
+// admin_config, not in site_settings, and is changed separately)
 const collectFormData = () => {
   return {
-    passkey: $('#field-manager-passkey').value.trim() || currentSettings.passkey || 'prayerarmy',
     general: {
       churchName: $('#field-church-name').value.trim(),
       slogan: $('#field-church-slogan').value.trim(),
@@ -591,6 +621,8 @@ const handleFileUpload = async (files) => {
     return;
   }
 
+  formData.append('passkey', getPasskey());
+
   uploadProgressBox.style.display = 'block';
   uploadStatusText.textContent = `Uploading ${count} file(s)...`;
   uploadPercentText.textContent = '10%';
@@ -598,7 +630,8 @@ const handleFileUpload = async (files) => {
 
   try {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload');
+    xhr.open('POST', `${EDGE_BASE}/upload-media`);
+    xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -636,15 +669,48 @@ const handleFileUpload = async (files) => {
   }
 };
 
-// Load Media Files
+// Load Media Files (bundled church photos + Supabase Storage uploads)
 const loadMedia = async () => {
   try {
-    const res = await fetch('/api/media');
-    if (res.ok) {
-      const data = await res.json();
-      allMedia = data.media || [];
-      renderMediaGrid();
+    const media = [];
+
+    // 1. Original bundled church images (static manifest, part of the deploy)
+    try {
+      const manifestRes = await fetch('assets/images/manifest.json');
+      if (manifestRes.ok) {
+        const manifest = await manifestRes.json();
+        media.push(...manifest);
+      }
+    } catch {}
+
+    // 2. Admin-uploaded media in the Supabase Storage bucket
+    const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/media`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({ prefix: '', limit: 500, sortBy: { column: 'created_at', order: 'desc' } })
+    });
+    if (listRes.ok) {
+      const objects = await listRes.json();
+      for (const obj of objects) {
+        if (!obj.name) continue;
+        const ext = obj.name.split('.').pop().toLowerCase();
+        const isVideo = ['mp4', 'webm', 'mov', 'ogg', 'm4v'].includes(ext);
+        media.push({
+          filename: obj.name,
+          url: `${SUPABASE_URL}/storage/v1/object/public/media/${obj.name}`,
+          type: isVideo ? 'video' : 'image',
+          size: obj.metadata?.size || 0,
+          isUpload: true
+        });
+      }
     }
+
+    allMedia = media;
+    renderMediaGrid();
   } catch (err) {
     console.error('Failed to load media files', err);
   }
@@ -765,7 +831,11 @@ const renderMediaGrid = () => {
       const filename = btn.dataset.filename;
       if (confirm(`Are you sure you want to delete ${filename}?`)) {
         try {
-          const res = await fetch(`/api/media/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+          const res = await fetch(`${EDGE_BASE}/delete-media`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+            body: JSON.stringify({ passkey: getPasskey(), filename })
+          });
           if (res.ok) {
             showToast('Media file deleted', 'success');
             loadMedia();
@@ -787,21 +857,37 @@ const btnSaveAll = $('#btn-save-all');
 
 const saveSettings = async (showNotification = true) => {
   const data = collectFormData();
+  const newPasskey = $('#field-manager-passkey')?.value.trim();
   btnSaveAll.disabled = true;
   btnSaveAll.innerHTML = '<span>⏳</span> Saving...';
 
   try {
-    const res = await fetch('/api/settings', {
+    const res = await fetch(`${EDGE_BASE}/save-settings`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ passkey: getPasskey(), settings: data })
     });
 
     if (res.ok) {
       currentSettings = data;
-      // Also cache locally
+      // Also cache locally as an offline fallback for the public site
       localStorage.setItem('pai_site_settings', JSON.stringify(data));
-      if (showNotification) {
+
+      // If a new passkey was typed, change it as a separate, explicit step
+      if (newPasskey) {
+        const pkRes = await fetch(`${EDGE_BASE}/change-passkey`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+          body: JSON.stringify({ currentPasskey: getPasskey(), newPasskey })
+        });
+        if (pkRes.ok) {
+          setStoredPasskey(newPasskey);
+          $('#field-manager-passkey').value = '';
+          showToast('✓ Changes saved and passkey updated!', 'success');
+        } else {
+          showToast('Content saved, but passkey change failed', 'error');
+        }
+      } else if (showNotification) {
         showToast('✓ All changes saved and published to website!', 'success');
       }
     } else {
