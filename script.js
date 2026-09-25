@@ -332,17 +332,6 @@ const applySettings = (s) => {
       : `<span class="pulse"></span> ${s.live?.statusNote || 'Regular Sunday and Prophetic Services streamed live'}`;
   }
 
-  // Update floating dock live status
-  const dockLiveText = $('#dock-live-status-text');
-  const dockLiveIcon = $('#dock-live-status-icon');
-  if (dockLiveText) {
-    dockLiveText.textContent = isLive ? 'LIVE' : 'OFF';
-    dockLiveText.style.color = isLive ? '#e53e3e' : '#fff';
-  }
-  if (dockLiveIcon) {
-    dockLiveIcon.textContent = isLive ? '🟢' : '🔴';
-  }
-
   // About Section
   const aEyebrow = $('#about-eyebrow');
   const aHeading = $('#about-heading');
@@ -595,7 +584,8 @@ const applySettings = (s) => {
   renderSocialIconSet($('#footer-socials'));
   renderSocialIconSet($('#contact-socials'));
 
-  $('#year').textContent = new Date().getFullYear();
+  const yearEl = $('#year');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
 };
 
 // Redirect to separate admin page if query param present
@@ -639,35 +629,41 @@ const loadInitialSettings = async () => {
 
 loadInitialSettings();
 
-// Gallery Lightbox
+// Gallery Lightbox (defensive: only wires up if both the dialog and at
+// least one gallery photo are present, so this never throws and never
+// blocks the rest of the page's scripts from running)
 const lb = $('#lightbox'), figs = $$('.gallery-grid figure');
 let cur = 0;
-const show = i => {
-  cur = (i + figs.length) % figs.length;
-  const im = $('img', figs[cur]);
-  $('img', lb).src = im.src;
-  $('img', lb).alt = im.alt;
-  $('figcaption', lb).textContent = im.alt;
-  $('.lb-count', lb).textContent = `${cur + 1} / ${figs.length}`;
-};
-figs.forEach((f, i) => {
-  f.tabIndex = 0;
-  f.setAttribute('role', 'button');
-  f.setAttribute('aria-label', 'Enlarge: ' + $('img', f).alt);
-  const open = () => { show(i); lb.showModal(); };
-  f.addEventListener('click', open);
-  f.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-});
-$('.lb-close', lb).onclick = () => lb.close();
-$('.lb-prev', lb).onclick = () => show(cur - 1);
-$('.lb-next', lb).onclick = () => show(cur + 1);
-lb.addEventListener('click', e => { if (e.target === lb) lb.close(); });
-addEventListener('keydown', e => {
-  if (lb.open) {
-    if (e.key === 'ArrowLeft') show(cur - 1);
-    if (e.key === 'ArrowRight') show(cur + 1);
-  }
-});
+if (lb && figs.length) {
+  const show = i => {
+    cur = (i + figs.length) % figs.length;
+    const im = $('img', figs[cur]);
+    if (!im) return;
+    const lbImg = $('img', lb), lbCaption = $('figcaption', lb), lbCount = $('.lb-count', lb);
+    if (lbImg) { lbImg.src = im.src; lbImg.alt = im.alt; }
+    if (lbCaption) lbCaption.textContent = im.alt;
+    if (lbCount) lbCount.textContent = `${cur + 1} / ${figs.length}`;
+  };
+  figs.forEach((f, i) => {
+    f.tabIndex = 0;
+    f.setAttribute('role', 'button');
+    const img = $('img', f);
+    f.setAttribute('aria-label', 'Enlarge: ' + (img?.alt || 'photo'));
+    const open = () => { show(i); lb.showModal(); };
+    f.addEventListener('click', open);
+    f.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+  $('.lb-close', lb)?.addEventListener('click', () => lb.close());
+  $('.lb-prev', lb)?.addEventListener('click', () => show(cur - 1));
+  $('.lb-next', lb)?.addEventListener('click', () => show(cur + 1));
+  lb.addEventListener('click', e => { if (e.target === lb) lb.close(); });
+  addEventListener('keydown', e => {
+    if (lb.open) {
+      if (e.key === 'ArrowLeft') show(cur - 1);
+      if (e.key === 'ArrowRight') show(cur + 1);
+    }
+  });
+}
 
 // Prayer Form
 const prayerForm = $('#prayer-form'), prayerNote = $('#prayer-note');

@@ -349,8 +349,14 @@ const collectFormData = () => {
       title: $('#field-event-title').value.trim(),
       dates: $('#field-event-dates').value.trim(),
       description: $('#field-event-desc').value.trim(),
-      start: $('#field-event-start').value ? new Date($('#field-event-start').value).toISOString() : currentSettings.event?.start,
-      end: $('#field-event-end').value ? new Date($('#field-event-end').value).toISOString() : currentSettings.event?.end,
+      // The start/end fields are populated (in populateForm) straight from
+      // the stored UTC ISO string, so the value typed/shown here is always
+      // meant as UTC -- appending "Z" reads it back as UTC too. Without
+      // this, the browser's Date constructor treats a bare "YYYY-MM-DDTHH:mm"
+      // as *local* time, which silently shifts the event by the admin's
+      // timezone offset every time settings are saved from outside GMT.
+      start: $('#field-event-start').value ? new Date($('#field-event-start').value + ':00Z').toISOString() : currentSettings.event?.start,
+      end: $('#field-event-end').value ? new Date($('#field-event-end').value + ':00Z').toISOString() : currentSettings.event?.end,
       link: $('#field-event-link').value.trim(),
       stackCaption: $('#field-event-caption').value.trim()
     },

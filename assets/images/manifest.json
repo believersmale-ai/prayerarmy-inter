@@ -89,5 +89,12 @@
     "type": "image",
     "size": 46073,
     "isUpload": false
+  },
+  {
+    "filename": "statement-of-faith.png",
+    "url": "assets/images/statement-of-faith.png",
+    "type": "image",
+    "size": 2057030,
+    "isUpload": false
   }
 ]
