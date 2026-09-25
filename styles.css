@@ -353,6 +353,21 @@ body.nav-open{overflow:hidden}
 @media(min-width:901px){.nav{animation:navIn .6s var(--ease) both}}
 @keyframes navIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
+/* --- Mobile nav fix: anchor targets no longer hide under the fixed header
+   when navigating via the mobile menu (or any in-page link) --- */
+[id]{scroll-margin-top:calc(var(--header-h,90px) + 14px)}
+
+/* --- Announcement: a real popup instead of a bar --- */
+.announce-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.announce-backdrop{position:absolute;inset:0;background:rgba(5,8,13,.6);backdrop-filter:blur(3px);opacity:0;transition:opacity .3s var(--ease)}
+.announce-card{position:relative;max-width:440px;width:100%;background:var(--navy2);color:#fff;border:1px solid rgba(217,174,86,.35);box-shadow:0 30px 80px rgba(0,0,0,.45);padding:32px 30px 28px;text-align:center;opacity:0;transform:translateY(18px) scale(.97);transition:opacity .32s var(--ease),transform .32s var(--ease)}
+.announce-modal.show .announce-backdrop{opacity:1}
+.announce-modal.show .announce-card{opacity:1;transform:none}
+.announce-tag{display:inline-block;background:var(--gold);color:#10131a;font-size:9px;font-weight:800;letter-spacing:1.5px;padding:5px 10px;margin-bottom:16px}
+.announce-card p{font-size:15px;line-height:1.55;color:#e7e9ed;margin:0 0 22px}
+.announce-modal-close{width:100%}
+@media(max-width:600px){.announce-card{padding:26px 20px 22px}}
+
 @media(prefers-reduced-motion:reduce){
   .menu-toggle span,.nav,.nav a,.brand,.nav-backdrop{transition:none!important;animation:none!important}
 }

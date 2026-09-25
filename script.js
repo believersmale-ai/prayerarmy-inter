@@ -167,21 +167,25 @@ const onScroll = () => header?.classList.toggle('scrolled', scrollY > 30);
 onScroll();
 addEventListener('scroll', onScroll, { passive: true });
 
-// Keep the fixed header (and anchor scrolling) correctly offset below the announcement bar
+// Keep the fixed header correctly offset (used by CSS scroll-margin-top too)
 const syncHeaderOffset = () => {
-  const ab = $('#announcement-bar');
-  const annH = (ab && !ab.hidden) ? ab.offsetHeight : 0;
   const headerH = header ? header.offsetHeight : 78;
-  document.documentElement.style.setProperty('--ann-h', annH + 'px');
-  document.documentElement.style.setProperty('--header-h', (annH + headerH) + 'px');
+  document.documentElement.style.setProperty('--header-h', headerH + 'px');
 };
 addEventListener('resize', syncHeaderOffset);
 addEventListener('load', syncHeaderOffset);
 syncHeaderOffset();
-$('#announcement-close')?.addEventListener('click', () => {
-  const ab = $('#announcement-bar');
-  if (ab) { ab.hidden = true; syncHeaderOffset(); }
-});
+
+// Announcement popup
+const announceModal = $('#announce-modal'), announceBackdrop = $('#announce-backdrop'), announceClose = $('#announce-modal-close');
+const closeAnnounce = () => {
+  if (!announceModal) return;
+  announceModal.classList.remove('show');
+  setTimeout(() => { announceModal.hidden = true; }, 320);
+};
+announceBackdrop?.addEventListener('click', closeAnnounce);
+announceClose?.addEventListener('click', closeAnnounce);
+addEventListener('keydown', e => { if (e.key === 'Escape' && announceModal && !announceModal.hidden) closeAnnounce(); });
 
 // Hero photo switcher
 const heroMedia = $('#hero-media'), switchBtns = $$('.hero-switch-btn');
@@ -239,16 +243,20 @@ const applySettings = (s) => {
     if (favicon) favicon.href = s.general.logoUrl;
   }
 
-  // Announcement Bar
-  const ab = $('#announcement-bar'), abMsg = $('#announcement-msg');
-  if (ab && abMsg) {
+  // Announcement Popup (shows once per session per message, not a persistent bar)
+  const announceModalEl = $('#announce-modal'), announceMsgEl = $('#announce-modal-msg');
+  if (announceModalEl && announceMsgEl) {
     if (s.announcement?.enabled && s.announcement?.text) {
-      abMsg.textContent = s.announcement.text;
-      ab.hidden = false;
-    } else {
-      ab.hidden = true;
+      const dismissKey = 'pai_announcement_seen';
+      const alreadySeen = sessionStorage.getItem(dismissKey) === s.announcement.text;
+      announceMsgEl.textContent = s.announcement.text;
+      if (!alreadySeen) {
+        announceModalEl.hidden = false;
+        // Small delay so it feels like a deliberate popup, not a layout flash
+        setTimeout(() => announceModalEl.classList.add('show'), 500);
+        sessionStorage.setItem(dismissKey, s.announcement.text);
+      }
     }
-    syncHeaderOffset();
   }
 
   // Hero Section
@@ -453,11 +461,14 @@ const applySettings = (s) => {
   if (s.foundation?.storyText && $('#foundation-story-text')) $('#foundation-story-text').textContent = s.foundation.storyText;
   if (s.foundation?.founderBio && $('#foundation-founder-bio')) $('#foundation-founder-bio').textContent = s.foundation.founderBio;
   const faithImg = $('#foundation-faith-image'), faithMediaBox = $('#faith-media');
-  if (s.foundation?.faithImage && faithImg && faithMediaBox) {
-    faithImg.src = s.foundation.faithImage;
-    faithMediaBox.style.display = '';
-  } else if (faithMediaBox) {
-    faithMediaBox.style.display = 'none';
+  if (faithImg && faithMediaBox) {
+    if (s.foundation?.faithImage) {
+      faithImg.src = s.foundation.faithImage;
+      faithMediaBox.style.display = '';
+    } else {
+      // No custom image chosen -- keep showing the default rather than hiding the block
+      faithMediaBox.style.display = '';
+    }
   }
 
   // Sermons Section
@@ -771,26 +782,39 @@ prayerForm?.addEventListener('submit', async e => {
     prayerNote.className = 'form-note ok';
     prayerForm.reset();
   };
+  btn.disabled = true;
+  btn.classList.add('loading');
   try {
+    // An optional external endpoint (e.g. Formspree) always wins if set in
+    // the admin panel. Otherwise the request is saved directly in Supabase,
+    // in-site -- no email app, no redirect, no leaving the page.
     const endpoint = currentSettings.prayer?.endpoint;
-    const recipient = currentSettings.prayer?.recipientEmail || currentSettings.contact?.email;
 
     if (endpoint) {
-      btn.disabled = true;
-      btn.classList.add('loading');
       const r = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(data)
       });
       if (!r.ok) throw 0;
-      done('Thank you — your request has been received and we are standing with you in prayer.');
-    } else if (recipient) {
-      location.href = `mailto:${recipient}?subject=${encodeURIComponent('Prayer request')}&body=${encodeURIComponent(`Name: ${data.name}\nContact: ${data.contact || '-'}\nConfidential: ${data.private ? 'Yes' : 'No'}\n\n${data.request}`)}`;
-      done('Your email app is opening so you can send your request.');
     } else {
-      done('Thank you. Your request has been noted.');
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/prayer_requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          name: (data.name || '').slice(0, 200),
+          contact: (data.contact || '').slice(0, 200) || null,
+          request: (data.request || '').slice(0, 4000),
+          is_confidential: !!data.private
+        })
+      });
+      if (!r.ok) throw 0;
     }
+    done('Thank you — your request has been received and we are standing with you in prayer.');
   } catch {
     prayerNote.textContent = 'Sorry, something went wrong. Please try again in a moment.';
     prayerNote.className = 'form-note err';

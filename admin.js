@@ -148,6 +148,8 @@ sidebarButtons.forEach(btn => {
     const viewId = btn.dataset.view;
     const targetView = $(`#${viewId}`);
     if (targetView) targetView.classList.add('active');
+
+    if (viewId === 'view-prayer-requests') loadPrayerRequests();
   });
 });
 
@@ -734,6 +736,84 @@ const loadMedia = async () => {
     console.error('Failed to load media files', err);
   }
 };
+
+/* =========================================================================
+   PRAYER REQUESTS INBOX
+   ========================================================================= */
+const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
+const loadPrayerRequests = async () => {
+  const listEl = $('#prayer-requests-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Loading…</p>';
+
+  try {
+    const res = await fetch(`${EDGE_BASE}/list-prayer-requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ passkey: getPasskey() })
+    });
+    const body = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      listEl.innerHTML = `<p style="color:#c0392b;font-size:13px;">${escapeHtml(body.error || 'Failed to load prayer requests')}</p>`;
+      return;
+    }
+
+    const requests = body.requests || [];
+    if (requests.length === 0) {
+      listEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No prayer requests yet.</p>';
+      return;
+    }
+
+    listEl.innerHTML = requests.map(r => `
+      <div class="prayer-request-card" data-id="${r.id}" style="border:1px solid var(--border-color, #2a3444);border-radius:6px;padding:14px 16px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+          <div>
+            <strong>${escapeHtml(r.name)}</strong>
+            ${r.is_confidential ? '<span style="margin-left:8px;font-size:10px;background:#3a2a12;color:#e0b25a;padding:2px 6px;border-radius:3px;">CONFIDENTIAL</span>' : ''}
+            ${r.contact ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${escapeHtml(r.contact)}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:11px;color:var(--text-muted);">${new Date(r.created_at).toLocaleString()}</div>
+            <button type="button" class="btn-media-action btn-delete-prayer-request" data-id="${r.id}" style="margin-top:6px;">🗑 Delete</button>
+          </div>
+        </div>
+        <p style="margin:10px 0 0;font-size:13px;white-space:pre-wrap;">${escapeHtml(r.request)}</p>
+      </div>
+    `).join('');
+
+    $$('.btn-delete-prayer-request', listEl).forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this prayer request?')) return;
+        btn.disabled = true;
+        try {
+          const res = await fetch(`${EDGE_BASE}/delete-prayer-request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+            body: JSON.stringify({ passkey: getPasskey(), id: btn.dataset.id })
+          });
+          if (res.ok) {
+            btn.closest('.prayer-request-card')?.remove();
+            showToast('Prayer request deleted', 'success');
+          } else {
+            const body = await res.json().catch(() => ({}));
+            showToast(body.error || 'Failed to delete', 'error');
+          }
+        } catch {
+          showToast('Network error while deleting', 'error');
+        }
+        btn.disabled = false;
+      });
+    });
+  } catch {
+    listEl.innerHTML = '<p style="color:#c0392b;font-size:13px;">Network error while loading prayer requests.</p>';
+  }
+};
+
+$('#btn-refresh-prayer-requests')?.addEventListener('click', loadPrayerRequests);
 
 // Filter Buttons
 mediaFilterButtons.forEach(btn => {

@@ -1057,8 +1057,11 @@
         <button type="button" class="sidebar-btn" data-view="view-prayer">
           <span>🙏</span> Prayer Ministry
         </button>
+        <button type="button" class="sidebar-btn" data-view="view-prayer-requests">
+          <span>📥</span> Prayer Requests
+        </button>
         <button type="button" class="sidebar-btn" data-view="view-banner">
-          <span>📢</span> Announcement Bar
+          <span>📢</span> Announcement Popup
         </button>
         <button type="button" class="sidebar-btn" data-view="view-social">
           <span>🌐</span> Social Channels
@@ -1604,12 +1607,30 @@
                 <div class="form-group">
                   <label for="field-prayer-email">Recipient Email Address</label>
                   <input type="email" id="field-prayer-email" placeholder="prayerarmyinternational@gmail.com">
-                  <small>Submitted requests can be emailed directly to this address.</small>
+                  <small>Shown as a contact fallback only. Submitted requests are saved in-site — check the "Prayer Requests" tab.</small>
                 </div>
                 <div class="form-group">
                   <label for="field-prayer-endpoint">Custom API Webhook / Formspree URL (Optional)</label>
                   <input type="url" id="field-prayer-endpoint" placeholder="https://formspree.io/f/...">
+                  <small>Only needed if you'd rather route requests to your own service instead of saving them here.</small>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 9b. PRAYER REQUESTS INBOX -->
+          <section class="tab-view" id="view-prayer-requests">
+            <div class="view-header">
+              <h2><span>📥</span> Prayer Requests</h2>
+              <p>Requests people have submitted through the Prayer form on your site.</p>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 class="card-title" style="margin:0;">Submitted Requests</h3>
+                <button type="button" class="btn-secondary" id="btn-refresh-prayer-requests">🔄 Refresh</button>
+              </div>
+              <div id="prayer-requests-list">
+                <p style="color:var(--text-muted);font-size:13px;">Loading…</p>
               </div>
             </div>
           </section>
@@ -1618,14 +1639,14 @@
           <section class="tab-view" id="view-banner">
             <div class="view-header">
               <div class="view-header-text">
-                <h2><span>📢</span> Top Announcement Banner</h2>
+                <h2><span>📢</span> Announcement Popup</h2>
                 <p>Display an alert bar at the very top of the website for urgent notices, upcoming conferences, or special events.</p>
               </div>
             </div>
 
             <div class="toggle-row">
               <div class="toggle-info">
-                <strong>Enable Announcement Banner</strong>
+                <strong>Enable Announcement Popup</strong>
                 <p>When enabled, this message displays above the main navigation on every page.</p>
               </div>
               <label class="switch">

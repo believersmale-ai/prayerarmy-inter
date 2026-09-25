@@ -20,11 +20,12 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
-  <div class="announcement-bar" id="announcement-bar" hidden>
-    <div class="container announcement-content">
-      <span class="announcement-tag">ANNOUNCEMENT</span>
-      <span class="announcement-msg" id="announcement-msg">Join our upcoming prophetic services and prayer gatherings. Raising Generals, Transforming Generations!</span>
-      <button type="button" class="announcement-close" id="announcement-close" aria-label="Dismiss announcement">✕</button>
+  <div class="announce-modal" id="announce-modal" hidden>
+    <div class="announce-backdrop" id="announce-backdrop"></div>
+    <div class="announce-card" role="dialog" aria-modal="true" aria-labelledby="announce-modal-msg">
+      <span class="announce-tag">ANNOUNCEMENT</span>
+      <p id="announce-modal-msg"></p>
+      <button type="button" class="btn btn-gold announce-modal-close" id="announce-modal-close">Got it</button>
     </div>
   </div>
 
@@ -134,8 +135,8 @@
           <div class="faith-heading">
             <p class="eyebrow dark">STATEMENT OF FAITH</p>
             <h3>What we believe</h3>
-            <div class="faith-media" id="faith-media" style="display:none">
-              <img id="foundation-faith-image" src="" alt="Prayer Army International — Statement of Faith">
+            <div class="faith-media" id="faith-media">
+              <img id="foundation-faith-image" src="assets/images/statement-of-faith.png" alt="Prayer Army International — Statement of Faith">
             </div>
           </div>
           <div class="faith-copy">
