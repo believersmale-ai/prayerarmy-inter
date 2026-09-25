@@ -74,6 +74,24 @@ Open `script.js` and fill in the **SITE** block at the top. Anything left blank 
 - **Section reveals now stagger per-card** (Foundation, Gallery, Contact, Quick Links) instead of fading the whole block in at once.
 - Respects `prefers-reduced-motion` throughout.
 
+## Live broadcast now plays on-site (this pass)
+The Live section has a real inline video player, not just a link out:
+- Shows a thumbnail preview (the YouTube video's own thumbnail when the
+  stream URL is a normal watch/live/youtu.be link, or your configured hero
+  image as a fallback) with a play button over it.
+- Clicking it (or the "Preview Live Stream" button, or "Watch Live Now" in
+  the hero once you're live) embeds and plays the video **right on the
+  page** — no more jumping to YouTube in a new tab.
+- **For this to embed automatically, set `live.url` in the Site Manager to
+  the actual video's link** (a `youtube.com/watch?v=...`, `youtu.be/...`,
+  `youtube.com/live/...` link, or a direct `.mp4`/`.webm` file) — that's
+  what you'd paste in once a service actually starts streaming. A bare
+  channel/handle link (like `youtube.com/@yourhandle/live`) can't be
+  embedded by any site without calling YouTube's API to resolve it to a
+  channel ID, so in that case the section shows a friendly "not yet
+  configured for on-site playback" message instead of silently failing or
+  forcing an external redirect.
+
 ## Bug fixes & hardening (this pass)
 - **Removed dead code:** `script.js` referenced a "floating dock" live-status
   widget (`#dock-live-status-text` / `#dock-live-status-icon`) that no

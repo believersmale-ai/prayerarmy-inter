@@ -116,6 +116,14 @@ const DEFAULT_SETTINGS = {
 
 let currentSettings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 let isManagerAuth = false;
+let triggerLivePlay = () => {}; // wired up inside applySettings once the live video frame exists
+
+// Extract an 11-character YouTube video ID from a watch/live/youtu.be/embed/shorts link
+const extractYouTubeId = (url) => {
+  if (!url) return null;
+  const m = String(url).match(/(?:youtube\.com\/(?:watch\?v=|live\/|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+};
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -292,15 +300,23 @@ const applySettings = (s) => {
 
   if (hBtnSecondary) {
     if (isLive) {
-      hBtnSecondary.innerHTML = '<span class="pulse" style="background:#e53e3e"></span> Stream Live Now';
-      hBtnSecondary.href = liveUrl;
-      hBtnSecondary.target = '_blank';
-      hBtnSecondary.rel = 'noopener';
+      hBtnSecondary.innerHTML = '<span class="pulse" style="background:#e53e3e"></span> Watch Live Now';
     } else {
       hBtnSecondary.innerHTML = s.hero?.btnSecondaryText || 'Watch Live';
-      hBtnSecondary.href = s.hero?.btnSecondaryLink || '#live';
-      hBtnSecondary.removeAttribute('target');
-      hBtnSecondary.removeAttribute('rel');
+    }
+    // Always keeps visitors on-site: jumps to the Live section, which plays
+    // the broadcast inline rather than sending anyone to an external tab.
+    hBtnSecondary.href = isLive ? '#live' : (s.hero?.btnSecondaryLink || '#live');
+    hBtnSecondary.removeAttribute('target');
+    hBtnSecondary.removeAttribute('rel');
+    if (!hBtnSecondary.dataset.liveBound) {
+      hBtnSecondary.dataset.liveBound = '1';
+      hBtnSecondary.addEventListener('click', () => {
+        if (currentSettings.live?.isLiveNow) {
+          // Let the anchor jump happen first, then start on-site playback.
+          setTimeout(() => triggerLivePlay(), 400);
+        }
+      });
     }
   }
 
@@ -320,16 +336,78 @@ const applySettings = (s) => {
   if (liveDesc && s.live?.description) liveDesc.textContent = s.live.description;
 
   if (liveBtn) {
-    liveBtn.href = liveUrl;
-    liveBtn.target = '_blank';
-    liveBtn.rel = 'noopener';
-    liveBtn.innerHTML = isLive ? 'Join Live Broadcast Now <span>▶</span>' : 'Open Live Stream <span>→</span>';
+    liveBtn.href = '#live-video-frame';
+    liveBtn.removeAttribute('target');
+    liveBtn.removeAttribute('rel');
+    liveBtn.innerHTML = isLive ? 'Play Live Broadcast <span>▶</span>' : 'Preview Live Stream <span>▶</span>';
+    if (!liveBtn.dataset.liveBound) {
+      liveBtn.dataset.liveBound = '1';
+      liveBtn.addEventListener('click', e => { e.preventDefault(); triggerLivePlay(); });
+    }
   }
 
   if (liveStatus) {
     liveStatus.innerHTML = isLive
       ? '<span class="pulse" style="background:#e53e3e"></span> Service is currently live — tune in now!'
       : `<span class="pulse"></span> ${s.live?.statusNote || 'Regular Sunday and Prophetic Services streamed live'}`;
+  }
+
+  // Inline live video player -- previews with a thumbnail + play button and,
+  // once clicked, plays right on the page (embedded iframe/video) instead of
+  // sending visitors away to YouTube or another site.
+  const liveFrame = $('#live-video-frame');
+  const liveThumb = $('#live-video-thumb');
+  const livePlayBtn = $('#live-play-btn');
+  const liveCaption = $('#live-video-caption');
+
+  if (liveFrame && liveThumb && livePlayBtn && liveCaption) {
+    const existingPlayer = liveFrame.querySelector('iframe, video');
+    if (existingPlayer) existingPlayer.remove();
+    liveFrame.classList.remove('is-playing');
+
+    const ytId = extractYouTubeId(liveUrl);
+    const isDirectVideo = ['.mp4', '.webm', '.mov', '.ogg'].some(ext => liveUrl.toLowerCase().endsWith(ext));
+
+    const startPlayback = () => {
+      if (liveFrame.classList.contains('is-playing')) return;
+      let player;
+      if (ytId) {
+        player = document.createElement('iframe');
+        player.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`;
+        player.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+        player.allowFullscreen = true;
+        player.title = s.live?.title || 'Live broadcast';
+      } else if (isDirectVideo) {
+        player = document.createElement('video');
+        player.src = liveUrl;
+        player.controls = true;
+        player.autoplay = true;
+        player.playsInline = true;
+      } else {
+        // No embeddable video URL is configured yet -- nothing safe to play
+        // inline, so this is a no-op rather than forcing an external redirect.
+        return;
+      }
+      liveFrame.appendChild(player);
+      liveFrame.classList.add('is-playing');
+    };
+
+    if (ytId) {
+      liveThumb.style.backgroundImage = `url('https://img.youtube.com/vi/${ytId}/hqdefault.jpg')`;
+    } else {
+      liveThumb.style.backgroundImage = `url('${s.hero?.bgImage || 'assets/images/FB_IMG_1790281547438.jpg'}')`;
+    }
+
+    const canPlayInline = Boolean(ytId || isDirectVideo);
+    livePlayBtn.hidden = !canPlayInline;
+    liveThumb.style.cursor = canPlayInline ? 'pointer' : 'default';
+    liveCaption.textContent = isLive
+      ? (canPlayInline ? '🔴 LIVE — tap to watch' : 'Live now — link not yet configured for on-site playback')
+      : (canPlayInline ? 'Tap to preview' : 'Live preview will appear here once a stream link is set');
+
+    livePlayBtn.onclick = startPlayback;
+    liveThumb.onclick = () => { if (canPlayInline) startPlayback(); };
+    triggerLivePlay = startPlayback;
   }
 
   // About Section
