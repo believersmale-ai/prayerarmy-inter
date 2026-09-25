@@ -356,17 +356,3 @@ body.nav-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .menu-toggle span,.nav,.nav a,.brand,.nav-backdrop{transition:none!important;animation:none!important}
 }
-
-/* Statement of faith artwork */
-.faith-heading{display:flex;align-items:center;gap:28px}
-.faith-artwork{width:180px;height:210px;flex:0 0 180px;overflow:hidden;border:1px solid rgba(134,99,31,.35);box-shadow:12px 12px 0 rgba(217,174,86,.14)}
-.faith-artwork img{width:100%;height:100%;object-fit:cover;object-position:center}
-.faith-heading-copy{max-width:260px}
-@media(max-width:700px){
-  .faith-heading{align-items:flex-start;gap:20px}
-  .faith-artwork{width:120px;height:150px;flex-basis:120px}
-}
-@media(max-width:480px){
-  .faith-heading{display:block}
-  .faith-artwork{width:100%;height:190px;margin-bottom:24px}
-}
