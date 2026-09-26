@@ -143,5 +143,17 @@ The Live section has a real inline video player, not just a link out:
 4. Visit `/admin` on your deployed domain to manage content — sign in with
    the passkey stored in Supabase's `admin_config` table.
 
+
+## What changed in this pass
+- **Mobile nav bug fixed** — the slide-out panel was trapped inside the header due to a
+  `backdrop-filter` CSS quirk (it creates a containing block for `position:fixed`
+  descendants). Moved the blur to a pseudo-element so the panel now correctly overlays
+  the full screen.
+- **Announcement bar now pops** — animated slide-down entrance, animated slide-up dismiss,
+  remembers a dismissal per message for the session.
+- **New: Messages Archive, Comments & Prayer Requests** — see `DEPLOY_MESSAGES_FEATURE.md`
+  for the two steps needed to turn this on (a SQL migration + one Edge Function deploy —
+  I don't have access to your live Supabase project so I could not run these myself).
+
 ## Content to confirm with the ministry
 The Mission, Vision, Values, Statement of Faith and "Our Story" text are drafts written for the site. Replace them with the church's official wording before launch. A higher-resolution logo file (the current one is 191×115px) will look sharper on retina screens.

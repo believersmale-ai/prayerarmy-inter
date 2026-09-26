@@ -20,12 +20,11 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
-  <div class="announce-modal" id="announce-modal" hidden>
-    <div class="announce-backdrop" id="announce-backdrop"></div>
-    <div class="announce-card" role="dialog" aria-modal="true" aria-labelledby="announce-modal-msg">
-      <span class="announce-tag">ANNOUNCEMENT</span>
-      <p id="announce-modal-msg"></p>
-      <button type="button" class="btn btn-gold announce-modal-close" id="announce-modal-close">Got it</button>
+  <div class="announcement-bar" id="announcement-bar" hidden>
+    <div class="container announcement-content">
+      <span class="announcement-tag">ANNOUNCEMENT</span>
+      <span class="announcement-msg" id="announcement-msg">Join our upcoming prophetic services and prayer gatherings. Raising Generals, Transforming Generations!</span>
+      <button type="button" class="announcement-close" id="announcement-close" aria-label="Dismiss announcement">✕</button>
     </div>
   </div>
 
@@ -135,8 +134,8 @@
           <div class="faith-heading">
             <p class="eyebrow dark">STATEMENT OF FAITH</p>
             <h3>What we believe</h3>
-            <div class="faith-media" id="faith-media">
-              <img id="foundation-faith-image" src="assets/images/statement-of-faith.png" alt="Prayer Army International — Statement of Faith">
+            <div class="faith-media" id="faith-media" style="display:none">
+              <img id="foundation-faith-image" src="" alt="Prayer Army International — Statement of Faith">
             </div>
           </div>
           <div class="faith-copy">
@@ -185,6 +184,16 @@
           <div class="sermon-side">
             <article class="mini-sermon"><div class="mini-thumb"><img width="2048" height="1914" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790281517479.jpg" alt="Prophet preaching with one hand raised"><a class="mini-play" data-link="sermons" href="#sermons" aria-label="Watch this message">▶</a></div><div><p class="kicker" id="mini1-kicker">PRAYER</p><h3 id="mini1-title">Moments of prayer and ministry</h3><a href="#sermons" data-link="sermons">Watch →</a></div></article>
             <article class="mini-sermon"><div class="mini-thumb"><img width="1280" height="853" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790280315271.jpg" alt="Prayer ministry with church members"><a class="mini-play" data-link="sermons" href="#sermons" aria-label="Watch this message">▶</a></div><div><p class="kicker" id="mini2-kicker">MINISTRY</p><h3 id="mini2-title">Prayer and prophetic ministry</h3><a href="#sermons" data-link="sermons">Watch →</a></div></article>
+          </div>
+        </div>
+
+        <div class="messages-archive" id="messages-archive">
+          <div class="messages-archive-head">
+            <h3>Past Messages &amp; Broadcasts</h3>
+            <p>Recordings and notes from previous services — every live broadcast is saved here automatically once it ends.</p>
+          </div>
+          <div class="messages-list" id="messages-list">
+            <p class="messages-empty">Loading messages…</p>
           </div>
         </div>
       </div>

@@ -167,25 +167,28 @@ const onScroll = () => header?.classList.toggle('scrolled', scrollY > 30);
 onScroll();
 addEventListener('scroll', onScroll, { passive: true });
 
-// Keep the fixed header correctly offset (used by CSS scroll-margin-top too)
+// Keep the fixed header (and anchor scrolling) correctly offset below the announcement bar
 const syncHeaderOffset = () => {
+  const ab = $('#announcement-bar');
+  const annH = (ab && !ab.hidden) ? ab.offsetHeight : 0;
   const headerH = header ? header.offsetHeight : 78;
-  document.documentElement.style.setProperty('--header-h', headerH + 'px');
+  document.documentElement.style.setProperty('--ann-h', annH + 'px');
+  document.documentElement.style.setProperty('--header-h', (annH + headerH) + 'px');
 };
 addEventListener('resize', syncHeaderOffset);
 addEventListener('load', syncHeaderOffset);
 syncHeaderOffset();
-
-// Announcement popup
-const announceModal = $('#announce-modal'), announceBackdrop = $('#announce-backdrop'), announceClose = $('#announce-modal-close');
-const closeAnnounce = () => {
-  if (!announceModal) return;
-  announceModal.classList.remove('show');
-  setTimeout(() => { announceModal.hidden = true; }, 320);
-};
-announceBackdrop?.addEventListener('click', closeAnnounce);
-announceClose?.addEventListener('click', closeAnnounce);
-addEventListener('keydown', e => { if (e.key === 'Escape' && announceModal && !announceModal.hidden) closeAnnounce(); });
+$('#announcement-close')?.addEventListener('click', () => {
+  const ab = $('#announcement-bar'), abMsg = $('#announcement-msg');
+  if (!ab) return;
+  try { sessionStorage.setItem('pai_announcement_dismissed', (abMsg?.textContent || '').trim()); } catch {}
+  ab.classList.add('closing');
+  setTimeout(() => {
+    ab.hidden = true;
+    ab.classList.remove('closing');
+    syncHeaderOffset();
+  }, 280);
+});
 
 // Hero photo switcher
 const heroMedia = $('#hero-media'), switchBtns = $$('.hero-switch-btn');
@@ -243,20 +246,20 @@ const applySettings = (s) => {
     if (favicon) favicon.href = s.general.logoUrl;
   }
 
-  // Announcement Popup (shows once per session per message, not a persistent bar)
-  const announceModalEl = $('#announce-modal'), announceMsgEl = $('#announce-modal-msg');
-  if (announceModalEl && announceMsgEl) {
-    if (s.announcement?.enabled && s.announcement?.text) {
-      const dismissKey = 'pai_announcement_seen';
-      const alreadySeen = sessionStorage.getItem(dismissKey) === s.announcement.text;
-      announceMsgEl.textContent = s.announcement.text;
-      if (!alreadySeen) {
-        announceModalEl.hidden = false;
-        // Small delay so it feels like a deliberate popup, not a layout flash
-        setTimeout(() => announceModalEl.classList.add('show'), 500);
-        sessionStorage.setItem(dismissKey, s.announcement.text);
-      }
+  // Announcement Bar — pops in with an animation; dismissing it is remembered
+  // for this browser session (per message, so a new announcement still shows).
+  const ab = $('#announcement-bar'), abMsg = $('#announcement-msg');
+  if (ab && abMsg) {
+    const text = (s.announcement?.text || '').trim();
+    const dismissedText = sessionStorage.getItem('pai_announcement_dismissed');
+    if (s.announcement?.enabled && text && text !== dismissedText) {
+      abMsg.textContent = text;
+      ab.classList.remove('closing');
+      ab.hidden = false;
+    } else {
+      ab.hidden = true;
     }
+    syncHeaderOffset();
   }
 
   // Hero Section
@@ -461,14 +464,11 @@ const applySettings = (s) => {
   if (s.foundation?.storyText && $('#foundation-story-text')) $('#foundation-story-text').textContent = s.foundation.storyText;
   if (s.foundation?.founderBio && $('#foundation-founder-bio')) $('#foundation-founder-bio').textContent = s.foundation.founderBio;
   const faithImg = $('#foundation-faith-image'), faithMediaBox = $('#faith-media');
-  if (faithImg && faithMediaBox) {
-    if (s.foundation?.faithImage) {
-      faithImg.src = s.foundation.faithImage;
-      faithMediaBox.style.display = '';
-    } else {
-      // No custom image chosen -- keep showing the default rather than hiding the block
-      faithMediaBox.style.display = '';
-    }
+  if (s.foundation?.faithImage && faithImg && faithMediaBox) {
+    faithImg.src = s.foundation.faithImage;
+    faithMediaBox.style.display = '';
+  } else if (faithMediaBox) {
+    faithMediaBox.style.display = 'none';
   }
 
   // Sermons Section
@@ -782,38 +782,25 @@ prayerForm?.addEventListener('submit', async e => {
     prayerNote.className = 'form-note ok';
     prayerForm.reset();
   };
-  btn.disabled = true;
-  btn.classList.add('loading');
   try {
-    // An optional external endpoint (e.g. Formspree) always wins if set in
-    // the admin panel. Otherwise the request is saved directly in Supabase,
-    // in-site -- no email app, no redirect, no leaving the page.
-    const endpoint = currentSettings.prayer?.endpoint;
-
-    if (endpoint) {
-      const r = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!r.ok) throw 0;
-    } else {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/prayer_requests`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          name: (data.name || '').slice(0, 200),
-          contact: (data.contact || '').slice(0, 200) || null,
-          request: (data.request || '').slice(0, 4000),
-          is_confidential: !!data.private
-        })
-      });
-      if (!r.ok) throw 0;
-    }
+    btn.disabled = true;
+    btn.classList.add('loading');
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/prayer_requests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify({
+        name: data.name,
+        contact: data.contact || null,
+        request: data.request,
+        is_private: Boolean(data.private)
+      })
+    });
+    if (!r.ok) throw 0;
     done('Thank you — your request has been received and we are standing with you in prayer.');
   } catch {
     prayerNote.textContent = 'Sorry, something went wrong. Please try again in a moment.';
@@ -822,3 +809,149 @@ prayerForm?.addEventListener('submit', async e => {
   btn.disabled = false;
   btn.classList.remove('loading');
 });
+
+/* =========================================================================
+   MESSAGES ARCHIVE — past broadcasts saved after each live service.
+   Text + optional link + optional uploaded audio/video only, never a
+   picture. Visitors can comment and the form never leaves the page.
+   ========================================================================= */
+const messagesList = $('#messages-list');
+
+const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
+const formatMessageDate = (iso) => {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch { return ''; }
+};
+
+const renderComments = (listEl, comments) => {
+  listEl.innerHTML = comments.length
+    ? comments.map((c) => `
+        <li>
+          <div class="comment-meta"><span class="comment-name">${escapeHtml(c.name)}</span><span>${formatMessageDate(c.created_at)}</span></div>
+          <p class="comment-text">${escapeHtml(c.comment)}</p>
+        </li>`).join('')
+    : '<p class="comment-empty">No comments yet — be the first to respond.</p>';
+};
+
+const buildMessageCard = (msg) => {
+  const card = document.createElement('article');
+  card.className = 'message-card';
+  card.dataset.id = msg.id;
+
+  const mediaTag = msg.media_url
+    ? `<${msg.media_type === 'video' ? 'video' : 'audio'} controls preload="none" src="${escapeHtml(msg.media_url)}"></${msg.media_type === 'video' ? 'video' : 'audio'}>`
+    : '';
+  const linkTag = msg.link
+    ? `<a class="text-link light-link" href="${escapeHtml(msg.link)}" target="_blank" rel="noopener">Open link <span>→</span></a>`
+    : '';
+
+  card.innerHTML = `
+    <div class="message-card-head">
+      <span class="message-badge${msg.source === 'live' ? ' is-live' : ''}">${msg.source === 'live' ? 'LIVE RECORDING' : 'MESSAGE'}</span>
+      <time datetime="${msg.created_at}">${formatMessageDate(msg.created_at)}</time>
+    </div>
+    <h4>${escapeHtml(msg.title)}</h4>
+    ${msg.description ? `<p>${escapeHtml(msg.description)}</p>` : ''}
+    ${mediaTag}
+    ${linkTag}
+    <div class="message-comments">
+      <button type="button" class="message-comments-toggle" aria-expanded="false">
+        💬 <span class="comment-count">${(msg.comments || []).length}</span> Comment${(msg.comments || []).length === 1 ? '' : 's'}
+      </button>
+      <div class="message-comments-body" hidden>
+        <ul class="comment-list"></ul>
+        <form class="comment-form">
+          <input name="name" placeholder="Your name" required maxlength="80" autocomplete="name">
+          <textarea name="comment" placeholder="Leave a comment…" required maxlength="1000" rows="2"></textarea>
+          <button class="btn btn-dark btn-sm" type="submit">Post comment</button>
+          <p class="form-note" role="status"></p>
+        </form>
+      </div>
+    </div>`;
+
+  const toggle = $('.message-comments-toggle', card);
+  const body = $('.message-comments-body', card);
+  const commentList = $('.comment-list', card);
+  renderComments(commentList, msg.comments || []);
+
+  toggle.addEventListener('click', () => {
+    const open = body.hidden;
+    body.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+
+  const form = $('.comment-form', card);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const name = String(fd.get('name') || '').trim();
+    const comment = String(fd.get('comment') || '').trim();
+    const note = $('.form-note', form);
+    const submitBtn = $('button[type=submit]', form);
+    if (!name || !comment) return;
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/message_comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Prefer: 'return=representation'
+        },
+        body: JSON.stringify({ message_id: msg.id, name, comment })
+      });
+      if (!res.ok) throw 0;
+      const [saved] = await res.json();
+      msg.comments = [...(msg.comments || []), saved];
+      renderComments(commentList, msg.comments);
+      $('.comment-count', card).textContent = msg.comments.length;
+      form.reset();
+      note.textContent = 'Comment posted — thank you!';
+      note.className = 'form-note ok';
+    } catch {
+      note.textContent = 'Could not post your comment. Please try again.';
+      note.className = 'form-note err';
+    }
+    submitBtn.disabled = false;
+  });
+
+  return card;
+};
+
+const loadMessages = async () => {
+  if (!messagesList) return;
+  try {
+    const [msgRes, commentRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=created_at.desc&limit=25`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+      }),
+      fetch(`${SUPABASE_URL}/rest/v1/message_comments?select=*&order=created_at.asc`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+      })
+    ]);
+    if (!msgRes.ok) throw 0;
+    const messages = await msgRes.json();
+    const comments = commentRes.ok ? await commentRes.json() : [];
+
+    const byMessage = {};
+    comments.forEach((c) => { (byMessage[c.message_id] ||= []).push(c); });
+    messages.forEach((m) => { m.comments = byMessage[m.id] || []; });
+
+    messagesList.innerHTML = '';
+    if (!messages.length) {
+      messagesList.innerHTML = '<p class="messages-empty">No past messages yet — they will appear here after the next live broadcast.</p>';
+      return;
+    }
+    messages.forEach((m) => messagesList.appendChild(buildMessageCard(m)));
+  } catch {
+    messagesList.innerHTML = '<p class="messages-empty">Could not load messages right now. Please refresh the page.</p>';
+  }
+};
+
+loadMessages();
+

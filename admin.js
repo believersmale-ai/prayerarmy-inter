@@ -79,6 +79,8 @@ const showDashboard = () => {
   adminApp.style.display = 'flex';
   loadSettings();
   loadMedia();
+  loadMessagesAdmin();
+  loadPrayerRequests();
 };
 
 togglePwBtn?.addEventListener('click', () => {
@@ -148,8 +150,6 @@ sidebarButtons.forEach(btn => {
     const viewId = btn.dataset.view;
     const targetView = $(`#${viewId}`);
     if (targetView) targetView.classList.add('active');
-
-    if (viewId === 'view-prayer-requests') loadPrayerRequests();
   });
 });
 
@@ -732,88 +732,11 @@ const loadMedia = async () => {
 
     allMedia = media;
     renderMediaGrid();
+    populateMessageMediaSelect();
   } catch (err) {
     console.error('Failed to load media files', err);
   }
 };
-
-/* =========================================================================
-   PRAYER REQUESTS INBOX
-   ========================================================================= */
-const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-}[c]));
-
-const loadPrayerRequests = async () => {
-  const listEl = $('#prayer-requests-list');
-  if (!listEl) return;
-  listEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Loading…</p>';
-
-  try {
-    const res = await fetch(`${EDGE_BASE}/list-prayer-requests`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify({ passkey: getPasskey() })
-    });
-    const body = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      listEl.innerHTML = `<p style="color:#c0392b;font-size:13px;">${escapeHtml(body.error || 'Failed to load prayer requests')}</p>`;
-      return;
-    }
-
-    const requests = body.requests || [];
-    if (requests.length === 0) {
-      listEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">No prayer requests yet.</p>';
-      return;
-    }
-
-    listEl.innerHTML = requests.map(r => `
-      <div class="prayer-request-card" data-id="${r.id}" style="border:1px solid var(--border-color, #2a3444);border-radius:6px;padding:14px 16px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-          <div>
-            <strong>${escapeHtml(r.name)}</strong>
-            ${r.is_confidential ? '<span style="margin-left:8px;font-size:10px;background:#3a2a12;color:#e0b25a;padding:2px 6px;border-radius:3px;">CONFIDENTIAL</span>' : ''}
-            ${r.contact ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${escapeHtml(r.contact)}</div>` : ''}
-          </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <div style="font-size:11px;color:var(--text-muted);">${new Date(r.created_at).toLocaleString()}</div>
-            <button type="button" class="btn-media-action btn-delete-prayer-request" data-id="${r.id}" style="margin-top:6px;">🗑 Delete</button>
-          </div>
-        </div>
-        <p style="margin:10px 0 0;font-size:13px;white-space:pre-wrap;">${escapeHtml(r.request)}</p>
-      </div>
-    `).join('');
-
-    $$('.btn-delete-prayer-request', listEl).forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Delete this prayer request?')) return;
-        btn.disabled = true;
-        try {
-          const res = await fetch(`${EDGE_BASE}/delete-prayer-request`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-            body: JSON.stringify({ passkey: getPasskey(), id: btn.dataset.id })
-          });
-          if (res.ok) {
-            btn.closest('.prayer-request-card')?.remove();
-            showToast('Prayer request deleted', 'success');
-          } else {
-            const body = await res.json().catch(() => ({}));
-            showToast(body.error || 'Failed to delete', 'error');
-          }
-        } catch {
-          showToast('Network error while deleting', 'error');
-        }
-        btn.disabled = false;
-      });
-    });
-  } catch {
-    listEl.innerHTML = '<p style="color:#c0392b;font-size:13px;">Network error while loading prayer requests.</p>';
-  }
-};
-
-$('#btn-refresh-prayer-requests')?.addEventListener('click', loadPrayerRequests);
 
 // Filter Buttons
 mediaFilterButtons.forEach(btn => {
@@ -1086,6 +1009,246 @@ btnResetDefaults?.addEventListener('click', async () => {
     }
   }
 });
+
+/* =========================================================================
+   MESSAGES ARCHIVE (admin) — create/delete messages, moderate comments
+   ========================================================================= */
+const messagesAdminList = $('#messages-admin-list');
+const messagesAdminCount = $('#messages-admin-count');
+const msgMediaSelect = $('#msg-media-select');
+
+const callManageContent = async (action, payload = {}) => {
+  const res = await fetch(`${EDGE_BASE}/manage-content`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify({ passkey: getPasskey(), action, payload })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+  return data;
+};
+
+// Keep the "attach uploaded media" dropdown in sync with the Media Uploader tab
+const AUDIO_EXT = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga'];
+const populateMessageMediaSelect = () => {
+  if (!msgMediaSelect) return;
+  const current = msgMediaSelect.value;
+  const candidates = (allMedia || []).filter((m) => {
+    const ext = (m.filename || m.url || '').split('.').pop().toLowerCase();
+    return m.type === 'video' || AUDIO_EXT.includes(ext);
+  });
+  msgMediaSelect.innerHTML = '<option value="">— None —</option>' + candidates.map((m) => {
+    const ext = (m.filename || m.url || '').split('.').pop().toLowerCase();
+    const kind = AUDIO_EXT.includes(ext) ? 'audio' : 'video';
+    return `<option value="${m.url}" data-kind="${kind}">${m.filename || m.url}</option>`;
+  }).join('');
+  if (candidates.some((m) => m.url === current)) msgMediaSelect.value = current;
+};
+
+const loadMessagesAdmin = async () => {
+  if (!messagesAdminList) return;
+  try {
+    const [msgRes, commentRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=created_at.desc&limit=100`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+      }),
+      fetch(`${SUPABASE_URL}/rest/v1/message_comments?select=*&order=created_at.desc`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+      })
+    ]);
+    const messages = msgRes.ok ? await msgRes.json() : [];
+    const comments = commentRes.ok ? await commentRes.json() : [];
+    const byMessage = {};
+    comments.forEach((c) => { (byMessage[c.message_id] ||= []).push(c); });
+
+    messagesAdminCount.textContent = messages.length;
+    if (!messages.length) {
+      messagesAdminList.innerHTML = '<p style="font-size:13px;color:#6b7280">No messages yet.</p>';
+      return;
+    }
+
+    messagesAdminList.innerHTML = messages.map((m) => {
+      const msgComments = byMessage[m.id] || [];
+      const dateStr = new Date(m.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      return `
+        <div class="admin-item" data-id="${m.id}">
+          <div class="admin-item-head">
+            <h4>${m.source === 'live' ? '🔴 ' : ''}${escapeAdminHtml(m.title)}</h4>
+            <time>${dateStr}</time>
+          </div>
+          ${m.description ? `<p>${escapeAdminHtml(m.description)}</p>` : ''}
+          ${m.link ? `<p style="font-size:11.5px"><a href="${escapeAdminHtml(m.link)}" target="_blank" rel="noopener" style="color:var(--gold)">${escapeAdminHtml(m.link)}</a></p>` : ''}
+          ${m.media_url ? `<p style="font-size:11.5px;color:#8890a0">📎 ${m.media_type || 'media'} attached</p>` : ''}
+          <div class="admin-item-actions">
+            <button type="button" class="btn-mini danger btn-delete-message" data-id="${m.id}">Delete message</button>
+          </div>
+          ${msgComments.length ? `
+            <div class="comment-mini">
+              ${msgComments.map((c) => `
+                <div class="comment-mini-row" data-comment-id="${c.id}">
+                  <span><strong>${escapeAdminHtml(c.name)}:</strong> ${escapeAdminHtml(c.comment)}</span>
+                  <button type="button" class="btn-mini danger btn-delete-comment" data-id="${c.id}" style="padding:2px 8px">✕</button>
+                </div>`).join('')}
+            </div>` : ''}
+        </div>`;
+    }).join('');
+
+    $$('.btn-delete-message', messagesAdminList).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this message? This also removes its comments. This cannot be undone.')) return;
+        try {
+          await callManageContent('delete_message', { id: btn.dataset.id });
+          showToast('Message deleted', 'success');
+          loadMessagesAdmin();
+        } catch (err) {
+          showToast(err.message || 'Failed to delete message', 'error');
+        }
+      });
+    });
+
+    $$('.btn-delete-comment', messagesAdminList).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this comment?')) return;
+        try {
+          await callManageContent('delete_comment', { id: btn.dataset.id });
+          showToast('Comment deleted', 'success');
+          loadMessagesAdmin();
+        } catch (err) {
+          showToast(err.message || 'Failed to delete comment', 'error');
+        }
+      });
+    });
+  } catch (err) {
+    messagesAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load messages.</p>';
+  }
+};
+
+function escapeAdminHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+$('#btn-create-message')?.addEventListener('click', async () => {
+  const title = $('#msg-title').value.trim();
+  const description = $('#msg-desc').value.trim();
+  const link = $('#msg-link').value.trim();
+  const selectedOpt = msgMediaSelect?.selectedOptions?.[0];
+  const media_url = msgMediaSelect?.value || '';
+  const media_type = media_url ? (selectedOpt?.dataset.kind || 'video') : '';
+  const note = $('#msg-create-note');
+  const btn = $('#btn-create-message');
+
+  if (!title) { note.textContent = 'Title is required.'; note.className = 'form-note err'; return; }
+
+  btn.disabled = true;
+  try {
+    await callManageContent('create_message', { title, description, link, media_url, media_type, source: 'manual' });
+    note.textContent = 'Message added.';
+    note.className = 'form-note ok';
+    $('#msg-title').value = '';
+    $('#msg-desc').value = '';
+    $('#msg-link').value = '';
+    if (msgMediaSelect) msgMediaSelect.value = '';
+    loadMessagesAdmin();
+  } catch (err) {
+    note.textContent = err.message || 'Could not add message.';
+    note.className = 'form-note err';
+  }
+  btn.disabled = false;
+});
+
+/* =========================================================================
+   ARCHIVE A LIVE BROADCAST — turns live mode off and saves it as a message
+   ========================================================================= */
+$('#btn-archive-live')?.addEventListener('click', async () => {
+  const note = $('#archive-live-note');
+  const btn = $('#btn-archive-live');
+  const title = $('#field-live-title')?.value.trim() || 'Live Service Recording';
+  const description = $('#field-live-desc')?.value.trim() || '';
+  const link = $('#field-live-url')?.value.trim() || '';
+
+  if (!confirm('Save this broadcast to the public Messages Archive and go offline now?')) return;
+
+  btn.disabled = true;
+  try {
+    await callManageContent('create_message', { title, description, link, source: 'live' });
+    const isLiveField = $('#field-is-live');
+    if (isLiveField) isLiveField.checked = false;
+    await saveSettings(false);
+    note.textContent = 'Archived — the broadcast now appears in Past Messages, and live status is off.';
+    note.className = 'form-note ok';
+    showToast('Broadcast archived to Messages', 'success');
+    loadMessagesAdmin();
+  } catch (err) {
+    note.textContent = err.message || 'Could not archive this broadcast.';
+    note.className = 'form-note err';
+  }
+  btn.disabled = false;
+});
+
+/* =========================================================================
+   SUBMITTED PRAYER REQUESTS (admin) — private, read via manage-content only
+   ========================================================================= */
+const requestsAdminList = $('#requests-admin-list');
+const requestsBadge = $('#sidebar-requests-badge');
+
+const loadPrayerRequests = async () => {
+  if (!requestsAdminList) return;
+  try {
+    const { requests } = await callManageContent('list_prayer_requests');
+    const unread = requests.filter((r) => !r.is_read).length;
+    if (requestsBadge) {
+      requestsBadge.style.display = unread ? 'inline-block' : 'none';
+      requestsBadge.textContent = unread;
+    }
+    if (!requests.length) {
+      requestsAdminList.innerHTML = '<p style="font-size:13px;color:#6b7280">No prayer requests submitted yet.</p>';
+      return;
+    }
+    requestsAdminList.innerHTML = requests.map((r) => {
+      const dateStr = new Date(r.created_at).toLocaleString();
+      return `
+        <div class="admin-item${r.is_read ? '' : ' unread'}" data-id="${r.id}">
+          <div class="admin-item-head">
+            <h4>${escapeAdminHtml(r.name)}${r.is_private ? ' <span class="req-badge">Confidential</span>' : ''}</h4>
+            <time>${dateStr}</time>
+          </div>
+          <p>${escapeAdminHtml(r.request)}</p>
+          ${r.contact ? `<p style="font-size:11.5px;color:#8890a0">Contact: ${escapeAdminHtml(r.contact)}</p>` : ''}
+          <div class="admin-item-actions">
+            <button type="button" class="btn-mini btn-toggle-read" data-id="${r.id}" data-read="${r.is_read}">${r.is_read ? 'Mark unread' : 'Mark read'}</button>
+            <button type="button" class="btn-mini danger btn-delete-request" data-id="${r.id}">Delete</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    $$('.btn-toggle-read', requestsAdminList).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await callManageContent('mark_prayer_request_read', { id: btn.dataset.id, is_read: btn.dataset.read !== 'true' });
+          loadPrayerRequests();
+        } catch (err) {
+          showToast(err.message || 'Could not update request', 'error');
+        }
+      });
+    });
+    $$('.btn-delete-request', requestsAdminList).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this prayer request permanently?')) return;
+        try {
+          await callManageContent('delete_prayer_request', { id: btn.dataset.id });
+          showToast('Request deleted', 'success');
+          loadPrayerRequests();
+        } catch (err) {
+          showToast(err.message || 'Could not delete request', 'error');
+        }
+      });
+    });
+  } catch (err) {
+    requestsAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load prayer requests. Is the manage-content Edge Function deployed?</p>';
+  }
+};
 
 // Run initialization
 checkAuthSession();

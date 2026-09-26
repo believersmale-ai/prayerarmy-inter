@@ -303,6 +303,76 @@
       box-shadow: 0 4px 14px var(--gold-glow);
     }
 
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--gold);
+      color: #0c1018;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    .form-note { font-size: 12.5px; margin: 10px 0 0; }
+    .form-note.ok { color: #34d399; font-weight: 600; }
+    .form-note.err { color: #f87171; font-weight: 600; }
+
+    .badge-pill {
+      margin-left: auto;
+      background: #b53a30;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      border-radius: 20px;
+      padding: 1px 8px;
+      line-height: 1.6;
+    }
+
+    .admin-item {
+      background: #10151f;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .admin-item-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .admin-item-head h4 { margin: 0; font-size: 14px; color: #fff; }
+    .admin-item-head time, .admin-item-head .admin-item-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .admin-item p { margin: 0 0 8px; font-size: 12.5px; color: #c7cdd6; line-height: 1.5; }
+    .admin-item-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-mini {
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--panel-border);
+      color: #dfe3e8;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-mini:hover { background: rgba(255,255,255,.12); }
+    .btn-mini.danger { color: #f87171; border-color: rgba(248,113,113,.35); }
+    .btn-mini.danger:hover { background: rgba(248,113,113,.12); }
+    .admin-item.unread { border-left: 3px solid var(--gold); }
+    .admin-item .req-badge { font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; background: rgba(217,174,86,.15); color: var(--gold); padding: 2px 7px; border-radius: 3px; }
+    .admin-item .comment-mini { border-top: 1px solid var(--panel-border); margin-top: 8px; padding-top: 8px; }
+    .admin-item .comment-mini-row { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: #b7bec9; padding: 4px 0; }
+
     .btn-save-master:hover {
       background: var(--gold2);
       transform: translateY(-1px);
@@ -1034,6 +1104,9 @@
         <button type="button" class="sidebar-btn" data-view="view-media">
           <span>📁</span> Media Uploader
         </button>
+        <button type="button" class="sidebar-btn" data-view="view-messages">
+          <span>🗂</span> Messages Archive
+        </button>
 
         <div class="nav-group-title">Site Content</div>
         <button type="button" class="sidebar-btn" data-view="view-hero">
@@ -1057,11 +1130,12 @@
         <button type="button" class="sidebar-btn" data-view="view-prayer">
           <span>🙏</span> Prayer Ministry
         </button>
-        <button type="button" class="sidebar-btn" data-view="view-prayer-requests">
-          <span>📥</span> Prayer Requests
+        <button type="button" class="sidebar-btn" data-view="view-requests">
+          <span>📨</span> Submitted Requests
+          <span class="badge-pill" id="sidebar-requests-badge" style="display:none">0</span>
         </button>
         <button type="button" class="sidebar-btn" data-view="view-banner">
-          <span>📢</span> Announcement Popup
+          <span>📢</span> Announcement Bar
         </button>
         <button type="button" class="sidebar-btn" data-view="view-social">
           <span>🌐</span> Social Channels
@@ -1095,6 +1169,16 @@
                 <input type="checkbox" id="field-is-live">
                 <span class="slider"></span>
               </label>
+            </div>
+
+            <div class="card" id="archive-live-card">
+              <h3 class="card-title">End &amp; Archive Broadcast</h3>
+              <p style="font-size:13px;color:#6b7280;margin:0 0 14px">
+                When the service is over, use this to turn live status off <em>and</em> save this broadcast as a
+                message in the public Messages Archive, using the title/description/URL above.
+              </p>
+              <button type="button" class="btn-primary" id="btn-archive-live">Archive this broadcast &amp; go offline</button>
+              <p class="form-note" id="archive-live-note"></p>
             </div>
 
             <div class="card">
@@ -1179,6 +1263,48 @@
               <div class="media-grid" id="media-grid-container">
                 <!-- Injected via JavaScript -->
               </div>
+            </div>
+          </section>
+
+          <!-- MESSAGES ARCHIVE VIEW -->
+          <section class="tab-view" id="view-messages">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🗂</span> Messages Archive</h2>
+                <p>These are the "Past Messages &amp; Broadcasts" visitors see under Sermons. No pictures are ever
+                  shown here — only text, an optional link, and an optional uploaded audio/video clip. Every live
+                  broadcast you archive from the Live tab also lands here automatically.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Add a Message</h3>
+              <div class="form-group">
+                <label for="msg-title">Title</label>
+                <input type="text" id="msg-title" placeholder="Sunday Prophetic Service — 12 October">
+              </div>
+              <div class="form-group">
+                <label for="msg-desc">Description</label>
+                <textarea id="msg-desc" rows="3" placeholder="A short note about this message or broadcast."></textarea>
+              </div>
+              <div class="form-group">
+                <label for="msg-link">Link (optional)</label>
+                <input type="url" id="msg-link" placeholder="https://www.youtube.com/watch?v=...">
+              </div>
+              <div class="form-group">
+                <label for="msg-media-select">Attach uploaded audio/video (optional)</label>
+                <select id="msg-media-select">
+                  <option value="">— None —</option>
+                </select>
+                <small>Upload the audio/video file first in the <strong>Media Uploader</strong> tab, then pick it here.</small>
+              </div>
+              <button type="button" class="btn-primary" id="btn-create-message">Add Message</button>
+              <p class="form-note" id="msg-create-note"></p>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Messages (<span id="messages-admin-count">0</span>)</h3>
+              <div id="messages-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
             </div>
           </section>
 
@@ -1607,31 +1733,28 @@
                 <div class="form-group">
                   <label for="field-prayer-email">Recipient Email Address</label>
                   <input type="email" id="field-prayer-email" placeholder="prayerarmyinternational@gmail.com">
-                  <small>Shown as a contact fallback only. Submitted requests are saved in-site — check the "Prayer Requests" tab.</small>
+                  <small>Optional reference only. Prayer requests are saved directly and privately in Supabase now — see the "Submitted Requests" tab — so nothing is emailed automatically.</small>
                 </div>
                 <div class="form-group">
-                  <label for="field-prayer-endpoint">Custom API Webhook / Formspree URL (Optional)</label>
+                  <label for="field-prayer-endpoint">Custom API Webhook / Formspree URL (Optional, unused)</label>
                   <input type="url" id="field-prayer-endpoint" placeholder="https://formspree.io/f/...">
-                  <small>Only needed if you'd rather route requests to your own service instead of saving them here.</small>
+                  <small>No longer used by the live form — requests always save to Supabase so visitors never leave the site. Kept here only in case you want it back.</small>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- 9b. PRAYER REQUESTS INBOX -->
-          <section class="tab-view" id="view-prayer-requests">
+          <!-- SUBMITTED PRAYER REQUESTS VIEW -->
+          <section class="tab-view" id="view-requests">
             <div class="view-header">
-              <h2><span>📥</span> Prayer Requests</h2>
-              <p>Requests people have submitted through the Prayer form on your site.</p>
+              <div class="view-header-text">
+                <h2><span>📨</span> Submitted Requests</h2>
+                <p>Prayer requests visitors submit on the public site. These are private — only visible here,
+                  never on the public website, and never emailed automatically.</p>
+              </div>
             </div>
             <div class="card">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3 class="card-title" style="margin:0;">Submitted Requests</h3>
-                <button type="button" class="btn-secondary" id="btn-refresh-prayer-requests">🔄 Refresh</button>
-              </div>
-              <div id="prayer-requests-list">
-                <p style="color:var(--text-muted);font-size:13px;">Loading…</p>
-              </div>
+              <div id="requests-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
             </div>
           </section>
 
@@ -1639,14 +1762,14 @@
           <section class="tab-view" id="view-banner">
             <div class="view-header">
               <div class="view-header-text">
-                <h2><span>📢</span> Announcement Popup</h2>
+                <h2><span>📢</span> Top Announcement Banner</h2>
                 <p>Display an alert bar at the very top of the website for urgent notices, upcoming conferences, or special events.</p>
               </div>
             </div>
 
             <div class="toggle-row">
               <div class="toggle-info">
-                <strong>Enable Announcement Popup</strong>
+                <strong>Enable Announcement Banner</strong>
                 <p>When enabled, this message displays above the main navigation on every page.</p>
               </div>
               <label class="switch">
