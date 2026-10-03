@@ -39,8 +39,10 @@ const showToast = (message, type = 'success') => {
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => {
     toast.className = '';
-  }, 3500);
+  }, type === 'error' ? 8000 : 3500);
 };
+
+const escAttr = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 // Format bytes
 const formatBytes = (bytes) => {
@@ -723,7 +725,7 @@ const loadMedia = async () => {
         const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'oga', 'flac'].includes(ext);
         media.push({
           filename: obj.name,
-          url: `${SUPABASE_URL}/storage/v1/object/public/media/${obj.name}`,
+          url: `${SUPABASE_URL}/storage/v1/object/public/media/${encodeURIComponent(obj.name)}`,
           type: isVideo ? 'video' : isAudio ? 'audio' : 'image',
           size: obj.metadata?.size || 0,
           isUpload: true
@@ -782,44 +784,44 @@ const renderMediaGrid = () => {
             ? `<video src="${item.url}" preload="metadata" muted playsinline></video>`
             : isAudio
             ? `<div class="media-audio-thumb" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;background:#10131a;">🎙</div>`
-            : `<img src="${item.url}" alt="${item.filename}" loading="lazy">`
+            : `<img src="${escAttr(item.url)}" alt="${escAttr(item.filename)}" loading="lazy">`
           }
           <span class="media-type-badge ${isVideo ? 'video' : ''}">${badgeLabel}</span>
         </div>
         <div class="media-info">
-          <div class="media-filename" title="${item.filename}">${item.filename}</div>
+          <div class="media-filename" title="${escAttr(item.filename)}">${escAttr(item.filename)}</div>
           <div class="media-size">${formatBytes(item.size)} • ${item.isUpload ? 'Uploaded' : 'Church Asset'}</div>
           
           <div class="media-actions">
-            <button type="button" class="btn-media-action btn-copy-url" data-url="${item.url}">
+            <button type="button" class="btn-media-action btn-copy-url" data-url="${escAttr(item.url)}">
               📋 Copy Link
             </button>
             <div class="media-btn-row">
               ${!isAudio ? `
-                <button type="button" class="btn-media-action btn-set-hero" data-url="${item.url}">
+                <button type="button" class="btn-media-action btn-set-hero" data-url="${escAttr(item.url)}">
                   ⚡ Hero
                 </button>
               ` : ''}
               ${!isVideo && !isAudio ? `
-                <button type="button" class="btn-media-action btn-set-logo" data-url="${item.url}">
+                <button type="button" class="btn-media-action btn-set-logo" data-url="${escAttr(item.url)}">
                   🖼 Logo
                 </button>
-                <button type="button" class="btn-media-action btn-set-faith" data-url="${item.url}">
+                <button type="button" class="btn-media-action btn-set-faith" data-url="${escAttr(item.url)}">
                   ✝ Faith
                 </button>
               ` : ''}
               ${isVideo ? `
-                <button type="button" class="btn-media-action btn-set-stream" data-url="${item.url}">
+                <button type="button" class="btn-media-action btn-set-stream" data-url="${escAttr(item.url)}">
                   📡 Stream
                 </button>
               ` : ''}
               ${!isVideo && !isAudio ? `
-                <button type="button" class="btn-media-action btn-set-sermon" data-url="${item.url}">
+                <button type="button" class="btn-media-action btn-set-sermon" data-url="${escAttr(item.url)}">
                   📖 Sermon
                 </button>
               ` : ''}
               ${item.isUpload ? `
-                <button type="button" class="btn-media-action delete btn-del-media" data-filename="${item.filename}">
+                <button type="button" class="btn-media-action delete btn-del-media" data-filename="${escAttr(item.filename)}">
                   🗑
                 </button>
               ` : ''}
@@ -886,22 +888,41 @@ const renderMediaGrid = () => {
   $$('.btn-del-media', mediaGridContainer).forEach(btn => {
     btn.addEventListener('click', async () => {
       const filename = btn.dataset.filename;
-      if (confirm(`Are you sure you want to delete ${filename}?`)) {
-        try {
-          const res = await fetch(`${EDGE_BASE}/delete-media`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-            body: JSON.stringify({ passkey: getPasskey(), filename })
-          });
-          if (res.ok) {
-            showToast('Media file deleted', 'success');
-            loadMedia();
-          } else {
-            showToast('Failed to delete file', 'error');
-          }
-        } catch {
-          showToast('Error deleting file', 'error');
+      if (!confirm(`Delete "${filename}" permanently? This cannot be undone.`)) return;
+
+      const label = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '…';
+      const restore = () => { btn.disabled = false; btn.innerHTML = label; };
+
+      try {
+        const res = await fetch(`${EDGE_BASE}/delete-media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+          body: JSON.stringify({ passkey: getPasskey(), filename })
+        });
+        let data = null;
+        try { data = await res.json(); } catch {}
+
+        if (!res.ok || data?.error || data?.success === false) {
+          const reason = data?.error || data?.message || `server returned ${res.status}`;
+          console.error('delete-media failed', res.status, data);
+          showToast(`Could not delete: ${reason}`, 'error');
+          restore();
+          return;
         }
+
+        // Confirm it is really gone from storage, not just "OK" from the function
+        await loadMedia();
+        if (allMedia.some(m => m.isUpload && m.filename === filename)) {
+          showToast('The server accepted the request but the file is still in storage. Check the delete-media function.', 'error');
+        } else {
+          showToast('Media file deleted', 'success');
+        }
+      } catch (err) {
+        console.error('delete-media network error', err);
+        showToast('Could not reach the delete-media function (network, CORS, or it is not deployed).', 'error');
+        restore();
       }
     });
   });

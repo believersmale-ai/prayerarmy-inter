@@ -118,6 +118,7 @@ const DEFAULT_SETTINGS = {
 
 let currentSettings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 let isManagerAuth = false;
+let sermonUrls = {};
 let triggerLivePlay = () => {}; // wired up inside applySettings once the live video frame exists
 
 // Extract an 11-character YouTube video ID from a watch/live/youtu.be/embed/shorts link
@@ -469,20 +470,12 @@ const applySettings = (s) => {
   if (s.sermons?.featuredTitle && $('#sermons-feat-title')) $('#sermons-feat-title').textContent = s.sermons.featuredTitle;
   if (s.sermons?.featuredDesc && $('#sermons-feat-desc')) $('#sermons-feat-desc').textContent = s.sermons.featuredDesc;
 
-  const sermonsUrl = s.sermons?.libraryUrl || 'https://www.youtube.com/@prophetsugloprosper/videos';
-  const latestSermonUrl = s.sermons?.featuredUrl || sermonsUrl;
-
-  $$('[data-link="sermons"]').forEach(a => {
-    a.href = sermonsUrl;
-    a.target = '_blank';
-    a.rel = 'noopener';
-  });
-
-  $$('[data-link="latestSermon"]').forEach(a => {
-    a.href = latestSermonUrl;
-    a.target = '_blank';
-    a.rel = 'noopener';
-  });
+  sermonUrls = {
+    featured: s.sermons?.featuredUrl || '',
+    mini1: s.sermons?.mini1Url || '',
+    mini2: s.sermons?.mini2Url || '',
+    library: s.sermons?.libraryUrl || ''
+  };
 
   if (s.sermons?.mini1Kicker && $('#mini1-kicker')) $('#mini1-kicker').textContent = s.sermons.mini1Kicker;
   if (s.sermons?.mini1Title && $('#mini1-title')) $('#mini1-title').textContent = s.sermons.mini1Title;
@@ -807,6 +800,95 @@ prayerForm?.addEventListener('submit', async e => {
    Text + optional link + optional uploaded audio/video only, never a
    picture. Visitors can comment and the form never leaves the page.
    ========================================================================= */
+
+/* =========================================================================
+   ON-SITE SERMON PLAYER — every sermon plays here, never on another site.
+   Supports YouTube (video / playlist), Facebook, Vimeo, direct MP4/WebM
+   and MP3/M4A files.
+   ========================================================================= */
+const getPlayable = (url) => {
+  if (!url) return null;
+  const u = String(url).trim();
+  const yt = extractYouTubeId(u);
+  if (yt) return { kind: 'youtube', id: yt };
+  const pl = u.match(/youtube\.com\/(?:playlist|watch)\?[^#]*list=([a-zA-Z0-9_-]+)/);
+  if (pl) return { kind: 'playlist', id: pl[1] };
+  const vm = u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vm) return { kind: 'vimeo', id: vm[1] };
+  if (/(?:facebook\.com|fb\.watch)\//.test(u)) return { kind: 'facebook', url: u };
+  if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(u)) return { kind: 'video', url: u };
+  if (/\.(mp3|m4a|wav|ogg|aac)(\?|#|$)/i.test(u)) return { kind: 'audio', url: u };
+  return null;
+};
+
+const buildPlayerEl = (p, autoplay = true) => {
+  const ap = autoplay ? 1 : 0;
+  const frame = (src) => {
+    const f = document.createElement('iframe');
+    f.src = src; f.title = 'Sermon video'; f.loading = 'lazy';
+    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.allowFullscreen = true; f.referrerPolicy = 'strict-origin-when-cross-origin';
+    return f;
+  };
+  switch (p.kind) {
+    case 'youtube': return frame(`https://www.youtube.com/embed/${p.id}?autoplay=${ap}&rel=0&playsinline=1`);
+    case 'playlist': return frame(`https://www.youtube.com/embed/videoseries?list=${p.id}&autoplay=${ap}&rel=0`);
+    case 'vimeo': return frame(`https://player.vimeo.com/video/${p.id}?autoplay=${ap}`);
+    case 'facebook': return frame(`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(p.url)}&show_text=false&autoplay=${ap}`);
+    case 'video': { const v = document.createElement('video'); v.src = p.url; v.controls = true; v.playsInline = true; v.autoplay = !!ap; return v; }
+    case 'audio': { const a = document.createElement('audio'); a.src = p.url; a.controls = true; a.autoplay = !!ap; return a; }
+  }
+};
+
+const sermonDialog = $('#sermon-player');
+const sermonStage = $('#sp-stage');
+const sermonTitle = $('#sp-title');
+let archiveItems = []; // archive messages that can be played, newest first
+
+const openSermonPlayer = (url, title = '') => {
+  const p = getPlayable(url);
+  if (!p || !sermonDialog) return false;
+  sermonStage.innerHTML = '';
+  sermonStage.className = 'sp-stage sp-' + p.kind;
+  sermonStage.appendChild(buildPlayerEl(p));
+  sermonTitle.textContent = title;
+  if (!sermonDialog.open) sermonDialog.showModal();
+  return true;
+};
+const closeSermonPlayer = () => { if (sermonDialog?.open) sermonDialog.close(); };
+if (sermonDialog) {
+  $('.sp-close', sermonDialog).addEventListener('click', closeSermonPlayer);
+  sermonDialog.addEventListener('click', (e) => { if (e.target === sermonDialog) closeSermonPlayer(); });
+  sermonDialog.addEventListener('close', () => { sermonStage.innerHTML = ''; }); // stops playback
+}
+
+// Which archived sermon backs each card when no link is set in the manager
+const archiveFallback = (slot) => {
+  const idx = { featured: 0, mini1: 1, mini2: 2 }[slot] ?? 0;
+  return archiveItems[idx] || archiveItems[0] || null;
+};
+const scrollToArchive = () => {
+  const el = $('#messages-archive');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('[data-sermon]');
+  if (!trigger) return;
+  e.preventDefault();
+  const slot = trigger.dataset.sermon;
+  if (slot === 'library') {
+    if (!openSermonPlayer(sermonUrls.library, 'Sermon playlist')) scrollToArchive();
+    return;
+  }
+  const title = ({ featured: $('#sermons-feat-title'), mini1: $('#mini1-title'), mini2: $('#mini2-title') }[slot])?.textContent || '';
+  if (openSermonPlayer(sermonUrls[slot], title)) return;
+  const fb = archiveFallback(slot);
+  if (fb && openSermonPlayer(fb.media_url || fb.link, fb.title)) return;
+  scrollToArchive();
+  showToast('This sermon will be available in the archive shortly.', true);
+});
+
 const messagesList = $('#messages-list');
 
 const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({
@@ -837,19 +919,21 @@ const buildMessageCard = (msg) => {
   const mediaTag = msg.media_url
     ? `<${msg.media_type === 'video' ? 'video' : 'audio'} controls preload="none" src="${escapeHtml(msg.media_url)}"></${msg.media_type === 'video' ? 'video' : 'audio'}>`
     : '';
-  const linkTag = msg.link
-    ? `<a class="text-link light-link" href="${escapeHtml(msg.link)}" target="_blank" rel="noopener">Open link <span>→</span></a>`
+  const playable = !msg.media_url ? getPlayable(msg.link) : null;
+  const thumb = playable?.kind === 'youtube' ? `https://img.youtube.com/vi/${playable.id}/hqdefault.jpg` : '';
+  const linkTag = playable
+    ? `<button type="button" class="message-play" aria-label="Play ${escapeHtml(msg.title)}"${thumb ? ` style="background-image:url('${thumb}')"` : ''}><span class="message-play-icon">▶</span></button>`
     : '';
 
   card.innerHTML = `
     <div class="message-card-head">
-      <span class="message-badge${msg.source === 'live' ? ' is-live' : ''}">${msg.source === 'live' ? 'LIVE RECORDING' : 'MESSAGE'}</span>
+      <span class="message-badge${msg.source === 'live' ? ' is-live' : ''}">${msg.source === 'live' ? 'LIVE RECORDING' : 'SERMON'}</span>
       <time datetime="${msg.created_at}">${formatMessageDate(msg.created_at)}</time>
     </div>
     <h4>${escapeHtml(msg.title)}</h4>
     ${msg.description ? `<p>${escapeHtml(msg.description)}</p>` : ''}
-    ${mediaTag}
     ${linkTag}
+    ${mediaTag}
     <div class="message-comments">
       <button type="button" class="message-comments-toggle" aria-expanded="false">
         💬 <span class="comment-count">${(msg.comments || []).length}</span> Comment${(msg.comments || []).length === 1 ? '' : 's'}
@@ -864,6 +948,15 @@ const buildMessageCard = (msg) => {
         </form>
       </div>
     </div>`;
+
+  const playBtn = $('.message-play', card);
+  if (playBtn) playBtn.addEventListener('click', () => {
+    const el = buildPlayerEl(playable);
+    const wrap = document.createElement('div');
+    wrap.className = 'message-embed sp-' + playable.kind;
+    wrap.appendChild(el);
+    playBtn.replaceWith(wrap);
+  });
 
   const toggle = $('.message-comments-toggle', card);
   const body = $('.message-comments-body', card);
@@ -936,12 +1029,25 @@ const loadMessages = async () => {
 
     messagesList.innerHTML = '';
     if (!messages.length) {
-      messagesList.innerHTML = '<p class="messages-empty">No past messages yet — they will appear here after the next live broadcast.</p>';
+      messagesList.innerHTML = '<p class="messages-empty">No archived sermons yet — they appear here after each live service.</p>';
       return;
     }
-    messages.forEach((m) => messagesList.appendChild(buildMessageCard(m)));
+    archiveItems = messages.filter((m) => m.media_url || getPlayable(m.link));
+    const PAGE = 6;
+    let shown = 0;
+    const more = document.createElement('button');
+    more.type = 'button'; more.className = 'btn btn-ghost archive-more';
+    const renderMore = () => {
+      messages.slice(shown, shown + PAGE).forEach((m) => messagesList.insertBefore(buildMessageCard(m), more));
+      shown += PAGE;
+      if (shown >= messages.length) more.remove();
+      else more.textContent = `Show more sermons (${messages.length - shown})`;
+    };
+    messagesList.appendChild(more);
+    more.addEventListener('click', renderMore);
+    renderMore();
   } catch {
-    messagesList.innerHTML = '<p class="messages-empty">Could not load messages right now. Please refresh the page.</p>';
+    messagesList.innerHTML = '<p class="messages-empty">Could not load sermons right now. Please refresh the page.</p>';
   }
 };
 
