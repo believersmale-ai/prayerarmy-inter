@@ -187,18 +187,7 @@ announceBackdrop?.addEventListener('click', closeAnnounce);
 announceClose?.addEventListener('click', closeAnnounce);
 addEventListener('keydown', e => { if (e.key === 'Escape' && announceModal && !announceModal.hidden) closeAnnounce(); });
 
-// Hero photo switcher
-const heroMedia = $('#hero-media'), switchBtns = $$('.hero-switch-btn');
-switchBtns.forEach(btn => btn.addEventListener('click', () => {
-  switchBtns.forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const img = btn.dataset.img, pos = btn.dataset.pos, alt = btn.dataset.alt;
-  if (heroMedia && img) {
-    heroMedia.style.backgroundImage = `url('${img}')`;
-    if (pos) heroMedia.style.backgroundPosition = pos;
-    if (alt) heroMedia.setAttribute('aria-label', alt);
-  }
-}));
+const heroMedia = $('#hero-media');
 
 // Scroll-spy
 const navLinks = $$('.nav a[href^="#"]');
