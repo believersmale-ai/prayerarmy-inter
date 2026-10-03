@@ -425,6 +425,8 @@ const applySettings = (s) => {
   const aFRole = $('#about-founder-role');
 
   if (aEyebrow && s.about?.eyebrow) aEyebrow.textContent = s.about.eyebrow;
+  const aEyebrowMobile = $('#about-eyebrow-mobile');
+  if (aEyebrowMobile) aEyebrowMobile.textContent = s.about?.eyebrow || aEyebrow?.textContent || '';
   if (aHeading && s.about?.heading) {
     // Wrap **text** as a gold accent span. This used to silently discard the
     // accent styling entirely once settings loaded (innerHTML was set to the
