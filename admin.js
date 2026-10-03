@@ -625,20 +625,20 @@ mediaFileInput?.addEventListener('change', () => {
   }
 });
 
-// File Upload Handler (supports multiple pictures & videos)
+// File Upload Handler (supports multiple pictures, videos & audio)
 const handleFileUpload = async (files) => {
   const formData = new FormData();
   let count = 0;
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
-    if (f.type.startsWith('image/') || f.type.startsWith('video/')) {
+    if (f.type.startsWith('image/') || f.type.startsWith('video/') || f.type.startsWith('audio/')) {
       formData.append('files', f);
       count++;
     }
   }
 
   if (count === 0) {
-    showToast('Please select valid image or video files', 'error');
+    showToast('Please select valid image, video, or audio files', 'error');
     return;
   }
 
@@ -720,10 +720,11 @@ const loadMedia = async () => {
         if (!obj.name) continue;
         const ext = obj.name.split('.').pop().toLowerCase();
         const isVideo = ['mp4', 'webm', 'mov', 'ogg', 'm4v'].includes(ext);
+        const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'oga', 'flac'].includes(ext);
         media.push({
           filename: obj.name,
           url: `${SUPABASE_URL}/storage/v1/object/public/media/${obj.name}`,
-          type: isVideo ? 'video' : 'image',
+          type: isVideo ? 'video' : isAudio ? 'audio' : 'image',
           size: obj.metadata?.size || 0,
           isUpload: true
         });
@@ -759,6 +760,8 @@ const renderMediaGrid = () => {
     filtered = allMedia.filter(m => m.type === 'image');
   } else if (currentMediaFilter === 'video') {
     filtered = allMedia.filter(m => m.type === 'video');
+  } else if (currentMediaFilter === 'audio') {
+    filtered = allMedia.filter(m => m.type === 'audio');
   }
 
   mediaCount.textContent = filtered.length;
@@ -770,14 +773,18 @@ const renderMediaGrid = () => {
 
   mediaGridContainer.innerHTML = filtered.map(item => {
     const isVideo = item.type === 'video';
+    const isAudio = item.type === 'audio';
+    const badgeLabel = isVideo ? 'VIDEO' : isAudio ? 'AUDIO' : 'PHOTO';
     return `
       <div class="media-card">
         <div class="media-thumb-wrap">
-          ${isVideo 
+          ${isVideo
             ? `<video src="${item.url}" preload="metadata" muted playsinline></video>`
+            : isAudio
+            ? `<div class="media-audio-thumb" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;background:#10131a;">🎙</div>`
             : `<img src="${item.url}" alt="${item.filename}" loading="lazy">`
           }
-          <span class="media-type-badge ${isVideo ? 'video' : ''}">${isVideo ? 'VIDEO' : 'PHOTO'}</span>
+          <span class="media-type-badge ${isVideo ? 'video' : ''}">${badgeLabel}</span>
         </div>
         <div class="media-info">
           <div class="media-filename" title="${item.filename}">${item.filename}</div>
@@ -788,10 +795,12 @@ const renderMediaGrid = () => {
               📋 Copy Link
             </button>
             <div class="media-btn-row">
-              <button type="button" class="btn-media-action btn-set-hero" data-url="${item.url}">
-                ⚡ Hero
-              </button>
-              ${!isVideo ? `
+              ${!isAudio ? `
+                <button type="button" class="btn-media-action btn-set-hero" data-url="${item.url}">
+                  ⚡ Hero
+                </button>
+              ` : ''}
+              ${!isVideo && !isAudio ? `
                 <button type="button" class="btn-media-action btn-set-logo" data-url="${item.url}">
                   🖼 Logo
                 </button>
@@ -803,11 +812,12 @@ const renderMediaGrid = () => {
                 <button type="button" class="btn-media-action btn-set-stream" data-url="${item.url}">
                   📡 Stream
                 </button>
-              ` : `
+              ` : ''}
+              ${!isVideo && !isAudio ? `
                 <button type="button" class="btn-media-action btn-set-sermon" data-url="${item.url}">
                   📖 Sermon
                 </button>
-              `}
+              ` : ''}
               ${item.isUpload ? `
                 <button type="button" class="btn-media-action delete btn-del-media" data-filename="${item.filename}">
                   🗑

@@ -1135,7 +1135,7 @@
           <span class="badge-pill" id="sidebar-requests-badge" style="display:none">0</span>
         </button>
         <button type="button" class="sidebar-btn" data-view="view-banner">
-          <span>📢</span> Announcement Bar
+          <span>📢</span> Announcement Popup
         </button>
         <button type="button" class="sidebar-btn" data-view="view-social">
           <span>🌐</span> Social Channels
@@ -1233,7 +1233,7 @@
               <p>Supports JPG, PNG, WebP, GIF, MP4, WebM, and MOV files up to 100MB</p>
               <label class="btn-select-files">
                 Browse Files
-                <input type="file" id="media-file-input" multiple accept="image/*,video/*" style="display: none;">
+                <input type="file" id="media-file-input" multiple accept="image/*,video/*,audio/*" style="display: none;">
               </label>
             </div>
 
@@ -1257,6 +1257,7 @@
                   <button type="button" class="media-tab-btn" data-filter="upload">Uploads</button>
                   <button type="button" class="media-tab-btn" data-filter="image">Photos</button>
                   <button type="button" class="media-tab-btn" data-filter="video">Videos</button>
+                  <button type="button" class="media-tab-btn" data-filter="audio">Audio</button>
                 </div>
               </div>
 
@@ -1610,6 +1611,7 @@
                 <div class="form-group">
                   <label for="field-about-heading">Heading</label>
                   <input type="text" id="field-about-heading" placeholder="A people of prayer, faith and purpose.">
+                  <small>Wrap any part in <strong>**double asterisks**</strong> to color it gold, e.g. "A people of **prayer, faith and purpose.**"</small>
                 </div>
               </div>
 
@@ -1762,14 +1764,14 @@
           <section class="tab-view" id="view-banner">
             <div class="view-header">
               <div class="view-header-text">
-                <h2><span>📢</span> Top Announcement Banner</h2>
+                <h2><span>📢</span> Announcement Popup</h2>
                 <p>Display an alert bar at the very top of the website for urgent notices, upcoming conferences, or special events.</p>
               </div>
             </div>
 
             <div class="toggle-row">
               <div class="toggle-info">
-                <strong>Enable Announcement Banner</strong>
+                <strong>Enable Announcement Popup</strong>
                 <p>When enabled, this message displays above the main navigation on every page.</p>
               </div>
               <label class="switch">

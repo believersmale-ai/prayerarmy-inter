@@ -144,6 +144,22 @@ The Live section has a real inline video player, not just a link out:
    the passkey stored in Supabase's `admin_config` table.
 
 
+
+## About & Giving section fixes (this pass)
+- **About heading was silently losing its gold accent.** The code that applied your saved
+  settings had a no-op check (`s.about.heading.includes('<span>') ? ... : ...`) that always
+  took the same branch, so the nice two-tone heading style was wiped out the moment the page
+  loaded real settings. Fixed, and upgraded: the Heading field in the admin now supports
+  `**double asterisks**` around any part of the text to color it gold (safely escaped first,
+  so no raw HTML can be injected through the field).
+- **Giving → Mobile Money box now respects line breaks.** If you type multiple lines in the
+  Mobile Money / Bank Details field (e.g. MTN MoMo on one line, Telecel Cash on the next), they
+  used to run together into one line on the live site. Fixed with `white-space: pre-line`.
+- **Giving section layout hardened for in-between screen widths.** Between roughly 900–1180px
+  wide, the giving text and the "Giving Information" button could get squeezed together with no
+  wrapping. Added `flex-wrap` and sensible flex-basis so it gracefully wraps instead of
+  crowding or overflowing.
+
 ## What changed in this pass
 - **Mobile nav bug fixed** — the slide-out panel was trapped inside the header due to a
   `backdrop-filter` CSS quirk (it creates a containing block for `position:fixed`

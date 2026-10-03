@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS = {
   },
   about: {
     eyebrow: "WELCOME TO PAI",
-    heading: "A people of prayer, faith and purpose.",
+    heading: "A people of **prayer, faith and purpose.**",
     p1: "Prayer Army International is a prophetic church headquartered in the Upper West Region of Ghana and founded by Prophet Suglo Prosper.",
     p2: "The ministry's public identity is centered on prayer, prophetic ministry, worship, teaching and the transformation of lives through the message of Jesus Christ.",
     founderName: "PROPHET SUGLO PROSPER",
@@ -167,28 +167,25 @@ const onScroll = () => header?.classList.toggle('scrolled', scrollY > 30);
 onScroll();
 addEventListener('scroll', onScroll, { passive: true });
 
-// Keep the fixed header (and anchor scrolling) correctly offset below the announcement bar
+// Keep the fixed header correctly offset (used by CSS scroll-margin-top too)
 const syncHeaderOffset = () => {
-  const ab = $('#announcement-bar');
-  const annH = (ab && !ab.hidden) ? ab.offsetHeight : 0;
   const headerH = header ? header.offsetHeight : 78;
-  document.documentElement.style.setProperty('--ann-h', annH + 'px');
-  document.documentElement.style.setProperty('--header-h', (annH + headerH) + 'px');
+  document.documentElement.style.setProperty('--header-h', headerH + 'px');
 };
 addEventListener('resize', syncHeaderOffset);
 addEventListener('load', syncHeaderOffset);
 syncHeaderOffset();
-$('#announcement-close')?.addEventListener('click', () => {
-  const ab = $('#announcement-bar'), abMsg = $('#announcement-msg');
-  if (!ab) return;
-  try { sessionStorage.setItem('pai_announcement_dismissed', (abMsg?.textContent || '').trim()); } catch {}
-  ab.classList.add('closing');
-  setTimeout(() => {
-    ab.hidden = true;
-    ab.classList.remove('closing');
-    syncHeaderOffset();
-  }, 280);
-});
+
+// Announcement popup
+const announceModal = $('#announce-modal'), announceBackdrop = $('#announce-backdrop'), announceClose = $('#announce-modal-close');
+const closeAnnounce = () => {
+  if (!announceModal) return;
+  announceModal.classList.remove('show');
+  setTimeout(() => { announceModal.hidden = true; }, 320);
+};
+announceBackdrop?.addEventListener('click', closeAnnounce);
+announceClose?.addEventListener('click', closeAnnounce);
+addEventListener('keydown', e => { if (e.key === 'Escape' && announceModal && !announceModal.hidden) closeAnnounce(); });
 
 // Hero photo switcher
 const heroMedia = $('#hero-media'), switchBtns = $$('.hero-switch-btn');
@@ -246,20 +243,19 @@ const applySettings = (s) => {
     if (favicon) favicon.href = s.general.logoUrl;
   }
 
-  // Announcement Bar — pops in with an animation; dismissing it is remembered
-  // for this browser session (per message, so a new announcement still shows).
-  const ab = $('#announcement-bar'), abMsg = $('#announcement-msg');
-  if (ab && abMsg) {
-    const text = (s.announcement?.text || '').trim();
-    const dismissedText = sessionStorage.getItem('pai_announcement_dismissed');
-    if (s.announcement?.enabled && text && text !== dismissedText) {
-      abMsg.textContent = text;
-      ab.classList.remove('closing');
-      ab.hidden = false;
-    } else {
-      ab.hidden = true;
+  // Announcement Popup (shows once per session per message, not a persistent bar)
+  const announceModalEl = $('#announce-modal'), announceMsgEl = $('#announce-modal-msg');
+  if (announceModalEl && announceMsgEl) {
+    if (s.announcement?.enabled && s.announcement?.text) {
+      const dismissKey = 'pai_announcement_seen';
+      const alreadySeen = sessionStorage.getItem(dismissKey) === s.announcement.text;
+      announceMsgEl.textContent = s.announcement.text;
+      if (!alreadySeen) {
+        announceModalEl.hidden = false;
+        setTimeout(() => announceModalEl.classList.add('show'), 500);
+        sessionStorage.setItem(dismissKey, s.announcement.text);
+      }
     }
-    syncHeaderOffset();
   }
 
   // Hero Section
@@ -440,7 +436,14 @@ const applySettings = (s) => {
   const aFRole = $('#about-founder-role');
 
   if (aEyebrow && s.about?.eyebrow) aEyebrow.textContent = s.about.eyebrow;
-  if (aHeading && s.about?.heading) aHeading.innerHTML = s.about.heading.includes('<span>') ? s.about.heading : `${s.about.heading}`;
+  if (aHeading && s.about?.heading) {
+    // Wrap **text** as a gold accent span. This used to silently discard the
+    // accent styling entirely once settings loaded (innerHTML was set to the
+    // plain heading text with no way to mark which part gets the color) —
+    // now the admin's Heading field can mark the accented part with **stars**
+    // and it's escaped first, so no raw HTML can be injected through it.
+    aHeading.innerHTML = escapeHtml(s.about.heading).replace(/\*\*(.+?)\*\*/g, '<span>$1</span>');
+  }
   if (aP1 && s.about?.p1) aP1.textContent = s.about.p1;
   if (aP2 && s.about?.p2) aP2.textContent = s.about.p2;
   if (aFName && s.about?.founderName) aFName.textContent = s.about.founderName;
@@ -464,11 +467,9 @@ const applySettings = (s) => {
   if (s.foundation?.storyText && $('#foundation-story-text')) $('#foundation-story-text').textContent = s.foundation.storyText;
   if (s.foundation?.founderBio && $('#foundation-founder-bio')) $('#foundation-founder-bio').textContent = s.foundation.founderBio;
   const faithImg = $('#foundation-faith-image'), faithMediaBox = $('#faith-media');
-  if (s.foundation?.faithImage && faithImg && faithMediaBox) {
-    faithImg.src = s.foundation.faithImage;
+  if (faithImg && faithMediaBox) {
+    if (s.foundation?.faithImage) faithImg.src = s.foundation.faithImage;
     faithMediaBox.style.display = '';
-  } else if (faithMediaBox) {
-    faithMediaBox.style.display = 'none';
   }
 
   // Sermons Section
