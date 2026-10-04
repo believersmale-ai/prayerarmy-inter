@@ -508,7 +508,7 @@ body.manager-mode-active .section-edit-trigger{display:inline-flex}
 .sp-close{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:16px;cursor:pointer;transition:.2s}
 .sp-close:hover{background:var(--gold);color:#111;border-color:var(--gold)}
 .sp-stage,.message-embed{position:relative;width:100%;background:#000}
-.sp-stage.sp-youtube,.sp-stage.sp-playlist,.sp-stage.sp-vimeo,.sp-stage.sp-facebook,.sp-stage.sp-video,
+.sp-stage.sp-channel,.message-embed.sp-channel,.sp-stage.sp-youtube,.sp-stage.sp-playlist,.sp-stage.sp-vimeo,.sp-stage.sp-facebook,.sp-stage.sp-video,
 .message-embed.sp-youtube,.message-embed.sp-playlist,.message-embed.sp-vimeo,.message-embed.sp-facebook,.message-embed.sp-video{aspect-ratio:16/9}
 .sp-stage iframe,.sp-stage video,.message-embed iframe,.message-embed video{position:absolute;inset:0;width:100%;height:100%;border:0;margin:0}
 .sp-stage audio,.message-embed audio{display:block;width:100%;margin:0}
@@ -553,3 +553,6 @@ body.manager-mode-active .section-edit-trigger{display:inline-flex}
   .about-stats{display:none}
   .about-copy .text-link{color:#fff;margin-top:6px}
 }
+
+.message-pending{display:flex;align-items:center;gap:14px;margin:0 0 18px;padding:22px 24px;background:rgba(255,255,255,.04);border-top:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07)}
+.message-pending span{color:var(--gold2);font-size:20px}.message-pending p{margin:0;font-size:14px;color:var(--muted)}

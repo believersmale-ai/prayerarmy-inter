@@ -899,7 +899,7 @@ const renderMediaGrid = () => {
         const res = await fetch(`${EDGE_BASE}/delete-media`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-          body: JSON.stringify({ passkey: getPasskey(), filename })
+          body: JSON.stringify({ passkey: getPasskey(), filename, name: filename, path: filename })
         });
         let data = null;
         try { data = await res.json(); } catch {}
@@ -1048,6 +1048,25 @@ const messagesAdminList = $('#messages-admin-list');
 const messagesAdminCount = $('#messages-admin-count');
 const msgMediaSelect = $('#msg-media-select');
 
+
+// Can this link be played on the public site? (mirrors getPlayable in script.js)
+const isPlayableLink = (url) => {
+  const u = String(url || '').trim();
+  if (!u) return false;
+  return /(?:youtube\.com\/(?:watch\?v=|live\/|embed\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]{11}/.test(u)
+    || /youtube\.com\/(?:playlist|watch)\?[^#]*list=[a-zA-Z0-9_-]+/.test(u)
+    || /vimeo\.com\/(?:video\/)?\d+/.test(u)
+    || /(?:facebook\.com|fb\.watch)\//.test(u)
+    || /\.(mp4|webm|ogv|mov|m4v|mp3|m4a|wav|ogg|aac)(\?|#|$)/i.test(u);
+};
+const askRecordingLink = (current = '') => {
+  const v = prompt(
+    'The live link can only show the CURRENT broadcast. To play the recording on the website, paste the link of the finished recording (YouTube video, Facebook video, Vimeo or an uploaded MP4/MP3 link):',
+    current
+  );
+  return v === null ? null : v.trim();
+};
+
 const callManageContent = async (action, payload = {}) => {
   const res = await fetch(`${EDGE_BASE}/manage-content`, {
     method: 'POST',
@@ -1111,6 +1130,7 @@ const loadMessagesAdmin = async () => {
           ${m.link ? `<p style="font-size:11.5px"><a href="${escapeAdminHtml(m.link)}" target="_blank" rel="noopener" style="color:var(--gold)">${escapeAdminHtml(m.link)}</a></p>` : ''}
           ${m.media_url ? `<p style="font-size:11.5px;color:#8890a0">📎 ${m.media_type || 'media'} attached</p>` : ''}
           <div class="admin-item-actions">
+            ${m.media_url || isPlayableLink(m.link) ? '' : `<button type="button" class="btn-mini btn-fix-link" data-id="${m.id}">⚠ Add recording link</button>`}
             <button type="button" class="btn-mini danger btn-delete-message" data-id="${m.id}">Delete message</button>
           </div>
           ${msgComments.length ? `
@@ -1123,6 +1143,27 @@ const loadMessagesAdmin = async () => {
             </div>` : ''}
         </div>`;
     }).join('');
+
+    $$('.btn-fix-link', messagesAdminList).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const m = messages.find((x) => String(x.id) === btn.dataset.id);
+        if (!m) return;
+        const link = askRecordingLink(m.link || '');
+        if (!link) return;
+        if (!isPlayableLink(link)) { showToast('That link cannot play on the site. Use a YouTube, Facebook or Vimeo video link, or an MP4/MP3 file.', 'error'); return; }
+        if (!confirm('Replace this message with a corrected copy? Its date becomes today and existing comments on it are removed.')) return;
+        btn.disabled = true;
+        try {
+          await callManageContent('create_message', { title: m.title, description: m.description || '', link, media_url: m.media_url || null, media_type: m.media_type || null, source: m.source || 'manual' });
+          await callManageContent('delete_message', { id: m.id });
+          showToast('Recording link saved — it now plays on the website', 'success');
+          loadMessagesAdmin();
+        } catch (err) {
+          showToast(err.message || 'Could not update this message', 'error');
+          btn.disabled = false;
+        }
+      });
+    });
 
     $$('.btn-delete-message', messagesAdminList).forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -1197,9 +1238,16 @@ $('#btn-archive-live')?.addEventListener('click', async () => {
   const btn = $('#btn-archive-live');
   const title = $('#field-live-title')?.value.trim() || 'Live Service Recording';
   const description = $('#field-live-desc')?.value.trim() || '';
-  const link = $('#field-live-url')?.value.trim() || '';
+  let link = $('#field-live-url')?.value.trim() || '';
 
-  if (!confirm('Save this broadcast to the public Messages Archive and go offline now?')) return;
+  if (!confirm('Save this broadcast to the public Sermon Archive and go offline now?')) return;
+
+  // A channel "/live" page cannot be replayed on the site, so ask for the recording link
+  if (!isPlayableLink(link)) {
+    const recording = askRecordingLink('');
+    if (recording === null) return;           // cancelled — nothing saved
+    if (recording) link = recording;
+  }
 
   btn.disabled = true;
   try {
@@ -1207,7 +1255,7 @@ $('#btn-archive-live')?.addEventListener('click', async () => {
     const isLiveField = $('#field-is-live');
     if (isLiveField) isLiveField.checked = false;
     await saveSettings(false);
-    note.textContent = 'Archived — the broadcast now appears in Past Messages, and live status is off.';
+    note.textContent = isPlayableLink(link) ? 'Archived — the broadcast now appears in the Sermon Archive, and live status is off.' : 'Archived without a playable recording link. Use "Fix link" on it in the messages list once the recording is ready.';
     note.className = 'form-note ok';
     showToast('Broadcast archived to Messages', 'success');
     loadMessagesAdmin();

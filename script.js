@@ -811,6 +811,8 @@ const getPlayable = (url) => {
   const u = String(url).trim();
   const yt = extractYouTubeId(u);
   if (yt) return { kind: 'youtube', id: yt };
+  const ch = u.match(/youtube\.com\/channel\/(UC[a-zA-Z0-9_-]{22})\/live/);
+  if (ch) return { kind: 'channel', id: ch[1] };
   const pl = u.match(/youtube\.com\/(?:playlist|watch)\?[^#]*list=([a-zA-Z0-9_-]+)/);
   if (pl) return { kind: 'playlist', id: pl[1] };
   const vm = u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
@@ -832,6 +834,7 @@ const buildPlayerEl = (p, autoplay = true) => {
   };
   switch (p.kind) {
     case 'youtube': return frame(`https://www.youtube.com/embed/${p.id}?autoplay=${ap}&rel=0&playsinline=1`);
+    case 'channel': return frame(`https://www.youtube.com/embed/live_stream?channel=${p.id}&autoplay=${ap}`);
     case 'playlist': return frame(`https://www.youtube.com/embed/videoseries?list=${p.id}&autoplay=${ap}&rel=0`);
     case 'vimeo': return frame(`https://player.vimeo.com/video/${p.id}?autoplay=${ap}`);
     case 'facebook': return frame(`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(p.url)}&show_text=false&autoplay=${ap}`);
@@ -923,7 +926,7 @@ const buildMessageCard = (msg) => {
   const thumb = playable?.kind === 'youtube' ? `https://img.youtube.com/vi/${playable.id}/hqdefault.jpg` : '';
   const linkTag = playable
     ? `<button type="button" class="message-play" aria-label="Play ${escapeHtml(msg.title)}"${thumb ? ` style="background-image:url('${thumb}')"` : ''}><span class="message-play-icon">▶</span></button>`
-    : '';
+    : (!msg.media_url ? `<div class="message-pending"><span>◉</span><p>Recording will be available here soon.</p></div>` : '');
 
   card.innerHTML = `
     <div class="message-card-head">
