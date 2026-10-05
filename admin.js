@@ -835,6 +835,21 @@ const loadMedia = async () => {
       }
     }
 
+    // 3. Which bundled Church Assets have been hidden (can't truly delete a
+    //    file that's baked into the deploy, so "hiding" is the equivalent)
+    try {
+      const hiddenRes = await fetch(`${EDGE_BASE}/manage-content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ action: 'list_hidden_assets' })
+      });
+      if (hiddenRes.ok) {
+        const { filenames } = await hiddenRes.json();
+        const hiddenSet = new Set(filenames || []);
+        media.forEach(m => { if (!m.isUpload && hiddenSet.has(m.filename)) m.hidden = true; });
+      }
+    } catch {}
+
     allMedia = media;
     renderMediaGrid();
     populateMessageMediaSelect();
@@ -857,30 +872,39 @@ mediaFilterButtons.forEach(btn => {
 const renderMediaGrid = () => {
   if (!mediaGridContainer) return;
   
-  let filtered = allMedia;
+  // Hidden Church Assets stay out of every normal view -- they only show up
+  // under the dedicated "Hidden" tab, where they can be restored.
+  const visible = allMedia.filter(m => !m.hidden);
+
+  let filtered = visible;
   if (currentMediaFilter === 'upload') {
-    filtered = allMedia.filter(m => m.isUpload);
+    filtered = visible.filter(m => m.isUpload);
   } else if (currentMediaFilter === 'image') {
-    filtered = allMedia.filter(m => m.type === 'image');
+    filtered = visible.filter(m => m.type === 'image');
   } else if (currentMediaFilter === 'video') {
-    filtered = allMedia.filter(m => m.type === 'video');
+    filtered = visible.filter(m => m.type === 'video');
   } else if (currentMediaFilter === 'audio') {
-    filtered = allMedia.filter(m => m.type === 'audio');
+    filtered = visible.filter(m => m.type === 'audio');
+  } else if (currentMediaFilter === 'hidden') {
+    filtered = allMedia.filter(m => m.hidden);
   }
 
   mediaCount.textContent = filtered.length;
 
   if (filtered.length === 0) {
-    mediaGridContainer.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">No media files found in this category. Use the uploader above to add files.</div>';
+    mediaGridContainer.innerHTML = currentMediaFilter === 'hidden'
+      ? '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">Nothing hidden right now.</div>'
+      : '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">No media files found in this category. Use the uploader above to add files.</div>';
     return;
   }
 
   mediaGridContainer.innerHTML = filtered.map(item => {
     const isVideo = item.type === 'video';
     const isAudio = item.type === 'audio';
+    const isHidden = !!item.hidden;
     const badgeLabel = isVideo ? 'VIDEO' : isAudio ? 'AUDIO' : 'PHOTO';
     return `
-      <div class="media-card">
+      <div class="media-card${isHidden ? ' media-card-hidden' : ''}">
         <div class="media-thumb-wrap">
           ${isVideo
             ? `<video src="${item.url}" preload="metadata" muted playsinline></video>`
@@ -889,6 +913,7 @@ const renderMediaGrid = () => {
             : `<img src="${escAttr(item.url)}" alt="${escAttr(item.filename)}" loading="lazy">`
           }
           <span class="media-type-badge ${isVideo ? 'video' : ''}">${badgeLabel}</span>
+          ${isHidden ? '<span class="media-type-badge" style="left:auto;right:8px;background:#5c1b26">HIDDEN</span>' : ''}
         </div>
         <div class="media-info">
           <div class="media-filename" title="${escAttr(item.filename)}">${escAttr(item.filename)}</div>
@@ -899,34 +924,44 @@ const renderMediaGrid = () => {
               📋 Copy Link
             </button>
             <div class="media-btn-row">
-              ${!isAudio ? `
-                <button type="button" class="btn-media-action btn-set-hero" data-url="${escAttr(item.url)}">
-                  ⚡ Hero
+              ${isHidden ? `
+                <button type="button" class="btn-media-action btn-unhide-asset" data-filename="${escAttr(item.filename)}">
+                  ↺ Unhide
                 </button>
-              ` : ''}
-              ${!isVideo && !isAudio ? `
-                <button type="button" class="btn-media-action btn-set-logo" data-url="${escAttr(item.url)}">
-                  🖼 Logo
-                </button>
-                <button type="button" class="btn-media-action btn-set-faith" data-url="${escAttr(item.url)}">
-                  ✝ Faith
-                </button>
-              ` : ''}
-              ${isVideo ? `
-                <button type="button" class="btn-media-action btn-set-stream" data-url="${escAttr(item.url)}">
-                  📡 Stream
-                </button>
-              ` : ''}
-              ${!isVideo && !isAudio ? `
-                <button type="button" class="btn-media-action btn-set-sermon" data-url="${escAttr(item.url)}">
-                  📖 Sermon
-                </button>
-              ` : ''}
-              ${item.isUpload ? `
-                <button type="button" class="btn-media-action delete btn-del-media" data-filename="${escAttr(item.filename)}">
-                  🗑
-                </button>
-              ` : ''}
+              ` : `
+                ${!isAudio ? `
+                  <button type="button" class="btn-media-action btn-set-hero" data-url="${escAttr(item.url)}">
+                    ⚡ Hero
+                  </button>
+                ` : ''}
+                ${!isVideo && !isAudio ? `
+                  <button type="button" class="btn-media-action btn-set-logo" data-url="${escAttr(item.url)}">
+                    🖼 Logo
+                  </button>
+                  <button type="button" class="btn-media-action btn-set-faith" data-url="${escAttr(item.url)}">
+                    ✝ Faith
+                  </button>
+                ` : ''}
+                ${isVideo ? `
+                  <button type="button" class="btn-media-action btn-set-stream" data-url="${escAttr(item.url)}">
+                    📡 Stream
+                  </button>
+                ` : ''}
+                ${!isVideo && !isAudio ? `
+                  <button type="button" class="btn-media-action btn-set-sermon" data-url="${escAttr(item.url)}">
+                    📖 Sermon
+                  </button>
+                ` : ''}
+                ${item.isUpload ? `
+                  <button type="button" class="btn-media-action delete btn-del-media" data-filename="${escAttr(item.filename)}">
+                    🗑
+                  </button>
+                ` : `
+                  <button type="button" class="btn-media-action delete btn-hide-asset" data-filename="${escAttr(item.filename)}">
+                    🚫 Remove
+                  </button>
+                `}
+              `}
             </div>
           </div>
         </div>
@@ -1025,6 +1060,58 @@ const renderMediaGrid = () => {
         console.error('delete-media network error', err);
         showToast('Could not reach the delete-media function (network, CORS, or it is not deployed).', 'error');
         restore();
+      }
+    });
+  });
+
+  $$('.btn-hide-asset', mediaGridContainer).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const filename = btn.dataset.filename;
+      if (!confirm(`Remove "${filename}" from the Media Library?\n\nThis is a bundled site photo, not an upload, so it can't be permanently deleted -- it will just stop appearing anywhere in the library and won't be selectable for Hero/Logo/Faith/Sermon. You can bring it back later from the "Hidden" tab.`)) return;
+
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${EDGE_BASE}/manage-content`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+          body: JSON.stringify({ passkey: getPasskey(), action: 'hide_asset', payload: { filename } })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.error) {
+          showToast(data?.error || 'Could not hide this file', 'error');
+          btn.disabled = false;
+          return;
+        }
+        showToast('Removed from the Media Library', 'success');
+        await loadMedia();
+      } catch {
+        showToast('Network error while hiding this file', 'error');
+        btn.disabled = false;
+      }
+    });
+  });
+
+  $$('.btn-unhide-asset', mediaGridContainer).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const filename = btn.dataset.filename;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${EDGE_BASE}/manage-content`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+          body: JSON.stringify({ passkey: getPasskey(), action: 'unhide_asset', payload: { filename } })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.error) {
+          showToast(data?.error || 'Could not restore this file', 'error');
+          btn.disabled = false;
+          return;
+        }
+        showToast('Restored to the Media Library', 'success');
+        await loadMedia();
+      } catch {
+        showToast('Network error while restoring this file', 'error');
+        btn.disabled = false;
       }
     });
   });
