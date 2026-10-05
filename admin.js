@@ -44,6 +44,103 @@ const showToast = (message, type = 'success') => {
 
 const escAttr = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
+/* =========================================================================
+   GIVING — structured payment methods editor
+   ========================================================================= */
+let payMethods = [];
+const PAY_TEMPLATES = {
+  momo:   { title: 'Mobile Money',  rows: [['Network', 'MTN Mobile Money'], ['Number', ''], ['Account name', 'Prayer Army International']] },
+  bank:   { title: 'Bank Transfer', rows: [['Bank', ''], ['Account name', 'Prayer Army International'], ['Account number', ''], ['Branch', ''], ['SWIFT / Sort code', '']] },
+  online: { title: 'Online / Card', rows: [['Platform', ''], ['Link', 'https://']] },
+  other:  { title: '',              rows: [['', '']] }
+};
+const PAY_TYPE_NAMES = { momo: 'Mobile Money', bank: 'Bank', online: 'Online', other: 'Other' };
+
+const renderPayEditor = () => {
+  const host = $('#pay-methods-editor');
+  if (!host) return;
+  host.innerHTML = '';
+  if (!payMethods.length) {
+    host.innerHTML = '<p class="pay-help" style="margin-bottom:14px">No payment methods yet — use the buttons below to add one.</p>';
+  }
+  payMethods.forEach((m, mi) => {
+    const box = document.createElement('div');
+    box.className = 'pay-editor';
+    box.innerHTML = `
+      <div class="pay-editor-head">
+        <span class="pay-type-tag">${PAY_TYPE_NAMES[m.type] || 'Other'}</span>
+        <input type="text" class="pay-title" placeholder="Card title, e.g. MTN Mobile Money" value="${escAttr(m.title)}">
+      </div>
+      <div class="pay-rows-host"></div>
+      <div class="pay-editor-tools">
+        <button type="button" class="btn-mini" data-act="row">+ Add line</button>
+        <button type="button" class="btn-mini" data-act="up" ${mi === 0 ? 'disabled' : ''}>↑ Move up</button>
+        <button type="button" class="btn-mini" data-act="down" ${mi === payMethods.length - 1 ? 'disabled' : ''}>↓ Move down</button>
+        <button type="button" class="btn-mini danger" data-act="del">Remove card</button>
+      </div>`;
+    const rowsHost = $('.pay-rows-host', box);
+    m.rows.forEach((r, ri) => {
+      const row = document.createElement('div');
+      row.className = 'pay-editor-row';
+      row.innerHTML = `
+        <input type="text" class="pay-label" placeholder="Label (e.g. Account number)" value="${escAttr(r.label)}">
+        <input type="text" class="pay-value" placeholder="Value" value="${escAttr(r.value)}">
+        <button type="button" class="btn-mini danger" aria-label="Remove line">✕</button>`;
+      $('.pay-label', row).addEventListener('input', (e) => { r.label = e.target.value; });
+      $('.pay-value', row).addEventListener('input', (e) => { r.value = e.target.value; });
+      $('button', row).addEventListener('click', () => { m.rows.splice(ri, 1); renderPayEditor(); });
+      rowsHost.appendChild(row);
+    });
+    $('.pay-title', box).addEventListener('input', (e) => { m.title = e.target.value; });
+    box.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (!act) return;
+      if (act === 'row') m.rows.push({ label: '', value: '' });
+      if (act === 'del') { if (!confirm('Remove this payment card?')) return; payMethods.splice(mi, 1); }
+      if (act === 'up' && mi > 0) [payMethods[mi - 1], payMethods[mi]] = [payMethods[mi], payMethods[mi - 1]];
+      if (act === 'down' && mi < payMethods.length - 1) [payMethods[mi + 1], payMethods[mi]] = [payMethods[mi], payMethods[mi + 1]];
+      renderPayEditor();
+    });
+    host.appendChild(box);
+  });
+  updateConvertButton();
+};
+
+const addPayMethod = (type) => {
+  const t = PAY_TEMPLATES[type] || PAY_TEMPLATES.other;
+  payMethods.push({ type, title: t.title, rows: t.rows.map(([label, value]) => ({ label, value })) });
+  renderPayEditor();
+};
+$$('[data-add-pay]').forEach((b) => b.addEventListener('click', () => addPayMethod(b.dataset.addPay)));
+
+const collectPayMethods = () => payMethods
+  .map((m) => ({
+    type: m.type || 'other',
+    title: (m.title || '').trim(),
+    rows: m.rows
+      .map((r) => ({ label: (r.label || '').trim(), value: (r.value || '').trim() }))
+      .filter((r) => r.value && r.value !== 'https://')
+  }))
+  .filter((m) => m.rows.length);
+
+// Turn old free-text ("MTN Momo : 0592…\nBANK DETAILS: 105…") into editable cards
+const updateConvertButton = () => {
+  const btn = $('#btn-convert-momo');
+  if (btn) btn.hidden = !($('#field-give-momo')?.value.trim() && !payMethods.length);
+};
+$('#field-give-momo')?.addEventListener('input', updateConvertButton);
+$('#btn-convert-momo')?.addEventListener('click', () => {
+  const lines = $('#field-give-momo').value.split('\n').map((l) => l.trim()).filter(Boolean);
+  const rows = lines.map((line) => {
+    const i = line.indexOf(':');
+    return i > 0 && i < 32 ? { label: line.slice(0, i).trim(), value: line.slice(i + 1).trim() } : { label: '', value: line };
+  });
+  payMethods.push({ type: 'momo', title: 'Mobile Money & Bank', rows });
+  $('#field-give-momo').value = '';
+  renderPayEditor();
+  showToast('Converted — review the card, split it into Mobile Money / Bank cards if you like, then Save', 'success');
+});
+
 // Format bytes
 const formatBytes = (bytes) => {
   if (!bytes || bytes === 0) return '0 B';
@@ -256,6 +353,9 @@ const populateForm = (s) => {
   $('#field-give-info').value = s.giving?.info || '';
   $('#field-give-momo').value = s.giving?.momo || '';
   $('#field-give-link').value = s.giving?.link || '';
+  $('#field-give-note').value = s.giving?.note || '';
+  payMethods = JSON.parse(JSON.stringify(s.giving?.methods || [])).map((m) => ({ type: m.type || 'other', title: m.title || '', rows: (m.rows || []).map((r) => ({ label: r.label || '', value: r.value || '' })) }));
+  renderPayEditor();
 
   // Prayer
   $('#field-prayer-eyebrow').value = s.prayer?.eyebrow || '';
@@ -383,7 +483,9 @@ const collectFormData = () => {
       heading: $('#field-give-heading').value.trim(),
       info: $('#field-give-info').value.trim(),
       momo: $('#field-give-momo').value.trim(),
-      link: $('#field-give-link').value.trim()
+      link: $('#field-give-link').value.trim(),
+      note: $('#field-give-note').value.trim(),
+      methods: collectPayMethods()
     },
     contact: {
       address: $('#field-contact-address').value.trim(),

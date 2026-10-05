@@ -93,7 +93,9 @@ const DEFAULT_SETTINGS = {
     heading: "Support the work.",
     info: "Your giving and partnership help carry the message of Jesus Christ, sustain prayer ministry and reach more people across the Upper West Region and beyond. Every seed is received with gratitude.",
     momo: "",
-    link: ""
+    link: "",
+    note: "",
+    methods: []
   },
   contact: {
     address: "Headquarters: Upper West Region, Ghana",
@@ -514,10 +516,14 @@ const applySettings = (s) => {
   if (s.giving?.heading && $('#give-heading')) $('#give-heading').textContent = s.giving.heading;
   if (s.giving?.info && $('#give-info-text')) $('#give-info-text').textContent = s.giving.info;
 
+  const payCount = renderPayMethods(s.giving?.methods, s.giving?.note);
+
   const momoBox = $('#give-momo-box'), momoText = $('#give-momo-text');
   if (momoBox && momoText) {
     if (s.giving?.momo) {
       momoText.textContent = s.giving.momo;
+      const badge = $('#give-momo-badge');
+      if (badge) badge.textContent = payCount ? 'ADDITIONAL DETAILS' : 'MOBILE MONEY / PARTNERSHIP';
       momoBox.hidden = false;
     } else {
       momoBox.hidden = true;
@@ -530,10 +536,13 @@ const applySettings = (s) => {
       giveBtn.href = s.giving.link;
       giveBtn.target = '_blank';
       giveBtn.rel = 'noopener';
+      giveBtn.innerHTML = 'Give online <span>→</span>';
+      giveBtn.hidden = false;
     } else {
       giveBtn.href = '#footer';
       giveBtn.removeAttribute('target');
       giveBtn.removeAttribute('rel');
+      giveBtn.hidden = payCount > 0 || !!s.giving?.momo; // the cards already carry the info
     }
   }
 
@@ -891,6 +900,82 @@ document.addEventListener('click', (e) => {
   scrollToArchive();
   showToast('This sermon will be available in the archive shortly.', true);
 });
+
+/* ---------- Giving: payment method cards ---------- */
+const PAY_ICONS = {
+  momo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></svg>',
+  bank: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></svg>',
+  online: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></svg>',
+  other: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.7a4.3 4.3 0 0 1 7.5 2.8c0 5.4-7.5 10-7.5 10z"/></svg>'
+};
+const PAY_TYPE_LABEL = { momo: 'Mobile Money', bank: 'Bank Transfer', online: 'Online', other: 'Other' };
+const COPY_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
+const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+const copyText = async (text) => {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch {}
+  ta.remove(); return ok;
+};
+
+const renderPayMethods = (methods = [], note = '') => {
+  const grid = $('#pay-grid'), noteEl = $('#pay-note');
+  if (!grid) return 0;
+  const valid = (Array.isArray(methods) ? methods : []).filter((m) => m && Array.isArray(m.rows) && m.rows.some((r) => r?.value));
+  grid.innerHTML = '';
+  valid.forEach((m) => {
+    const type = PAY_ICONS[m.type] ? m.type : 'other';
+    const card = document.createElement('article');
+    card.className = 'pay-card';
+    const head = document.createElement('div');
+    head.className = 'pay-head';
+    head.innerHTML = `<span class="pay-icon">${PAY_ICONS[type]}</span><div><small></small><h3></h3></div>`;
+    head.querySelector('small').textContent = PAY_TYPE_LABEL[type];
+    head.querySelector('h3').textContent = m.title || PAY_TYPE_LABEL[type];
+    card.appendChild(head);
+
+    const dl = document.createElement('dl');
+    dl.className = 'pay-rows';
+    m.rows.filter((r) => r?.value).forEach((r) => {
+      const row = document.createElement('div');
+      row.className = 'pay-row';
+      const dt = document.createElement('dt'); dt.textContent = r.label || '';
+      const dd = document.createElement('dd');
+      const isUrl = /^https?:\/\//i.test(r.value);
+      if (isUrl) {
+        const a = document.createElement('a');
+        a.href = r.value; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.className = 'pay-link'; a.textContent = 'Open payment page →';
+        dd.appendChild(a);
+      } else {
+        const v = document.createElement('span'); v.className = 'pay-value'; v.textContent = r.value;
+        dd.appendChild(v);
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'pay-copy';
+        btn.setAttribute('aria-label', `Copy ${r.label || 'value'}`); btn.innerHTML = COPY_SVG;
+        btn.addEventListener('click', async () => {
+          if (await copyText(r.value)) {
+            btn.innerHTML = CHECK_SVG; btn.classList.add('done');
+            showToast(`${r.label || 'Details'} copied`);
+            setTimeout(() => { btn.innerHTML = COPY_SVG; btn.classList.remove('done'); }, 1800);
+          }
+        });
+        dd.appendChild(btn);
+      }
+      if (r.label) row.appendChild(dt);
+      row.appendChild(dd);
+      dl.appendChild(row);
+    });
+    card.appendChild(dl);
+    grid.appendChild(card);
+  });
+  grid.hidden = !valid.length;
+  if (noteEl) { noteEl.textContent = note || ''; noteEl.hidden = !(valid.length && note); }
+  return valid.length;
+};
 
 const messagesList = $('#messages-list');
 

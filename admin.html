@@ -1034,6 +1034,18 @@
       .main-area { padding: 20px 16px; }
       .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
     }
+  
+    .pay-help{font-size:12.5px;color:var(--text-muted);margin:0 0 16px;line-height:1.6}
+    .pay-editor{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.025);padding:16px;margin-bottom:14px;border-radius:6px}
+    .pay-editor-head{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .pay-editor-head .pay-type-tag{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);flex:none}
+    .pay-editor-head input{flex:1;min-width:0}
+    .pay-editor-row{display:grid;grid-template-columns:.8fr 1.4fr auto;gap:8px;margin-bottom:8px}
+    .pay-editor-row button{padding:0 10px}
+    .pay-editor-tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+    .pay-add-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .pay-add-row span{font-size:12px;font-weight:700;color:#ccd4e0}
+    @media(max-width:640px){.pay-editor-row{grid-template-columns:1fr 1fr}.pay-editor-row button{grid-column:1/-1}}
   </style>
 </head>
 <body>
@@ -1675,7 +1687,7 @@
             <div class="view-header">
               <div class="view-header-text">
                 <h2><span>💛</span> Giving & Mobile Money Partnership</h2>
-                <p>Update Mobile Money details (MTN MoMo, Telecel Cash), bank details, and online seed portals.</p>
+                <p>Manage Mobile Money, bank transfer and online giving details shown on the website.</p>
               </div>
             </div>
 
@@ -1692,15 +1704,32 @@
               </div>
 
               <div class="form-group">
-                <label for="field-give-momo">Mobile Money & Bank Account Details</label>
-                <textarea id="field-give-momo" rows="3" placeholder="MTN MoMo: 024XXXXXXX (Name: Prayer Army) / Telecel Cash: 020XXXXXXX"></textarea>
-                <small>This displays in a golden partnership card on the giving section of the website.</small>
-              </div>
-
-              <div class="form-group">
                 <label for="field-give-link">Online Giving URL (Paystack, Flutterwave, PayPal, etc.)</label>
                 <input type="url" id="field-give-link" placeholder="https://...">
               </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Payment Methods</h3>
+              <p class="pay-help">Each method shows as its own card on the website, with a copy button beside every number. Add as many as you need — Mobile Money, bank accounts, online/card, or anything else.</p>
+              <div id="pay-methods-editor"></div>
+              <div class="pay-add-row">
+                <span>Add:</span>
+                <button type="button" class="btn-mini" data-add-pay="momo">+ Mobile Money</button>
+                <button type="button" class="btn-mini" data-add-pay="bank">+ Bank Transfer</button>
+                <button type="button" class="btn-mini" data-add-pay="online">+ Online / Card</button>
+                <button type="button" class="btn-mini" data-add-pay="other">+ Other</button>
+              </div>
+              <div class="form-group" style="margin-top:22px">
+                <label for="field-give-note">Note under the cards (optional)</label>
+                <input type="text" id="field-give-note" placeholder="Please use your name as the payment reference. God bless you.">
+              </div>
+              <div class="form-group">
+                <label for="field-give-momo">Extra details — free text (optional)</label>
+                <textarea id="field-give-momo" rows="3" placeholder="Anything else visitors should know about giving"></textarea>
+                <small>Shown in a small golden box below the cards. This is also where your older payment text lives.</small>
+              </div>
+              <button type="button" class="btn-mini" id="btn-convert-momo" hidden>↻ Convert my existing text into payment cards</button>
             </div>
           </section>
 
