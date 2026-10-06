@@ -929,38 +929,38 @@ const renderMediaGrid = () => {
                   ↺ Unhide
                 </button>
               ` : `
-                ${!isAudio ? `
-                  <button type="button" class="btn-media-action btn-set-hero" data-url="${escAttr(item.url)}">
-                    ⚡ Hero
-                  </button>
-                ` : ''}
-                ${!isVideo && !isAudio ? `
-                  <button type="button" class="btn-media-action btn-set-logo" data-url="${escAttr(item.url)}">
-                    🖼 Logo
-                  </button>
-                  <button type="button" class="btn-media-action btn-set-faith" data-url="${escAttr(item.url)}">
-                    ✝ Faith
-                  </button>
-                ` : ''}
-                ${isVideo ? `
-                  <button type="button" class="btn-media-action btn-set-stream" data-url="${escAttr(item.url)}">
-                    📡 Stream
-                  </button>
-                ` : ''}
-                ${!isVideo && !isAudio ? `
-                  <button type="button" class="btn-media-action btn-set-sermon" data-url="${escAttr(item.url)}">
-                    📖 Sermon
-                  </button>
-                ` : ''}
-                ${item.isUpload ? `
-                  <button type="button" class="btn-media-action delete btn-del-media" data-filename="${escAttr(item.filename)}">
-                    🗑
-                  </button>
-                ` : `
-                  <button type="button" class="btn-media-action delete btn-hide-asset" data-filename="${escAttr(item.filename)}">
-                    🚫 Remove
-                  </button>
-                `}
+              ${!isAudio ? `
+                <button type="button" class="btn-media-action btn-set-hero" data-url="${escAttr(item.url)}">
+                  ⚡ Hero
+                </button>
+              ` : ''}
+              ${!isVideo && !isAudio ? `
+                <button type="button" class="btn-media-action btn-set-logo" data-url="${escAttr(item.url)}">
+                  🖼 Logo
+                </button>
+                <button type="button" class="btn-media-action btn-set-faith" data-url="${escAttr(item.url)}">
+                  ✝ Faith
+                </button>
+              ` : ''}
+              ${isVideo ? `
+                <button type="button" class="btn-media-action btn-set-stream" data-url="${escAttr(item.url)}">
+                  📡 Stream
+                </button>
+              ` : ''}
+              ${!isVideo && !isAudio ? `
+                <button type="button" class="btn-media-action btn-set-sermon" data-url="${escAttr(item.url)}">
+                  📖 Sermon
+                </button>
+              ` : ''}
+              ${item.isUpload ? `
+                <button type="button" class="btn-media-action delete btn-del-media" data-filename="${escAttr(item.filename)}">
+                  🗑
+                </button>
+              ` : `
+                <button type="button" class="btn-media-action delete btn-hide-asset" data-filename="${escAttr(item.filename)}">
+                  🚫 Remove
+                </button>
+              `}
               `}
             </div>
           </div>
