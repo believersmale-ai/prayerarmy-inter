@@ -10,9 +10,17 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#0b101b">
   <link rel="icon" type="image/png" href="assets/images/prayer-army-logo.png" id="site-favicon">
-  <meta property="og:type" content="website"><meta property="og:title" content="Prayer Army International">
-  <meta property="og:description" content="Raising Generals, Transforming Generations — a prophetic church in the Upper West Region of Ghana, founded by Prophet Suglo Prosper.">
-  <meta property="og:image" content="assets/images/FB_IMG_1790281482379.jpg"><meta name="twitter:card" content="summary_large_image">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Prayer Army International">
+  <meta property="og:url" content="https://prayerarmy-inter.vercel.app/">
+  <meta property="og:title" content="Prayer Army International | Raising Generals, Transforming Generations">
+  <meta property="og:description" content="A prophetic church in the Upper West Region of Ghana, founded by Prophet Suglo Prosper. Watch sermons, join live services and send your prayer requests.">
+  <meta property="og:image" content="https://prayerarmy-inter.vercel.app/assets/images/FB_IMG_1790281482379.jpg">
+  <meta property="og:image:alt" content="Prayer Army International congregation at worship">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Prayer Army International">
+  <meta name="twitter:description" content="Raising Generals, Transforming Generations.">
+  <meta name="twitter:image" content="https://prayerarmy-inter.vercel.app/assets/images/FB_IMG_1790281482379.jpg">
   <link rel="preload" as="image" href="assets/images/FB_IMG_1790281482379.jpg">
   <link rel="stylesheet" href="styles.css">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Church","name":"Prayer Army International","founder":{"@type":"Person","name":"Prophet Suglo Prosper"},"address":{"@type":"PostalAddress","addressRegion":"Upper West Region","addressCountry":"GH"},"slogan":"Raising Generals, Transforming Generations"}</script>
@@ -182,6 +190,7 @@
           <div class="messages-archive-head">
             <h3>Sermon archive</h3>
             <p>Every past message and live service is kept here. Press play to watch or listen without leaving the site.</p>
+            <label class="archive-search"><span class="sr-only">Search sermons</span><input type="search" id="messages-search" placeholder="Search sermons by title or topic…" autocomplete="off"></label>
           </div>
           <div class="messages-list" id="messages-list">
             <p class="messages-empty">Loading sermons…</p>
@@ -276,6 +285,52 @@
           <label class="check"><input type="checkbox" name="private"> Keep this request confidential</label>
           <button class="btn btn-dark" type="submit">Submit Prayer Request <span>→</span></button>
           <p class="form-note" id="prayer-note" role="status"></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="section testimonies" id="testimonies">
+      <div class="container reveal">
+        <div class="section-head">
+          <div><p class="eyebrow dark">WHAT GOD HAS DONE</p><h2>Testimonies of <span>God's faithfulness</span></h2></div>
+          <p class="section-sub">Healings, breakthroughs, answered prayers. Read what the Lord is doing in our midst, and share yours.</p>
+        </div>
+        <div class="testimonies-grid" id="testimonies-list"><p class="messages-empty" style="color:var(--soft)">Loading testimonies…</p></div>
+        <details class="share-testimony" id="share-testimony">
+          <summary class="btn btn-dark">Share your testimony <span>→</span></summary>
+          <form class="prayer-form" id="testimony-form">
+            <div class="form-row"><label>Name<input name="name" required maxlength="80" autocomplete="name" placeholder="Your name"></label><label>Town / Country<input name="location" maxlength="80" placeholder="Optional"></label></div>
+            <label>Your testimony<textarea name="testimony" required minlength="10" maxlength="1500" rows="6" placeholder="Tell us what God has done…"></textarea></label>
+            <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button class="btn btn-dark" type="submit">Submit testimony <span>→</span></button>
+            <p class="form-note" id="testimony-note" role="status">Testimonies are reviewed before they appear on the site.</p>
+          </form>
+        </details>
+      </div>
+    </section>
+
+    <section class="section connect" id="connect">
+      <div class="container prayer-grid reveal">
+        <div class="prayer-copy">
+          <p class="eyebrow dark">NEW HERE? LET'S CONNECT</p>
+          <h2>We would love to <span>meet you.</span></h2>
+          <p>Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.</p>
+        </div>
+        <form class="prayer-form" id="connect-form">
+          <label>How can we help?
+            <select name="kind" required>
+              <option value="visitor">I'm new / visiting</option>
+              <option value="volunteer">I want to volunteer (choir, ushers, media, children…)</option>
+              <option value="counseling">I'd like counseling or a pastoral appointment</option>
+              <option value="other">Something else</option>
+            </select>
+          </label>
+          <div class="form-row"><label>Name<input name="name" required maxlength="120" autocomplete="name" placeholder="Your name"></label><label>Phone / WhatsApp<input name="phone" maxlength="40" autocomplete="tel" placeholder="e.g. 024 000 0000"></label></div>
+          <label>Email<input name="email" type="email" maxlength="160" autocomplete="email" placeholder="Optional if you gave a phone number"></label>
+          <label>Anything we should know?<textarea name="note" rows="3" maxlength="2000" placeholder="Optional"></textarea></label>
+          <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn btn-dark" type="submit">Send <span>→</span></button>
+          <p class="form-note" id="connect-note" role="status"></p>
         </form>
       </div>
     </section>

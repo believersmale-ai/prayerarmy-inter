@@ -180,6 +180,8 @@ const showDashboard = () => {
   loadMedia();
   loadMessagesAdmin();
   loadPrayerRequests();
+  loadConnectAdmin();
+  loadTestimoniesAdmin();
 };
 
 togglePwBtn?.addEventListener('click', () => {
@@ -1609,6 +1611,87 @@ const loadPrayerRequests = async () => {
     });
   } catch (err) {
     requestsAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load prayer requests. Is the manage-content Edge Function deployed?</p>';
+  }
+};
+
+
+/* =========================================================================
+   NEW VISITORS / VOLUNTEERS + TESTIMONIES (admin)
+   ========================================================================= */
+const KIND_LABEL = { visitor: 'New visitor', volunteer: 'Volunteer', counseling: 'Counseling', other: 'Other' };
+const setBadge = (el, n) => { if (el) { el.style.display = n ? 'inline-block' : 'none'; el.textContent = n; } };
+
+const loadConnectAdmin = async () => {
+  const box = $('#connect-admin-list');
+  if (!box) return;
+  try {
+    const { requests } = await callManageContent('list_connect_requests');
+    setBadge($('#sidebar-connect-badge'), requests.filter((r) => !r.is_contacted).length);
+    if (!requests.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">Nobody has used the form yet.</p>'; return; }
+    box.innerHTML = requests.map((r) => {
+      const tel = (r.phone || '').replace(/[^\d+]/g, '');
+      const wa = tel ? `https://wa.me/${tel.replace(/^\+/, '').replace(/^0/, '233')}` : '';
+      return `
+      <div class="admin-item${r.is_contacted ? '' : ' unread'}" data-id="${r.id}">
+        <div class="admin-item-head">
+          <h4>${escapeAdminHtml(r.name)} <span class="req-badge">${KIND_LABEL[r.kind] || 'Other'}</span></h4>
+          <time>${new Date(r.created_at).toLocaleString()}</time>
+        </div>
+        ${r.note ? `<p>${escapeAdminHtml(r.note)}</p>` : ''}
+        <p style="font-size:12.5px;color:#8890a0">${r.phone ? `📞 ${escapeAdminHtml(r.phone)}` : ''} ${r.email ? `✉ ${escapeAdminHtml(r.email)}` : ''}</p>
+        <div class="admin-item-actions">
+          ${wa ? `<a class="btn-mini" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+          ${r.phone ? `<a class="btn-mini" href="tel:${escapeAdminHtml(tel)}">Call</a>` : ''}
+          <button type="button" class="btn-mini btn-contacted" data-id="${r.id}" data-done="${r.is_contacted}">${r.is_contacted ? 'Mark not contacted' : 'Mark contacted'}</button>
+          <button type="button" class="btn-mini danger btn-del-connect" data-id="${r.id}">Delete</button>
+        </div>
+      </div>`;
+    }).join('');
+    $$('.btn-contacted', box).forEach((b) => b.addEventListener('click', async () => {
+      try { await callManageContent('mark_connect_contacted', { id: b.dataset.id, is_contacted: b.dataset.done !== 'true' }); loadConnectAdmin(); }
+      catch (err) { showToast(err.message || 'Could not update', 'error'); }
+    }));
+    $$('.btn-del-connect', box).forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('Delete this entry permanently?')) return;
+      try { await callManageContent('delete_connect_request', { id: b.dataset.id }); loadConnectAdmin(); }
+      catch (err) { showToast(err.message || 'Could not delete', 'error'); }
+    }));
+  } catch {
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load this list. Is the manage-content function deployed?</p>';
+  }
+};
+
+const loadTestimoniesAdmin = async () => {
+  const box = $('#testimonies-admin-list');
+  if (!box) return;
+  try {
+    const { testimonies } = await callManageContent('list_testimonies');
+    setBadge($('#sidebar-testimonies-badge'), testimonies.filter((t) => !t.is_approved).length);
+    if (!testimonies.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">No testimonies submitted yet.</p>'; return; }
+    box.innerHTML = testimonies.map((t) => `
+      <div class="admin-item${t.is_approved ? '' : ' unread'}" data-id="${t.id}">
+        <div class="admin-item-head">
+          <h4>${escapeAdminHtml(t.name)}${t.location ? ` <span style="font-weight:500;color:#8890a0;font-size:12px">· ${escapeAdminHtml(t.location)}</span>` : ''}
+            <span class="req-badge" style="${t.is_approved ? 'background:#1f4d2e;color:#a7f3c0' : ''}">${t.is_approved ? 'Published' : 'Awaiting approval'}</span></h4>
+          <time>${new Date(t.created_at).toLocaleString()}</time>
+        </div>
+        <p>${escapeAdminHtml(t.testimony)}</p>
+        <div class="admin-item-actions">
+          <button type="button" class="btn-mini btn-approve" data-id="${t.id}" data-ok="${t.is_approved}">${t.is_approved ? 'Unpublish' : 'Approve & publish'}</button>
+          <button type="button" class="btn-mini danger btn-del-testimony" data-id="${t.id}">Delete</button>
+        </div>
+      </div>`).join('');
+    $$('.btn-approve', box).forEach((b) => b.addEventListener('click', async () => {
+      try { await callManageContent('set_testimony_approved', { id: b.dataset.id, is_approved: b.dataset.ok !== 'true' }); loadTestimoniesAdmin(); }
+      catch (err) { showToast(err.message || 'Could not update', 'error'); }
+    }));
+    $$('.btn-del-testimony', box).forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('Delete this testimony permanently?')) return;
+      try { await callManageContent('delete_testimony', { id: b.dataset.id }); loadTestimoniesAdmin(); }
+      catch (err) { showToast(err.message || 'Could not delete', 'error'); }
+    }));
+  } catch {
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load testimonies. Is the manage-content function deployed?</p>';
   }
 };
 

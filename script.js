@@ -231,9 +231,68 @@ const safeUrl = (u) => {
 };
 
 /* =========================================================================
+   SHARE + ADD-TO-CALENDAR HELPERS
+   ========================================================================= */
+const SITE_ORIGIN = location.origin && location.origin.startsWith('http') ? location.origin : 'https://prayerarmy-inter.vercel.app';
+
+const shareContent = async (title, text, url) => {
+  const full = `${text}\n${url}`;
+  if (navigator.share) {
+    try { await navigator.share({ title, text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(full)}`, '_blank', 'noopener');
+};
+
+const icsEscape = (v) => String(v || '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+const icsDate = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const downloadIcs = (filename, { title, description, location: where, start, end, rrule }) => {
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Prayer Army International//Website//EN', 'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${Date.now()}-${Math.random().toString(36).slice(2, 8)}@prayerarmy-inter`,
+    `DTSTAMP:${icsDate(new Date())}`,
+    `DTSTART:${icsDate(start)}`,
+    `DTEND:${icsDate(end)}`,
+    rrule ? `RRULE:${rrule}` : '',
+    `SUMMARY:${icsEscape(title)}`,
+    description ? `DESCRIPTION:${icsEscape(description)}` : '',
+    where ? `LOCATION:${icsEscape(where)}` : '',
+    'BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(title)}`, 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR'
+  ].filter(Boolean).join('\r\n');
+  const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
+// "8:00 AM – 11:00 AM", "6pm", "18:30-20:00" -> {sh,sm,eh,em} (Ghana time = UTC)
+const parseTimeRange = (str) => {
+  const re = /(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?/gi;
+  const hits = [];
+  let m;
+  while ((m = re.exec(String(str || ''))) && hits.length < 2) {
+    hits.push({ h: Number(m[1]), min: Number(m[2] || 0), ap: (m[3] || '').toLowerCase().replace(/\./g, '') });
+  }
+  if (!hits.length || hits.some(t => t.h > 24 || t.min > 59)) return null;
+  if (hits[1] && !hits[0].ap && hits[1].ap) hits[0].ap = hits[1].ap;
+  const to24 = ({ h, min, ap }) => {
+    let hh = h % 12; if (!ap) hh = h; else if (ap === 'pm') hh += 12;
+    return [hh % 24, min];
+  };
+  const [sh, sm] = to24(hits[0]);
+  let [eh, em] = hits[1] ? to24(hits[1]) : [(sh + 1) % 24, sm];
+  if (eh * 60 + em <= sh * 60 + sm) { eh = (sh + 2) % 24; em = sm; }
+  return { sh, sm, eh, em };
+};
+
+/* =========================================================================
    ROLLING EVENTS + WEEKLY ACTIVITIES
    ========================================================================= */
-const eventsState = { index: 0, count: 0, timer: null, paused: false };
+const eventsState = { index: 0, count: 0, timer: null, paused: false, list: [] };
+const weeklyState = { items: [] };
 const DAY_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const buildEventList = (s) => {
@@ -296,6 +355,10 @@ const renderEvents = (s) => {
     const btn = link
       ? `<a class="btn btn-dark" href="${escapeHtml(link)}" target="_blank" rel="noopener">View Event <span>→</span></a>`
       : `<a class="btn btn-dark" href="#prayer">View Event <span>→</span></a>`;
+    const canCal = !isNaN(new Date(ev.start || ''));
+    const actions = `<div class="event-actions">${btn}
+        ${canCal ? `<button type="button" class="chip-btn" data-ev-action="calendar" data-i="${i}">＋ Add to calendar</button>` : ''}
+        <button type="button" class="chip-btn" data-ev-action="share" data-i="${i}">Share</button></div>`;
     const image = escapeHtml(ev.image || '');
     const poster = image
       ? `<div class="event-poster"><img loading="${i ? 'lazy' : 'eager'}" decoding="async" src="${image}" alt="${escapeHtml(ev.title)} poster"></div>`
@@ -310,11 +373,12 @@ const renderEvents = (s) => {
           ${ev.dates ? `<p>${escapeHtml(ev.dates)}</p>` : ''}
           ${hasDates ? `<div class="countdown" role="timer" aria-live="off" data-start="${escapeHtml(ev.start)}" data-end="${escapeHtml(ev.end || '')}"></div>` : ''}
           ${ev.description ? `<p class="muted">${escapeHtml(ev.description)}</p>` : ''}
-          ${btn}
+          ${actions}
         </div>
       </article>`;
   }).join('');
 
+  eventsState.list = list;
   eventsState.count = list.length;
   const controls = $('#events-controls'), dots = $('#events-dots');
   if (controls) controls.hidden = list.length < 2;
@@ -331,6 +395,39 @@ const wireEventsUI = () => {
   const rolling = $('#events-rolling');
   if (!rolling || rolling.dataset.bound) return;
   rolling.dataset.bound = '1';
+  $('#events-track')?.addEventListener('click', e => {
+    const b = e.target.closest('[data-ev-action]');
+    if (!b) return;
+    const ev = eventsState.list[Number(b.dataset.i)];
+    if (!ev) return;
+    if (b.dataset.evAction === 'share') {
+      shareContent(ev.title, `${ev.title}${ev.dates ? ' — ' + ev.dates : ''} | Prayer Army International`, `${SITE_ORIGIN}/#events`);
+    } else {
+      const start = new Date(ev.start);
+      let end = new Date(ev.end || '');
+      if (isNaN(end) || end <= start) end = new Date(start.getTime() + 2 * 36e5);
+      downloadIcs(ev.title, { title: ev.title, description: ev.description, start, end, location: 'Prayer Army International' });
+    }
+  });
+  $('#weekly-grid')?.addEventListener('click', e => {
+    const b = e.target.closest('[data-wk-i]');
+    if (!b) return;
+    const a = weeklyState.items[Number(b.dataset.wkI)];
+    const t = a && parseTimeRange(a.time);
+    if (!t) return;
+    const now = new Date();
+    const everyDay = a.day === 'Every day';
+    const dayIdx = everyDay ? now.getUTCDay() : DAY_ORDER.indexOf(a.day);
+    const diff = (dayIdx - now.getUTCDay() + 7) % 7;
+    const d = (h, m) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff, h, m));
+    const start = d(t.sh, t.sm);
+    let end = d(t.eh, t.em);
+    if (end <= start) end = new Date(start.getTime() + 36e5);
+    downloadIcs(a.title, {
+      title: a.title, description: a.description, location: a.location || 'Prayer Army International', start, end,
+      rrule: everyDay ? 'FREQ=DAILY' : `FREQ=WEEKLY;BYDAY=${['SU','MO','TU','WE','TH','FR','SA'][dayIdx]}`
+    });
+  });
   $('#events-prev')?.addEventListener('click', () => goToEvent(eventsState.index - 1, { user: true }));
   $('#events-next')?.addEventListener('click', () => goToEvent(eventsState.index + 1, { user: true }));
   $('#events-dots')?.addEventListener('click', e => {
@@ -366,6 +463,7 @@ const renderWeekly = (s) => {
   const idx = (d) => { const i = DAY_ORDER.indexOf(d); return i === -1 ? 7 : i; };
   items.sort((a, b) => idx(a.day) - idx(b.day) || String(a.time || '').localeCompare(String(b.time || '')));
   const today = DAY_ORDER[new Date().getDay()];
+  weeklyState.items = items;
   grid.innerHTML = items.map(a => {
     const isToday = a.day === today || a.day === 'Every day';
     return `
@@ -378,6 +476,7 @@ const renderWeekly = (s) => {
         <h4>${escapeHtml(a.title)}</h4>
         ${a.description ? `<p>${escapeHtml(a.description)}</p>` : ''}
         ${a.location ? `<span class="weekly-where">${escapeHtml(a.location)}</span>` : ''}
+        ${parseTimeRange(a.time) && (DAY_ORDER.includes(a.day) || a.day === 'Every day') ? `<button type="button" class="chip-btn" data-wk-i="${items.indexOf(a)}">＋ Add to calendar</button>` : ''}
       </article>`;
   }).join('');
   wrap.hidden = false;
@@ -1166,6 +1265,7 @@ const buildMessageCard = (msg) => {
     ${msg.description ? `<p>${escapeHtml(msg.description)}</p>` : ''}
     ${linkTag}
     ${mediaTag}
+    <div class="share-actions"><button type="button" class="chip-btn" data-share-msg>Share</button></div>
     <div class="message-comments">
       <button type="button" class="message-comments-toggle" aria-expanded="false">
         💬 <span class="comment-count">${(msg.comments || []).length}</span> Comment${(msg.comments || []).length === 1 ? '' : 's'}
@@ -1180,6 +1280,10 @@ const buildMessageCard = (msg) => {
         </form>
       </div>
     </div>`;
+
+  $('[data-share-msg]', card)?.addEventListener('click', () => {
+    shareContent(msg.title, `${msg.title} | Prayer Army International`, `${SITE_ORIGIN}/?m=${msg.id}#sermons`);
+  });
 
   const playBtn = $('.message-play', card);
   if (playBtn) playBtn.addEventListener('click', () => {
@@ -1244,7 +1348,7 @@ const loadMessages = async () => {
   if (!messagesList) return;
   try {
     const [msgRes, commentRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=created_at.desc&limit=25`, {
+      fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=created_at.desc&limit=200`, {
         headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
       }),
       fetch(`${SUPABASE_URL}/rest/v1/message_comments?select=*&order=created_at.asc`, {
@@ -1266,22 +1370,128 @@ const loadMessages = async () => {
     }
     archiveItems = messages.filter((m) => m.media_url || getPlayable(m.link));
     const PAGE = 6;
-    let shown = 0;
-    const more = document.createElement('button');
-    more.type = 'button'; more.className = 'btn btn-ghost archive-more';
-    const renderMore = () => {
-      messages.slice(shown, shown + PAGE).forEach((m) => messagesList.insertBefore(buildMessageCard(m), more));
-      shown += PAGE;
-      if (shown >= messages.length) more.remove();
-      else more.textContent = `Show more sermons (${messages.length - shown})`;
+    let revealUpTo = () => {};
+    const renderList = (list) => {
+      messagesList.innerHTML = '';
+      if (!list.length) {
+        messagesList.innerHTML = '<p class="messages-empty">No sermons match your search.</p>';
+        revealUpTo = () => {};
+        return;
+      }
+      let shown = 0;
+      const more = document.createElement('button');
+      more.type = 'button'; more.className = 'btn btn-ghost archive-more';
+      const renderMore = () => {
+        list.slice(shown, shown + PAGE).forEach((m) => messagesList.insertBefore(buildMessageCard(m), more));
+        shown += PAGE;
+        if (shown >= list.length) more.remove();
+        else more.textContent = `Show more sermons (${list.length - shown})`;
+      };
+      messagesList.appendChild(more);
+      more.addEventListener('click', renderMore);
+      renderMore();
+      revealUpTo = (idx) => { while (shown <= idx && shown < list.length) renderMore(); };
     };
-    messagesList.appendChild(more);
-    more.addEventListener('click', renderMore);
-    renderMore();
+    renderList(messages);
+
+    const searchInput = $('#messages-search');
+    if (searchInput && !searchInput.dataset.bound) {
+      searchInput.dataset.bound = '1';
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        renderList(q ? messages.filter((m) => `${m.title} ${m.description || ''}`.toLowerCase().includes(q)) : messages);
+      });
+    }
+
+    // Shared link: /?m=<id>#sermons opens straight to that sermon
+    const wanted = new URLSearchParams(location.search).get('m');
+    const wantedIdx = wanted ? messages.findIndex((m) => m.id === wanted) : -1;
+    if (wantedIdx > -1) {
+      revealUpTo(wantedIdx);
+      const target = messagesList.querySelector(`[data-id="${CSS.escape(wanted)}"]`);
+      if (target) setTimeout(() => {
+        target.classList.add('is-target');
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 400);
+    }
   } catch {
     messagesList.innerHTML = '<p class="messages-empty">Could not load sermons right now. Please refresh the page.</p>';
   }
 };
 
 loadMessages();
+
+/* =========================================================================
+   TESTIMONIES (approved ones are public) + CONNECT FORM + TESTIMONY FORM
+   ========================================================================= */
+const testimoniesList = $('#testimonies-list');
+const loadTestimonies = async () => {
+  if (!testimoniesList) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/testimonies?select=id,name,location,testimony,created_at&order=created_at.desc&limit=12`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    if (!res.ok) throw 0;
+    const rows = await res.json();
+    if (!rows.length) {
+      testimoniesList.innerHTML = '<p class="messages-empty" style="color:var(--soft)">No testimonies yet. Be the first to share what God has done for you.</p>';
+      return;
+    }
+    testimoniesList.innerHTML = rows.map((t) => `
+      <figure class="testimony-card">
+        <blockquote>${escapeHtml(t.testimony)}</blockquote>
+        <figcaption><strong>${escapeHtml(t.name)}</strong>${t.location ? escapeHtml(t.location) : ''}</figcaption>
+      </figure>`).join('');
+  } catch {
+    testimoniesList.innerHTML = '<p class="messages-empty" style="color:var(--soft)">Testimonies could not load right now.</p>';
+  }
+};
+loadTestimonies();
+
+// Shared submit helper for the two public forms (direct, RLS-protected inserts)
+const wirePublicForm = (formSel, noteSel, table, toRow, okMessage, after) => {
+  const form = $(formSel), note = $(noteSel);
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    if (data.website) { form.reset(); return; } // honeypot: bots fill this, people never see it
+    const btn = $('button[type=submit]', form);
+    const restore = btn.innerHTML;
+    btn.disabled = true; btn.classList.add('loading');
+    try {
+      const row = toRow(data);
+      if (!row) throw new Error('missing');
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: 'return=minimal' },
+        body: JSON.stringify(row)
+      });
+      if (!res.ok) throw new Error('rejected');
+      form.reset();
+      note.textContent = okMessage;
+      note.className = 'form-note ok';
+      if (after) after();
+    } catch (err) {
+      note.textContent = err.message === 'missing'
+        ? 'Please add a phone number or an email so we can reach you.'
+        : 'Sorry, that did not go through. Please try again in a moment.';
+      note.className = 'form-note err';
+    }
+    btn.disabled = false; btn.classList.remove('loading'); btn.innerHTML = restore;
+  });
+};
+
+wirePublicForm('#testimony-form', '#testimony-note', 'testimonies',
+  (d) => ({ name: (d.name || '').trim().slice(0, 80), location: (d.location || '').trim().slice(0, 80) || null, testimony: (d.testimony || '').trim().slice(0, 1500) }),
+  'Thank you for sharing! Your testimony will appear once it has been reviewed.');
+
+wirePublicForm('#connect-form', '#connect-note', 'connect_requests',
+  (d) => {
+    const phone = (d.phone || '').trim(), email = (d.email || '').trim();
+    if (!phone && !email) return null;
+    return { name: (d.name || '').trim().slice(0, 120), phone: phone.slice(0, 40) || null, email: email.slice(0, 160) || null,
+      kind: ['visitor', 'volunteer', 'counseling', 'other'].includes(d.kind) ? d.kind : 'visitor', note: (d.note || '').trim().slice(0, 2000) || null };
+  },
+  'Thank you! Someone from the ministry will be in touch with you soon.');
 
