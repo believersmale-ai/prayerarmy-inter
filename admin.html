@@ -1178,6 +1178,9 @@
           <span>🕊</span> Testimonies
           <span class="badge-pill" id="sidebar-testimonies-badge" style="display:none">0</span>
         </button>
+        <button type="button" class="sidebar-btn" data-view="view-extras">
+          <span>📖</span> Verse &amp; Branches
+        </button>
         <button type="button" class="sidebar-btn" data-view="view-banner">
           <span>📢</span> Announcement Popup
         </button>
@@ -1343,6 +1346,11 @@
                   <option value="">— None —</option>
                 </select>
                 <small>Upload the audio/video file first in the <strong>Media Uploader</strong> tab, then pick it here.</small>
+              </div>
+              <div class="form-group">
+                <label for="msg-notes">Sermon notes link (optional, PDF or document)</label>
+                <input type="url" id="msg-notes" placeholder="https://drive.google.com/...">
+                <small>Upload the notes to Google Drive (set to "anyone with the link"), then paste the link. It shows as a "Sermon notes" button.</small>
               </div>
               <button type="button" class="btn-primary" id="btn-create-message">Add Message</button>
               <p class="form-note" id="msg-create-note"></p>
@@ -1834,6 +1842,36 @@
             </div>
             <div class="card">
               <div id="requests-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
+            </div>
+          </section>
+
+          <section class="tab-view" id="view-extras">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>📖</span> Verse &amp; Branches</h2>
+                <p>A daily verse on the homepage, your branch locations, and the podcast feed for your audio sermons.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Verse of the Day</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 16px;">The site shows one verse per day and cycles through this list in order. Leave the list empty to hide the verse section.</p>
+              <div id="verses-editor"></div>
+              <button type="button" class="btn-mini" id="btn-add-verse">＋ Add verse</button>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Branches &amp; Locations</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 16px;">Each branch gets a card with service times, a "Get directions" button and a "Call" button. The section stays hidden until you add one.</p>
+              <div id="branches-editor"></div>
+              <button type="button" class="btn-mini" id="btn-add-branch">＋ Add branch</button>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Podcast Feed</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 12px;">Every sermon with an uploaded <strong>audio</strong> file is published automatically. Paste this link into Spotify for Podcasters, Apple Podcasts Connect or any podcast app.</p>
+              <div class="form-group"><input type="text" id="podcast-feed-url" readonly></div>
+              <button type="button" class="btn-mini" id="btn-copy-feed">Copy link</button>
             </div>
           </section>
 

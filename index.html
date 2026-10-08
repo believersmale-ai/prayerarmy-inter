@@ -82,6 +82,14 @@
       </div>
     </section>
 
+    <section class="verse-band" id="verse" hidden>
+      <div class="container verse-inner reveal">
+        <p class="verse-kicker">Verse of the day</p>
+        <blockquote id="verse-text"></blockquote>
+        <div class="verse-foot"><cite id="verse-ref"></cite><button type="button" class="chip-btn" id="verse-share">Share</button></div>
+      </div>
+    </section>
+
     <section class="section about" id="about">
       <div class="container about-grid reveal">
         <div class="about-photo">
@@ -191,6 +199,7 @@
             <h3>Sermon archive</h3>
             <p>Every past message and live service is kept here. Press play to watch or listen without leaving the site.</p>
             <label class="archive-search"><span class="sr-only">Search sermons</span><input type="search" id="messages-search" placeholder="Search sermons by title or topic…" autocomplete="off"></label>
+            <p class="podcast-line">🎧 Prefer to listen on your phone? <button type="button" class="link-btn" id="copy-podcast-feed">Copy our podcast feed link</button> and paste it into Spotify, Apple Podcasts or any podcast app.</p>
           </div>
           <div class="messages-list" id="messages-list">
             <p class="messages-empty">Loading sermons…</p>
@@ -355,6 +364,16 @@
         </div>
       </div>
     </section>
+    <section class="section locations" id="locations" hidden>
+      <div class="container reveal">
+        <div class="section-head">
+          <div><p class="eyebrow dark">VISIT US</p><h2>Our <span>locations</span></h2></div>
+          <p class="section-sub">Find the branch nearest to you, with service times and directions.</p>
+        </div>
+        <div class="locations-grid" id="locations-grid"></div>
+      </div>
+    </section>
+
     <section class="section contact dark-section" id="contact">
       <div class="container contact-wrap">
         <div class="section-head light">

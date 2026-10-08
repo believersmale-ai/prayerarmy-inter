@@ -363,6 +363,59 @@ $('#btn-add-weekly')?.addEventListener('click', () => {
   });
 });
 
+const DEFAULT_VERSES = [
+  { text: 'The LORD is my shepherd; I shall not want.', ref: 'Psalm 23:1' },
+  { text: 'I can do all things through Christ which strengtheneth me.', ref: 'Philippians 4:13' },
+  { text: 'Trust in the LORD with all thine heart; and lean not unto thine own understanding.', ref: 'Proverbs 3:5' },
+  { text: 'Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.', ref: 'Joshua 1:9' },
+  { text: 'Pray without ceasing.', ref: '1 Thessalonians 5:17' },
+  { text: 'Call unto me, and I will answer thee, and shew thee great and mighty things, which thou knowest not.', ref: 'Jeremiah 33:3' },
+  { text: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.', ref: 'John 3:16' }
+];
+
+const verseRowHtml = (v = {}) => `
+  <div class="repeat-row">
+    <div class="repeat-row-head"><span>Verse</span><button type="button" class="btn-mini danger btn-remove-row">Remove</button></div>
+    <div class="form-group"><label>Verse text</label><textarea class="vs-text" rows="2">${escAttr(v.text)}</textarea></div>
+    <div class="form-group"><label>Reference</label><input type="text" class="vs-ref" value="${escAttr(v.ref)}" placeholder="Psalm 23:1"></div>
+  </div>`;
+const branchRowHtml = (b = {}) => `
+  <div class="repeat-row">
+    <div class="repeat-row-head"><span>Branch</span><button type="button" class="btn-mini danger btn-remove-row">Remove</button></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Branch name</label><input type="text" class="br-name" value="${escAttr(b.name)}" placeholder="Headquarters, Wa"></div>
+      <div class="form-group"><label>Phone</label><input type="text" class="br-phone" value="${escAttr(b.phone)}" placeholder="024 000 0000"></div>
+    </div>
+    <div class="form-group"><label>Address</label><input type="text" class="br-address" value="${escAttr(b.address)}" placeholder="Street, town, region"></div>
+    <div class="form-group"><label>Service times</label><textarea class="br-times" rows="2" placeholder="Sunday 8:00 AM&#10;Wednesday 6:00 PM">${escAttr(b.times)}</textarea></div>
+    <div class="form-group"><label>Google Maps link (optional, otherwise built from the address)</label><input type="url" class="br-map" value="${escAttr(b.map)}" placeholder="https://maps.google.com/..."></div>
+  </div>`;
+
+const renderExtrasEditors = (s) => {
+  const vb = $('#verses-editor'), bb = $('#branches-editor');
+  const verses = Array.isArray(s.verses) ? s.verses : DEFAULT_VERSES;
+  if (vb) vb.innerHTML = verses.map(verseRowHtml).join('');
+  if (bb) bb.innerHTML = (Array.isArray(s.branches) ? s.branches : []).map(branchRowHtml).join('');
+  const feed = $('#podcast-feed-url');
+  if (feed) feed.value = `${SUPABASE_URL}/functions/v1/podcast-feed`;
+};
+const collectVerseRows = () => $$('#verses-editor .repeat-row').map(r => ({ text: $('.vs-text', r).value.trim(), ref: $('.vs-ref', r).value.trim() })).filter(v => v.text);
+const collectBranchRows = () => $$('#branches-editor .repeat-row').map(r => ({
+  name: $('.br-name', r).value.trim(), phone: $('.br-phone', r).value.trim(), address: $('.br-address', r).value.trim(),
+  times: $('.br-times', r).value.trim(), map: $('.br-map', r).value.trim()
+})).filter(b => b.name);
+
+$('#btn-add-verse')?.addEventListener('click', () => { $('#verses-editor')?.insertAdjacentHTML('beforeend', verseRowHtml({})); $('#verses-editor .repeat-row:last-child .vs-text')?.focus(); });
+$('#btn-add-branch')?.addEventListener('click', () => { $('#branches-editor')?.insertAdjacentHTML('beforeend', branchRowHtml({})); $('#branches-editor .repeat-row:last-child .br-name')?.focus(); });
+['#verses-editor', '#branches-editor'].forEach(sel => $(sel)?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-remove-row');
+  if (btn && confirm('Remove this entry? (It is only removed from the site after you click Save Changes.)')) btn.closest('.repeat-row')?.remove();
+}));
+$('#btn-copy-feed')?.addEventListener('click', async () => {
+  const v = $('#podcast-feed-url')?.value || '';
+  try { await navigator.clipboard.writeText(v); showToast('Podcast feed link copied', 'success'); } catch { $('#podcast-feed-url')?.select(); }
+});
+
 const populateForm = (s) => {
   // Live Broadcast
   const isLive = Boolean(s.live?.isLiveNow);
@@ -426,6 +479,7 @@ const populateForm = (s) => {
   $('#field-event-link').value = s.event?.link || '';
   $('#field-event-caption').value = s.event?.stackCaption || '';
   renderEventEditors(s);
+  renderExtrasEditors(s);
 
   // About & Foundation
   $('#field-about-eyebrow').value = s.about?.eyebrow || '';
@@ -567,6 +621,8 @@ const collectFormData = () => {
     },
     events: collectEventRows(),
     weekly: collectWeeklyRows(),
+    verses: collectVerseRows(),
+    branches: collectBranchRows(),
     prayer: {
       eyebrow: $('#field-prayer-eyebrow').value.trim(),
       heading: $('#field-prayer-heading').value.trim(),
@@ -1415,6 +1471,7 @@ const loadMessagesAdmin = async () => {
           ${m.link ? `<p style="font-size:11.5px"><a href="${escapeAdminHtml(m.link)}" target="_blank" rel="noopener" style="color:var(--gold)">${escapeAdminHtml(m.link)}</a></p>` : ''}
           ${m.media_url ? `<p style="font-size:11.5px;color:#8890a0">📎 ${m.media_type || 'media'} attached</p>` : ''}
           <div class="admin-item-actions">
+            <button type="button" class="btn-mini btn-edit-notes" data-id="${m.id}">${m.notes_url ? '📎 Change notes link' : '📎 Add notes link'}</button>
             ${m.media_url || isPlayableLink(m.link) ? '' : `<button type="button" class="btn-mini btn-fix-link" data-id="${m.id}">⚠ Add recording link</button>`}
             <button type="button" class="btn-mini danger btn-delete-message" data-id="${m.id}">Delete message</button>
           </div>
@@ -1429,6 +1486,19 @@ const loadMessagesAdmin = async () => {
         </div>`;
     }).join('');
 
+    $$('.btn-edit-notes', messagesAdminList).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const m = messages.find((x) => String(x.id) === btn.dataset.id);
+        if (!m) return;
+        const val = window.prompt('Paste the sermon notes link (leave empty to remove it):', m.notes_url || '');
+        if (val === null) return;
+        const url = val.trim();
+        if (url && !/^https?:\/\//i.test(url)) { showToast('Please paste a full link starting with https://', 'error'); return; }
+        try { await callManageContent('update_message', { id: m.id, notes_url: url }); showToast('Notes link saved', 'success'); loadMessagesAdmin(); }
+        catch (err) { showToast(err.message || 'Could not save the link', 'error'); }
+      });
+    });
+
     $$('.btn-fix-link', messagesAdminList).forEach((btn) => {
       btn.addEventListener('click', async () => {
         const m = messages.find((x) => String(x.id) === btn.dataset.id);
@@ -1436,11 +1506,9 @@ const loadMessagesAdmin = async () => {
         const link = askRecordingLink(m.link || '');
         if (!link) return;
         if (!isPlayableLink(link)) { showToast('That link cannot play on the site. Use a YouTube, Facebook or Vimeo video link, or an MP4/MP3 file.', 'error'); return; }
-        if (!confirm('Replace this message with a corrected copy? Its date becomes today and existing comments on it are removed.')) return;
         btn.disabled = true;
         try {
-          await callManageContent('create_message', { title: m.title, description: m.description || '', link, media_url: m.media_url || null, media_type: m.media_type || null, source: m.source || 'manual' });
-          await callManageContent('delete_message', { id: m.id });
+          await callManageContent('update_message', { id: m.id, link });
           showToast('Recording link saved — it now plays on the website', 'success');
           loadMessagesAdmin();
         } catch (err) {
@@ -1490,6 +1558,7 @@ $('#btn-create-message')?.addEventListener('click', async () => {
   const title = $('#msg-title').value.trim();
   const description = $('#msg-desc').value.trim();
   const link = $('#msg-link').value.trim();
+  const notes_url = $('#msg-notes')?.value.trim() || '';
   const selectedOpt = msgMediaSelect?.selectedOptions?.[0];
   const media_url = msgMediaSelect?.value || '';
   const media_type = media_url ? (selectedOpt?.dataset.kind || 'video') : '';
@@ -1500,12 +1569,13 @@ $('#btn-create-message')?.addEventListener('click', async () => {
 
   btn.disabled = true;
   try {
-    await callManageContent('create_message', { title, description, link, media_url, media_type, source: 'manual' });
+    await callManageContent('create_message', { title, description, link, media_url, media_type, notes_url, source: 'manual' });
     note.textContent = 'Message added.';
     note.className = 'form-note ok';
     $('#msg-title').value = '';
     $('#msg-desc').value = '';
     $('#msg-link').value = '';
+    if ($('#msg-notes')) $('#msg-notes').value = '';
     if (msgMediaSelect) msgMediaSelect.value = '';
     loadMessagesAdmin();
   } catch (err) {

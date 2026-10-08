@@ -112,6 +112,16 @@ const DEFAULT_SETTINGS = {
     whatsapp: "https://wa.me/233241234567",
     telegram: ""
   },
+  verses: [
+    { text: "The LORD is my shepherd; I shall not want.", ref: "Psalm 23:1" },
+    { text: "I can do all things through Christ which strengtheneth me.", ref: "Philippians 4:13" },
+    { text: "Trust in the LORD with all thine heart; and lean not unto thine own understanding.", ref: "Proverbs 3:5" },
+    { text: "Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.", ref: "Joshua 1:9" },
+    { text: "Pray without ceasing.", ref: "1 Thessalonians 5:17" },
+    { text: "Call unto me, and I will answer thee, and shew thee great and mighty things, which thou knowest not.", ref: "Jeremiah 33:3" },
+    { text: "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.", ref: "John 3:16" }
+  ],
+  branches: [],
   announcement: {
     enabled: false,
     text: "Join our upcoming prophetic services and prayer gatherings. Raising Generals, Transforming Generations!"
@@ -389,6 +399,43 @@ const renderEvents = (s) => {
   goToEvent(Math.min(eventsState.index, list.length - 1));
   restartEventsAutoplay();
   updateCountdown();
+};
+
+const renderVerse = (s) => {
+  const band = $('#verse');
+  if (!band) return;
+  const list = (Array.isArray(s.verses) ? s.verses : []).filter(v => v && v.text);
+  if (!list.length) { band.hidden = true; return; }
+  const n = new Date();
+  const dayOfYear = Math.floor((Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()) - Date.UTC(n.getUTCFullYear(), 0, 0)) / 864e5);
+  const v = list[dayOfYear % list.length];
+  $('#verse-text').textContent = `“${v.text}”`;
+  $('#verse-ref').textContent = v.ref || '';
+  band.hidden = false;
+  const btn = $('#verse-share');
+  if (btn) btn.onclick = () => shareContent('Verse of the day', `“${v.text}” — ${v.ref || ''}`, SITE_ORIGIN + '/');
+};
+
+const renderLocations = (s) => {
+  const sec = $('#locations'), grid = $('#locations-grid');
+  if (!sec || !grid) return;
+  const list = (Array.isArray(s.branches) ? s.branches : []).filter(b => b && b.name);
+  if (!list.length) { sec.hidden = true; return; }
+  grid.innerHTML = list.map(b => {
+    const map = safeUrl(b.map) || (b.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address)}` : '');
+    const tel = String(b.phone || '').replace(/[^\d+]/g, '');
+    return `
+      <article class="location-card">
+        <h3>${escapeHtml(b.name)}</h3>
+        ${b.address ? `<p>${escapeHtml(b.address)}</p>` : ''}
+        ${b.times ? `<p class="location-times">${escapeHtml(b.times)}</p>` : ''}
+        <div class="location-actions">
+          ${map ? `<a class="chip-btn" href="${escapeHtml(map)}" target="_blank" rel="noopener">Get directions</a>` : ''}
+          ${tel ? `<a class="chip-btn" href="tel:${escapeHtml(tel)}">Call</a>` : ''}
+        </div>
+      </article>`;
+  }).join('');
+  sec.hidden = false;
 };
 
 const wireEventsUI = () => {
@@ -750,6 +797,8 @@ const applySettings = (s) => {
   wireEventsUI();
   renderEvents(s);
   renderWeekly(s);
+  renderVerse(s);
+  renderLocations(s);
 
   if (countdownTimer) clearInterval(countdownTimer);
   countdownTimer = setInterval(updateCountdown, 3e4);
@@ -1265,7 +1314,7 @@ const buildMessageCard = (msg) => {
     ${msg.description ? `<p>${escapeHtml(msg.description)}</p>` : ''}
     ${linkTag}
     ${mediaTag}
-    <div class="share-actions"><button type="button" class="chip-btn" data-share-msg>Share</button></div>
+    <div class="share-actions"><button type="button" class="chip-btn" data-share-msg>Share</button>${safeUrl(msg.notes_url) ? `<a class="chip-btn" href="${escapeHtml(safeUrl(msg.notes_url))}" target="_blank" rel="noopener">Sermon notes</a>` : ''}</div>
     <div class="message-comments">
       <button type="button" class="message-comments-toggle" aria-expanded="false">
         💬 <span class="comment-count">${(msg.comments || []).length}</span> Comment${(msg.comments || []).length === 1 ? '' : 's'}
@@ -1495,3 +1544,10 @@ wirePublicForm('#connect-form', '#connect-note', 'connect_requests',
   },
   'Thank you! Someone from the ministry will be in touch with you soon.');
 
+
+// Podcast feed link
+$('#copy-podcast-feed')?.addEventListener('click', async () => {
+  const feed = `${SUPABASE_URL}/functions/v1/podcast-feed`;
+  try { await navigator.clipboard.writeText(feed); showToast('Podcast feed link copied. Paste it into your podcast app.'); }
+  catch { window.prompt('Copy this podcast feed link:', feed); }
+});
