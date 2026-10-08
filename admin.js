@@ -271,6 +271,96 @@ const loadSettings = async () => {
   }
 };
 
+
+/* =========================================================================
+   EVENTS (rolling) + WEEKLY ACTIVITIES EDITORS
+   ========================================================================= */
+const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Every day'];
+const isoToLocalValue = (iso) => { try { return new Date(iso).toISOString().slice(0, 16); } catch { return ''; } };
+const localValueToIso = (v) => (v ? new Date(v + ':00Z').toISOString() : '');
+
+const eventRowHtml = (ev = {}) => `
+  <div class="repeat-row" data-kind="event">
+    <div class="repeat-row-head"><span>Event</span><button type="button" class="btn-mini danger btn-remove-row">Remove</button></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Title</label><input type="text" class="ev-title" value="${escAttr(ev.title)}" placeholder="Youth Revival Night"></div>
+      <div class="form-group"><label>Display dates text</label><input type="text" class="ev-dates" value="${escAttr(ev.dates)}" placeholder="Fri 12 December 2026, 6:00 PM"></div>
+    </div>
+    <div class="form-group"><label>Description</label><textarea class="ev-desc" rows="2">${escAttr(ev.description)}</textarea></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Starts (countdown)</label><input type="datetime-local" class="ev-start" value="${escAttr(isoToLocalValue(ev.start))}"></div>
+      <div class="form-group"><label>Ends (hides after this)</label><input type="datetime-local" class="ev-end" value="${escAttr(isoToLocalValue(ev.end))}"></div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Registration / flyer link (optional)</label><input type="url" class="ev-link" value="${escAttr(ev.link)}" placeholder="https://..."></div>
+      <div class="form-group"><label>Poster image (pick from library or paste a URL)</label><input type="text" class="ev-image" list="event-image-options" value="${escAttr(ev.image)}" placeholder="assets/images/..."></div>
+    </div>
+  </div>`;
+
+const weeklyRowHtml = (a = {}) => `
+  <div class="repeat-row" data-kind="weekly">
+    <div class="repeat-row-head"><span>Weekly activity</span><button type="button" class="btn-mini danger btn-remove-row">Remove</button></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Day</label><select class="wk-day">${WEEK_DAYS.map(d => `<option${d === (a.day || 'Sunday') ? ' selected' : ''}>${d}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Time</label><input type="text" class="wk-time" value="${escAttr(a.time)}" placeholder="8:00 AM – 11:00 AM"></div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Activity</label><input type="text" class="wk-title" value="${escAttr(a.title)}" placeholder="Sunday Worship Service"></div>
+      <div class="form-group"><label>Location (optional)</label><input type="text" class="wk-location" value="${escAttr(a.location)}" placeholder="Main sanctuary, Wa"></div>
+    </div>
+    <div class="form-group"><label>Short description (optional)</label><textarea class="wk-desc" rows="2">${escAttr(a.description)}</textarea></div>
+  </div>`;
+
+const renderEventEditors = (s) => {
+  const evBox = $('#events-editor'), wkBox = $('#weekly-editor');
+  if (evBox) evBox.innerHTML = (Array.isArray(s.events) ? s.events : []).map(eventRowHtml).join('');
+  if (wkBox) wkBox.innerHTML = (Array.isArray(s.weekly) ? s.weekly : []).map(weeklyRowHtml).join('');
+  refreshEventImageOptions();
+};
+
+const refreshEventImageOptions = () => {
+  const dl = $('#event-image-options');
+  if (!dl) return;
+  dl.innerHTML = (typeof allMedia !== 'undefined' ? allMedia : [])
+    .filter(m => m.type === 'image' && !m.hidden)
+    .map(m => `<option value="${escAttr(m.url)}">${escAttr(m.filename)}</option>`).join('');
+};
+
+const collectEventRows = () => $$('#events-editor .repeat-row').map(row => ({
+  title: $('.ev-title', row).value.trim(),
+  dates: $('.ev-dates', row).value.trim(),
+  description: $('.ev-desc', row).value.trim(),
+  start: localValueToIso($('.ev-start', row).value),
+  end: localValueToIso($('.ev-end', row).value),
+  link: $('.ev-link', row).value.trim(),
+  image: $('.ev-image', row).value.trim()
+})).filter(ev => ev.title);
+
+const collectWeeklyRows = () => $$('#weekly-editor .repeat-row').map(row => ({
+  day: $('.wk-day', row).value,
+  time: $('.wk-time', row).value.trim(),
+  title: $('.wk-title', row).value.trim(),
+  location: $('.wk-location', row).value.trim(),
+  description: $('.wk-desc', row).value.trim()
+})).filter(a => a.title);
+
+$('#btn-add-event')?.addEventListener('click', () => {
+  $('#events-editor')?.insertAdjacentHTML('beforeend', eventRowHtml({}));
+  $('#events-editor .repeat-row:last-child .ev-title')?.focus();
+});
+$('#btn-add-weekly')?.addEventListener('click', () => {
+  $('#weekly-editor')?.insertAdjacentHTML('beforeend', weeklyRowHtml({}));
+  $('#weekly-editor .repeat-row:last-child .wk-title')?.focus();
+});
+['#events-editor', '#weekly-editor'].forEach(sel => {
+  $(sel)?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-remove-row');
+    if (btn && confirm('Remove this entry? (It is only removed from the site after you click Save Changes.)')) {
+      btn.closest('.repeat-row')?.remove();
+    }
+  });
+});
+
 const populateForm = (s) => {
   // Live Broadcast
   const isLive = Boolean(s.live?.isLiveNow);
@@ -333,6 +423,7 @@ const populateForm = (s) => {
   }
   $('#field-event-link').value = s.event?.link || '';
   $('#field-event-caption').value = s.event?.stackCaption || '';
+  renderEventEditors(s);
 
   // About & Foundation
   $('#field-about-eyebrow').value = s.about?.eyebrow || '';
@@ -472,6 +563,8 @@ const collectFormData = () => {
       link: $('#field-event-link').value.trim(),
       stackCaption: $('#field-event-caption').value.trim()
     },
+    events: collectEventRows(),
+    weekly: collectWeeklyRows(),
     prayer: {
       eyebrow: $('#field-prayer-eyebrow').value.trim(),
       heading: $('#field-prayer-heading').value.trim(),
@@ -1270,6 +1363,7 @@ const callManageContent = async (action, payload = {}) => {
 // Keep the "attach uploaded media" dropdown in sync with the Media Uploader tab
 const AUDIO_EXT = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga'];
 const populateMessageMediaSelect = () => {
+  refreshEventImageOptions();
   if (!msgMediaSelect) return;
   const current = msgMediaSelect.value;
   const candidates = (allMedia || []).filter((m) => {

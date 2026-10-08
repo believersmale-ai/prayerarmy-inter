@@ -132,6 +132,9 @@ const extractYouTubeId = (url) => {
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
 document.documentElement.classList.add('js');
 
 // Toast notification
@@ -205,20 +208,179 @@ const rv = new IntersectionObserver(es => es.forEach(e => {
 }), { threshold: .12 });
 $$('.reveal').forEach(el => rv.observe(el));
 
-// Countdown timer
+// Countdown timers (one per event slide)
 let countdownTimer = null;
-const updateCountdown = () => {
-  const cd = $('#countdown');
+const tickCountdown = (cd) => {
   if (!cd) return;
-  const s = new Date(currentSettings.event?.start || '2026-11-23T00:00:00Z');
-  const e = new Date(currentSettings.event?.end || '2026-11-28T00:00:00Z');
+  const s = new Date(cd.dataset.start), e = new Date(cd.dataset.end);
+  if (isNaN(s)) { cd.hidden = true; return; }
   const n = new Date(), d = s - n;
-  if (n >= e) { cd.hidden = true; return; }
+  if (!isNaN(e) && n >= e) { cd.hidden = true; return; }
   cd.hidden = false;
   if (d <= 0) { cd.innerHTML = '<strong class="live-now">Happening now</strong>'; return; }
   const v = [Math.floor(d / 864e5), Math.floor(d / 36e5) % 24, Math.floor(d / 6e4) % 60];
   cd.innerHTML = ['Days', 'Hrs', 'Min'].map((l, i) => `<div><b>${String(v[i]).padStart(2, '0')}</b><small>${l}</small></div>`).join('');
-  cd.setAttribute('aria-label', `${v[0]} days, ${v[1]} hours until the conference`);
+  cd.setAttribute('aria-label', `${v[0]} days, ${v[1]} hours until this event`);
+};
+const updateCountdown = () => $$('.countdown[data-start]').forEach(tickCountdown);
+
+// Only ever turn admin-entered links into http(s) / in-page links
+const safeUrl = (u) => {
+  const v = String(u || '').trim();
+  return /^(https?:\/\/|#|\/)/i.test(v) ? v : '';
+};
+
+/* =========================================================================
+   ROLLING EVENTS + WEEKLY ACTIVITIES
+   ========================================================================= */
+const eventsState = { index: 0, count: 0, timer: null, paused: false };
+const DAY_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const buildEventList = (s) => {
+  const now = new Date();
+  const fallbackPoster = $('#events-track .event-poster img')?.getAttribute('src') || '';
+  const list = [];
+  if (s.event?.title) list.push({ ...s.event, image: s.event.image || fallbackPoster, featured: true });
+  (Array.isArray(s.events) ? s.events : []).forEach(ev => { if (ev && ev.title) list.push(ev); });
+
+  // Drop events that have already finished (keep the featured one if nothing else is left)
+  const upcoming = list.filter(ev => {
+    const end = new Date(ev.end || ev.start || '');
+    return isNaN(end) || end >= now;
+  });
+  const shown = upcoming.length ? upcoming : list.slice(0, 1);
+  return shown.sort((a, b) => {
+    const da = new Date(a.start || ''), db = new Date(b.start || '');
+    if (isNaN(da) && isNaN(db)) return 0;
+    if (isNaN(da)) return 1;
+    if (isNaN(db)) return -1;
+    return da - db;
+  });
+};
+
+const goToEvent = (i, { user = false } = {}) => {
+  const track = $('#events-track');
+  if (!track || !eventsState.count) return;
+  eventsState.index = (i + eventsState.count) % eventsState.count;
+  track.style.transform = `translateX(-${eventsState.index * 100}%)`;
+  $$('.event-slide', track).forEach((el, idx) => {
+    const active = idx === eventsState.index;
+    el.setAttribute('aria-hidden', active ? 'false' : 'true');
+    if (active) el.removeAttribute('inert'); else el.setAttribute('inert', '');
+  });
+  $$('#events-dots button').forEach((b, idx) => {
+    b.classList.toggle('active', idx === eventsState.index);
+    b.setAttribute('aria-selected', idx === eventsState.index ? 'true' : 'false');
+  });
+  if (user) restartEventsAutoplay();
+};
+
+const restartEventsAutoplay = () => {
+  clearInterval(eventsState.timer);
+  eventsState.timer = null;
+  if (eventsState.count < 2) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  eventsState.timer = setInterval(() => {
+    if (!eventsState.paused && !document.hidden) goToEvent(eventsState.index + 1);
+  }, 8000);
+};
+
+const renderEvents = (s) => {
+  const track = $('#events-track');
+  if (!track) return;
+  const list = buildEventList(s);
+  if (!list.length) return;
+
+  track.innerHTML = list.map((ev, i) => {
+    const link = safeUrl(ev.link);
+    const btn = link
+      ? `<a class="btn btn-dark" href="${escapeHtml(link)}" target="_blank" rel="noopener">View Event <span>→</span></a>`
+      : `<a class="btn btn-dark" href="#prayer">View Event <span>→</span></a>`;
+    const image = escapeHtml(ev.image || '');
+    const poster = image
+      ? `<div class="event-poster"><img loading="${i ? 'lazy' : 'eager'}" decoding="async" src="${image}" alt="${escapeHtml(ev.title)} poster"></div>`
+      : `<div class="event-poster event-poster-empty" aria-hidden="true"></div>`;
+    const hasDates = !isNaN(new Date(ev.start || ''));
+    return `
+      <article class="event-card featured-event event-slide" aria-roledescription="slide" aria-label="${i + 1} of ${list.length}">
+        ${poster}
+        <div class="event-body">
+          <span class="event-label">${i === 0 ? 'NEXT PROGRAM' : 'UPCOMING PROGRAM'}</span>
+          <h3>${escapeHtml(ev.title)}</h3>
+          ${ev.dates ? `<p>${escapeHtml(ev.dates)}</p>` : ''}
+          ${hasDates ? `<div class="countdown" role="timer" aria-live="off" data-start="${escapeHtml(ev.start)}" data-end="${escapeHtml(ev.end || '')}"></div>` : ''}
+          ${ev.description ? `<p class="muted">${escapeHtml(ev.description)}</p>` : ''}
+          ${btn}
+        </div>
+      </article>`;
+  }).join('');
+
+  eventsState.count = list.length;
+  const controls = $('#events-controls'), dots = $('#events-dots');
+  if (controls) controls.hidden = list.length < 2;
+  if (dots) {
+    dots.innerHTML = list.map((ev, i) =>
+      `<button type="button" role="tab" aria-label="Show event ${i + 1}: ${escapeHtml(ev.title)}" data-i="${i}"></button>`).join('');
+  }
+  goToEvent(Math.min(eventsState.index, list.length - 1));
+  restartEventsAutoplay();
+  updateCountdown();
+};
+
+const wireEventsUI = () => {
+  const rolling = $('#events-rolling');
+  if (!rolling || rolling.dataset.bound) return;
+  rolling.dataset.bound = '1';
+  $('#events-prev')?.addEventListener('click', () => goToEvent(eventsState.index - 1, { user: true }));
+  $('#events-next')?.addEventListener('click', () => goToEvent(eventsState.index + 1, { user: true }));
+  $('#events-dots')?.addEventListener('click', e => {
+    const b = e.target.closest('button[data-i]');
+    if (b) goToEvent(Number(b.dataset.i), { user: true });
+  });
+  // Pause while the visitor is reading / interacting
+  rolling.addEventListener('mouseenter', () => { eventsState.paused = true; });
+  rolling.addEventListener('mouseleave', () => { eventsState.paused = false; });
+  rolling.addEventListener('focusin', () => { eventsState.paused = true; });
+  rolling.addEventListener('focusout', () => { eventsState.paused = false; });
+  // Swipe on touch screens
+  let startX = null;
+  rolling.addEventListener('touchstart', e => { startX = e.touches[0].clientX; eventsState.paused = true; }, { passive: true });
+  rolling.addEventListener('touchend', e => {
+    eventsState.paused = false;
+    if (startX === null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    startX = null;
+    if (Math.abs(dx) > 50) goToEvent(eventsState.index + (dx < 0 ? 1 : -1), { user: true });
+  }, { passive: true });
+  rolling.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') goToEvent(eventsState.index - 1, { user: true });
+    if (e.key === 'ArrowRight') goToEvent(eventsState.index + 1, { user: true });
+  });
+};
+
+const renderWeekly = (s) => {
+  const wrap = $('#weekly'), grid = $('#weekly-grid');
+  if (!wrap || !grid) return;
+  const items = (Array.isArray(s.weekly) ? s.weekly : []).filter(a => a && a.title);
+  if (!items.length) { wrap.hidden = true; return; }
+  const idx = (d) => { const i = DAY_ORDER.indexOf(d); return i === -1 ? 7 : i; };
+  items.sort((a, b) => idx(a.day) - idx(b.day) || String(a.time || '').localeCompare(String(b.time || '')));
+  const today = DAY_ORDER[new Date().getDay()];
+  grid.innerHTML = items.map(a => {
+    const isToday = a.day === today || a.day === 'Every day';
+    return `
+      <article class="weekly-card${isToday ? ' is-today' : ''}">
+        <div class="weekly-when">
+          <span class="weekly-day">${escapeHtml(a.day || '')}</span>
+          ${a.time ? `<span class="weekly-time">${escapeHtml(a.time)}</span>` : ''}
+          ${isToday ? '<span class="weekly-today">Today</span>' : ''}
+        </div>
+        <h4>${escapeHtml(a.title)}</h4>
+        ${a.description ? `<p>${escapeHtml(a.description)}</p>` : ''}
+        ${a.location ? `<span class="weekly-where">${escapeHtml(a.location)}</span>` : ''}
+      </article>`;
+  }).join('');
+  wrap.hidden = false;
 };
 
 /* =========================================================================
@@ -484,27 +646,13 @@ const applySettings = (s) => {
   if (s.sermons?.mini2Kicker && $('#mini2-kicker')) $('#mini2-kicker').textContent = s.sermons.mini2Kicker;
   if (s.sermons?.mini2Title && $('#mini2-title')) $('#mini2-title').textContent = s.sermons.mini2Title;
 
-  // Events Section
-  if (s.event?.title && $('#event-title')) $('#event-title').textContent = s.event.title;
-  if (s.event?.dates && $('#event-dates')) $('#event-dates').textContent = s.event.dates;
-  if (s.event?.description && $('#event-desc')) $('#event-desc').textContent = s.event.description;
+  // Events Section (rolling) + weekly activities
   if (s.event?.stackCaption && $('#event-stack-caption')) $('#event-stack-caption').textContent = s.event.stackCaption;
-
-  const evBtn = $('#event-btn');
-  if (evBtn) {
-    if (s.event?.link) {
-      evBtn.href = s.event.link;
-      evBtn.target = '_blank';
-      evBtn.rel = 'noopener';
-    } else {
-      evBtn.href = '#prayer';
-      evBtn.removeAttribute('target');
-      evBtn.removeAttribute('rel');
-    }
-  }
+  wireEventsUI();
+  renderEvents(s);
+  renderWeekly(s);
 
   if (countdownTimer) clearInterval(countdownTimer);
-  updateCountdown();
   countdownTimer = setInterval(updateCountdown, 3e4);
 
   // Prayer Section
@@ -978,10 +1126,6 @@ const renderPayMethods = (methods = [], note = '') => {
 };
 
 const messagesList = $('#messages-list');
-
-const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-}[c]));
 
 const formatMessageDate = (iso) => {
   try {

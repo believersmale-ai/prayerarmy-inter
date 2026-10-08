@@ -836,6 +836,26 @@
       gap: 16px;
     }
 
+    .repeat-row {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 14px;
+      background: rgba(255,255,255,.025);
+    }
+    .repeat-row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .repeat-row .form-group { margin-bottom: 12px; }
+
     .media-card-hidden {
       opacity: 0.55;
     }
@@ -1606,6 +1626,21 @@
                   <input type="text" id="field-event-caption" placeholder="Every gathering is an opportunity to seek God together.">
                 </div>
               </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">More Events <span style="font-weight:500;color:var(--text-muted);font-size:12px;">— rolls on the site together with the Featured Program</span></h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 16px;">Add as many upcoming events as you like. Visitors see them in a rolling slider (auto-advance, arrows, swipe). Finished events drop off automatically. Times are Ghana time (GMT).</p>
+              <div id="events-editor"></div>
+              <button type="button" class="btn-mini" id="btn-add-event">＋ Add event</button>
+              <datalist id="event-image-options"></datalist>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Weekly Activities</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 16px;">Recurring services and meetings (Sunday service, midweek prayer, youth meeting…). They appear under the events and today's activity is highlighted automatically.</p>
+              <div id="weekly-editor"></div>
+              <button type="button" class="btn-mini" id="btn-add-weekly">＋ Add weekly activity</button>
             </div>
           </section>
 
