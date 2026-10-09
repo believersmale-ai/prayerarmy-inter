@@ -245,7 +245,24 @@ const safeUrl = (u) => {
    ========================================================================= */
 const SITE_ORIGIN = location.origin && location.origin.startsWith('http') ? location.origin : 'https://prayerarmy-inter.vercel.app';
 
+// Privacy-light analytics: no cookies, no IP, no personal data. Respects Do Not Track.
+const track = (kind, label) => {
+  try {
+    if (navigator.doNotTrack === '1' || navigator.webdriver) return;
+    let ref = '';
+    try { const r = new URL(document.referrer); if (r.host && r.host !== location.host) ref = r.host.replace(/^www\./, ''); } catch {}
+    const w = innerWidth;
+    fetch(`${SUPABASE_URL}/rest/v1/site_events`, {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: 'return=minimal' },
+      body: JSON.stringify({ kind, label: label ? String(label).slice(0, 200) : null, path: location.pathname.slice(0, 200), referrer: ref.slice(0, 200) || null, device: w < 700 ? 'mobile' : w < 1100 ? 'tablet' : 'desktop' })
+    }).catch(() => {});
+  } catch {}
+};
+try { if (!sessionStorage.getItem('pai_viewed')) { sessionStorage.setItem('pai_viewed', '1'); track('view'); } } catch {}
+
 const shareContent = async (title, text, url) => {
+  track('share', title);
   const full = `${text}\n${url}`;
   if (navigator.share) {
     try { await navigator.share({ title, text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
@@ -1161,6 +1178,7 @@ const openSermonPlayer = (url, title = '') => {
   sermonStage.appendChild(buildPlayerEl(p));
   sermonTitle.textContent = title;
   if (!sermonDialog.open) sermonDialog.showModal();
+  track('sermon_play', title);
   return true;
 };
 const closeSermonPlayer = () => { if (sermonDialog?.open) sermonDialog.close(); };
@@ -1336,6 +1354,7 @@ const buildMessageCard = (msg) => {
 
   const playBtn = $('.message-play', card);
   if (playBtn) playBtn.addEventListener('click', () => {
+    track('sermon_play', msg.title);
     const el = buildPlayerEl(playable);
     const wrap = document.createElement('div');
     wrap.className = 'message-embed sp-' + playable.kind;
@@ -1551,3 +1570,56 @@ $('#copy-podcast-feed')?.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(feed); showToast('Podcast feed link copied. Paste it into your podcast app.'); }
   catch { window.prompt('Copy this podcast feed link:', feed); }
 });
+
+/* =========================================================================
+   PRAYER WALL (approved requests are public; "I prayed" is a +1 counter)
+   ========================================================================= */
+const wallList = $('#wall-list');
+const prayedIds = (() => { try { return new Set(JSON.parse(localStorage.getItem('pai_prayed') || '[]')); } catch { return new Set(); } })();
+const loadWall = async () => {
+  if (!wallList) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/wall_prayers?select=id,name,request,prayed_count&order=created_at.desc&limit=24`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    if (!res.ok) throw 0;
+    const rows = await res.json();
+    if (!rows.length) { wallList.innerHTML = '<p class="messages-empty" style="color:var(--soft)">No requests on the wall yet. Add one below and we will stand with you.</p>'; return; }
+    wallList.innerHTML = rows.map((r) => `
+      <article class="wall-card" data-id="${escapeHtml(r.id)}">
+        <p>${escapeHtml(r.request)}</p>
+        <div class="wall-foot">
+          <span class="wall-name">${escapeHtml(r.name || 'Anonymous')}</span>
+          <button type="button" class="pray-btn" data-id="${escapeHtml(r.id)}" ${prayedIds.has(r.id) ? 'disabled' : ''}>🙏 <span class="pray-label">${prayedIds.has(r.id) ? 'You prayed' : 'I prayed'}</span> · <span class="pray-count">${Number(r.prayed_count) || 0}</span></button>
+        </div>
+      </article>`).join('');
+  } catch {
+    wallList.innerHTML = '<p class="messages-empty" style="color:var(--soft)">The prayer wall could not load right now.</p>';
+  }
+};
+wallList?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.pray-btn');
+  if (!btn || btn.disabled) return;
+  const id = btn.dataset.id;
+  btn.disabled = true;
+  const countEl = $('.pray-count', btn), labelEl = $('.pray-label', btn);
+  const before = Number(countEl.textContent) || 0;
+  countEl.textContent = before + 1; labelEl.textContent = 'You prayed';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_prayed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ p_id: id })
+    });
+    if (!res.ok) throw 0;
+    prayedIds.add(id);
+    try { localStorage.setItem('pai_prayed', JSON.stringify([...prayedIds])); } catch {}
+  } catch {
+    countEl.textContent = before; labelEl.textContent = 'I prayed'; btn.disabled = false;
+  }
+});
+loadWall();
+
+wirePublicForm('#wall-form', '#wall-note', 'wall_prayers',
+  (d) => ({ name: (d.name || '').trim().slice(0, 60) || null, request: (d.request || '').trim().slice(0, 400) }),
+  'Thank you. Your request will appear on the wall once it has been reviewed. We are praying with you.');

@@ -298,6 +298,27 @@
       </div>
     </section>
 
+    <section class="section prayer-wall" id="prayer-wall">
+      <div class="container reveal">
+        <div class="section-head">
+          <div><p class="eyebrow dark">STAND WITH US</p><h2>The <span>prayer wall</span></h2></div>
+          <p class="section-sub">Requests shared by our church family. Tap “I prayed” to let them know someone stood with them.</p>
+        </div>
+        <div class="wall-grid" id="wall-list"><p class="messages-empty" style="color:var(--soft)">Loading prayer requests…</p></div>
+        <details class="share-testimony" id="share-wall">
+          <summary class="btn btn-dark">Add a request to the wall <span>→</span></summary>
+          <form class="prayer-form" id="wall-form">
+            <p class="form-note" style="margin:0 0 14px">This will be visible to everyone once approved. Please don't include phone numbers, addresses or private details. For a private request, use the prayer form above.</p>
+            <label>Your first name (optional)<input name="name" maxlength="60" placeholder="Or leave blank to stay anonymous"></label>
+            <label>Prayer request<textarea name="request" required minlength="5" maxlength="400" rows="4" placeholder="How can we pray with you?"></textarea></label>
+            <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button class="btn btn-dark" type="submit">Submit to the wall <span>→</span></button>
+            <p class="form-note" id="wall-note" role="status"></p>
+          </form>
+        </details>
+      </div>
+    </section>
+
     <section class="section testimonies" id="testimonies">
       <div class="container reveal">
         <div class="section-head">

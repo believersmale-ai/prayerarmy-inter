@@ -182,6 +182,7 @@ const showDashboard = () => {
   loadPrayerRequests();
   loadConnectAdmin();
   loadTestimoniesAdmin();
+  loadWallAdmin();
 };
 
 togglePwBtn?.addEventListener('click', () => {
@@ -251,6 +252,7 @@ sidebarButtons.forEach(btn => {
     const viewId = btn.dataset.view;
     const targetView = $(`#${viewId}`);
     if (targetView) targetView.classList.add('active');
+    if (viewId === 'view-analytics' && typeof loadAnalytics === 'function') loadAnalytics();
   });
 });
 
@@ -1764,6 +1766,82 @@ const loadTestimoniesAdmin = async () => {
     box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load testimonies. Is the manage-content function deployed?</p>';
   }
 };
+
+
+/* =========================================================================
+   PRAYER WALL MODERATION + ANALYTICS (admin)
+   ========================================================================= */
+const loadWallAdmin = async () => {
+  const box = $('#wall-admin-list');
+  if (!box) return;
+  try {
+    const { prayers } = await callManageContent('list_wall_prayers');
+    setBadge($('#sidebar-wall-badge'), prayers.filter((p) => !p.is_approved).length);
+    if (!prayers.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">Nothing has been added to the wall yet.</p>'; return; }
+    box.innerHTML = prayers.map((p) => `
+      <div class="admin-item${p.is_approved ? '' : ' unread'}" data-id="${p.id}">
+        <div class="admin-item-head">
+          <h4>${escapeAdminHtml(p.name || 'Anonymous')}
+            <span class="req-badge" style="${p.is_approved ? 'background:#1f4d2e;color:#a7f3c0' : ''}">${p.is_approved ? `Published · 🙏 ${p.prayed_count}` : 'Awaiting approval'}</span></h4>
+          <time>${new Date(p.created_at).toLocaleString()}</time>
+        </div>
+        <p>${escapeAdminHtml(p.request)}</p>
+        <div class="admin-item-actions">
+          <button type="button" class="btn-mini btn-wall-approve" data-id="${p.id}" data-ok="${p.is_approved}">${p.is_approved ? 'Unpublish' : 'Approve & publish'}</button>
+          <button type="button" class="btn-mini danger btn-wall-del" data-id="${p.id}">Delete</button>
+        </div>
+      </div>`).join('');
+    $$('.btn-wall-approve', box).forEach((b) => b.addEventListener('click', async () => {
+      try { await callManageContent('set_wall_approved', { id: b.dataset.id, is_approved: b.dataset.ok !== 'true' }); loadWallAdmin(); }
+      catch (err) { showToast(err.message || 'Could not update', 'error'); }
+    }));
+    $$('.btn-wall-del', box).forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('Delete this request permanently?')) return;
+      try { await callManageContent('delete_wall_prayer', { id: b.dataset.id }); loadWallAdmin(); }
+      catch (err) { showToast(err.message || 'Could not delete', 'error'); }
+    }));
+  } catch {
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load the prayer wall. Is the manage-content function deployed?</p>';
+  }
+};
+
+const loadAnalytics = async () => {
+  const box = $('#analytics-body');
+  if (!box) return;
+  box.innerHTML = '<p style="font-size:13px;color:#6b7280">Loading…</p>';
+  try {
+    const { analytics: a } = await callManageContent('get_analytics');
+    const days = a.days || [];
+    const sum = (k, from = 0) => days.slice(from).reduce((t, d) => t + (d[k] || 0), 0);
+    const maxViews = Math.max(1, ...days.map((d) => d.views));
+    const rank = (rows, empty) => rows.length
+      ? `<ul class="rank-list">${rows.map(([n, c]) => `<li><span>${escapeAdminHtml(n)}</span><b>${c}</b></li>`).join('')}</ul>`
+      : `<p style="font-size:13px;color:#6b7280">${empty}</p>`;
+    const dev = a.devices || {};
+    const devRows = Object.entries(dev).sort((x, y) => y[1] - x[1]).map(([k, v]) => [k.charAt(0).toUpperCase() + k.slice(1), v]);
+    box.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box"><b>${days.length ? days[days.length - 1].views : 0}</b><span>Visits today</span></div>
+        <div class="stat-box"><b>${sum('views', Math.max(0, days.length - 7))}</b><span>Last 7 days</span></div>
+        <div class="stat-box"><b>${sum('views')}</b><span>Last 30 days</span></div>
+        <div class="stat-box"><b>${sum('plays')}</b><span>Sermon plays</span></div>
+        <div class="stat-box"><b>${a.shares || 0}</b><span>Shares</span></div>
+      </div>
+      <div class="card">
+        <h3 class="card-title">Visits per day</h3>
+        <div class="bars">${days.map((d) => `<div class="bar" style="height:${Math.round((d.views / maxViews) * 100)}%" title="${d.day}: ${d.views} visits, ${d.plays} plays"></div>`).join('')}</div>
+        <div class="bar-axis"><span>${days[0]?.day || ''}</span><span>${days[days.length - 1]?.day || ''}</span></div>
+      </div>
+      <div class="form-grid-2" style="align-items:start">
+        <div class="card"><h3 class="card-title">Most played sermons</h3>${rank(a.topSermons || [], 'No sermon plays yet.')}</div>
+        <div class="card"><h3 class="card-title">Where visitors come from</h3>${rank(a.referrers || [], 'No visits yet.')}</div>
+      </div>
+      <div class="card"><h3 class="card-title">Devices</h3>${rank(devRows, 'No visits yet.')}</div>`;
+  } catch {
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load statistics. Is the manage-content function deployed?</p>';
+  }
+};
+$('#btn-refresh-analytics')?.addEventListener('click', loadAnalytics);
 
 // Run initialization
 checkAuthSession();

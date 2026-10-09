@@ -665,3 +665,14 @@ body.manager-mode-active .section-edit-trigger{display:inline-flex}
 .location-times{white-space:pre-line;color:var(--soft)!important;font-size:13.5px!important}
 .location-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:10px}
 .location-actions .chip-btn{color:var(--navy);text-decoration:none}
+
+/* ===== Prayer wall ===== */
+.prayer-wall{background:var(--ivory)}
+.wall-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;margin-bottom:34px}
+.wall-card{background:#fff;border:1px solid var(--line);border-left:3px solid var(--gold);padding:22px 22px 18px;display:flex;flex-direction:column;gap:14px}
+.wall-card p{margin:0;font-size:15.5px;line-height:1.6;color:var(--ink)}
+.wall-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto}
+.wall-name{font-size:13px;color:var(--soft)}
+.pray-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--navy);background:transparent;color:var(--navy);font:700 12px/1 var(--sans);letter-spacing:.06em;cursor:pointer;transition:background .2s,color .2s}
+.pray-btn:hover:not(:disabled){background:var(--navy);color:#fff}
+.pray-btn:disabled{background:var(--gold);border-color:var(--gold);color:#19150c;cursor:default}

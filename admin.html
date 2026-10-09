@@ -856,6 +856,18 @@
     }
     .repeat-row .form-group { margin-bottom: 12px; }
 
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .stat-box { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 16px; background: rgba(255,255,255,.03); }
+    .stat-box b { display: block; font-size: 28px; line-height: 1.1; }
+    .stat-box span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+    .bars { display: flex; align-items: flex-end; gap: 3px; height: 130px; padding-top: 8px; }
+    .bars .bar { flex: 1; min-width: 4px; background: var(--primary, #d9ae56); border-radius: 2px 2px 0 0; opacity: .85; position: relative; min-height: 2px; }
+    .bars .bar:hover { opacity: 1; }
+    .bar-axis { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; }
+    .rank-list { list-style: none; margin: 0; padding: 0; }
+    .rank-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07); font-size: 13.5px; }
+    .rank-list li b { font-variant-numeric: tabular-nums; }
+
     .media-card-hidden {
       opacity: 0.55;
     }
@@ -1177,6 +1189,13 @@
         <button type="button" class="sidebar-btn" data-view="view-testimonies">
           <span>🕊</span> Testimonies
           <span class="badge-pill" id="sidebar-testimonies-badge" style="display:none">0</span>
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-wall">
+          <span>🙏</span> Prayer Wall
+          <span class="badge-pill" id="sidebar-wall-badge" style="display:none">0</span>
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-analytics">
+          <span>📊</span> Visitors &amp; Stats
         </button>
         <button type="button" class="sidebar-btn" data-view="view-extras">
           <span>📖</span> Verse &amp; Branches
@@ -1843,6 +1862,27 @@
             <div class="card">
               <div id="requests-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
             </div>
+          </section>
+
+          <section class="tab-view" id="view-wall">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🙏</span> Prayer Wall</h2>
+                <p>Requests visitors add to the public wall stay hidden until you approve them. Check each one for private details (phone numbers, addresses) before publishing.</p>
+              </div>
+            </div>
+            <div class="card"><div id="wall-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div></div>
+          </section>
+
+          <section class="tab-view" id="view-analytics">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>📊</span> Visitors &amp; Stats</h2>
+                <p>Last 30 days. Privacy-friendly: no cookies, no IP addresses and no personal data are stored. One visit is counted per browser session, and visitors who have "Do Not Track" turned on are not counted.</p>
+              </div>
+              <button type="button" class="btn-mini" id="btn-refresh-analytics">🔄 Refresh</button>
+            </div>
+            <div id="analytics-body"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
           </section>
 
           <section class="tab-view" id="view-extras">
