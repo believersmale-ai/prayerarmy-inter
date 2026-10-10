@@ -868,6 +868,18 @@
     .rank-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07); font-size: 13.5px; }
     .rank-list li b { font-variant-numeric: tabular-nums; }
 
+    .auth-switch { display: block; margin: 16px auto 0; background: none; border: 0; color: var(--text-muted); font: inherit; font-size: 12.5px; text-decoration: underline; cursor: pointer; }
+    .auth-switch:hover { color: #fff; }
+    #whoami-chip { font-size: 12px; color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .role-badge { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: rgba(217,174,86,.16); color: #e2c077; }
+    .team-row { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .team-row:last-child { border-bottom: 0; }
+    .team-row small { color: var(--text-muted); display: block; margin-top: 2px; }
+    .team-row.is-off { opacity: .55; }
+    .team-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .secret-box { margin-top: 14px; padding: 14px; border: 1px dashed rgba(217,174,86,.6); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.7; word-break: break-all; }
+    @media (max-width: 760px) { .team-row { grid-template-columns: 1fr; } .team-actions { justify-content: flex-start; } }
+
     .media-card-hidden {
       opacity: 0.55;
     }
@@ -1091,18 +1103,34 @@
     <div class="auth-card">
       <img src="assets/images/prayer-army-logo.png" alt="Prayer Army International" class="auth-logo">
       <h1>Site Manager Console</h1>
-      <p>Enter the manager passkey to edit website content, broadcast live services, and upload pictures or videos.</p>
-      
+      <p id="auth-intro">Sign in with your own account to manage the website.</p>
+
       <form id="auth-form">
-        <div class="auth-input-group">
-          <label for="passkey-input">Manager Passkey</label>
-          <div class="passkey-wrap">
-            <input type="password" id="passkey-input" placeholder="Enter passkey" autocomplete="current-password" autofocus required>
-            <button type="button" class="toggle-pw-btn" id="toggle-pw-btn" title="Toggle password visibility">👁</button>
+        <div id="auth-account-fields">
+          <div class="auth-input-group">
+            <label for="email-input">Email</label>
+            <input type="email" id="email-input" placeholder="you@example.com" autocomplete="username" autofocus required>
+          </div>
+          <div class="auth-input-group">
+            <label for="account-pw-input">Password</label>
+            <div class="passkey-wrap">
+              <input type="password" id="account-pw-input" placeholder="Your password" autocomplete="current-password" required>
+              <button type="button" class="toggle-pw-btn" id="toggle-account-pw-btn" title="Show or hide password">👁</button>
+            </div>
+          </div>
+        </div>
+        <div id="auth-passkey-fields" hidden>
+          <div class="auth-input-group">
+            <label for="passkey-input">Shared Passkey</label>
+            <div class="passkey-wrap">
+              <input type="password" id="passkey-input" placeholder="Enter passkey" autocomplete="off">
+              <button type="button" class="toggle-pw-btn" id="toggle-pw-btn" title="Show or hide passkey">👁</button>
+            </div>
           </div>
         </div>
         <div class="auth-error" id="auth-error"></div>
-        <button type="submit" class="btn-auth" id="btn-auth-submit">Unlock Console</button>
+        <button type="submit" class="btn-auth" id="btn-auth-submit">Sign in</button>
+        <button type="button" class="auth-switch" id="auth-mode-toggle">Use the shared passkey instead</button>
       </form>
     </div>
   </div>
@@ -1122,6 +1150,7 @@
       </div>
 
       <div class="top-right">
+        <span id="whoami-chip"></span>
         <div class="live-pill" id="live-broadcast-pill" title="Click to toggle Live broadcast status">
           <span class="live-pill-dot"></span>
           <span id="live-pill-label">OFFLINE</span>
@@ -1208,8 +1237,11 @@
         </button>
 
         <div class="nav-group-title">System</div>
+        <button type="button" class="sidebar-btn" data-view="view-team">
+          <span>👥</span> Team &amp; Accounts
+        </button>
         <button type="button" class="sidebar-btn" data-view="view-security">
-          <span>🔒</span> Passkey & Backup
+          <span>🔒</span> My Account &amp; Backup
         </button>
       </aside>
 
@@ -2099,16 +2131,81 @@
           </section>
 
           <!-- 12. SECURITY & BACKUP -->
-          <section class="tab-view" id="view-security">
+          <section class="tab-view" id="view-team">
             <div class="view-header">
               <div class="view-header-text">
-                <h2><span>🔒</span> Security & Settings Backup</h2>
-                <p>Change your manager passkey or export and restore a full backup of website settings.</p>
+                <h2><span>👥</span> Team &amp; Accounts</h2>
+                <p>Give each person their own sign-in and the access they need. Only system admins can see this page.</p>
               </div>
             </div>
 
             <div class="card">
-              <h3 class="card-title">Change Manager Passkey</h3>
+              <h3 class="card-title">Team members</h3>
+              <div id="team-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Add a team member</h3>
+              <div class="form-grid-2">
+                <div class="form-group"><label for="team-name">Name</label><input type="text" id="team-name" maxlength="80" placeholder="Full name"></div>
+                <div class="form-group"><label for="team-email">Email</label><input type="email" id="team-email" placeholder="name@example.com"></div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="team-role">Role</label>
+                  <select id="team-role">
+                    <option value="editor">Editor</option>
+                    <option value="media">Media</option>
+                    <option value="care">Pastoral care</option>
+                    <option value="owner">System admin</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="team-password">Temporary password</label>
+                  <div style="display:flex;gap:8px;"><input type="text" id="team-password" minlength="10" maxlength="72" placeholder="At least 10 characters" autocomplete="off"><button type="button" class="btn-mini" id="btn-gen-password">Generate</button></div>
+                </div>
+              </div>
+              <p id="team-role-help" style="font-size:12.5px;color:var(--text-muted);margin:0 0 14px;"></p>
+              <button type="button" class="btn-primary" id="btn-create-team-user">Create account</button>
+              <div id="team-created" class="secret-box" hidden></div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">What each role can do</h3>
+              <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.8;">
+                <li><strong>System admin:</strong> everything, including this team page and security.</li>
+                <li><strong>Editor:</strong> website content, events, giving, live status, pictures, sermons and visitor stats. No access to private prayer requests or the team list.</li>
+                <li><strong>Media:</strong> pictures, videos, audio and the sermon archive only.</li>
+                <li><strong>Pastoral care:</strong> private prayer requests, new visitors and volunteers, testimonies and the prayer wall only.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="tab-view" id="view-security">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🔒</span> My Account &amp; Backup</h2>
+                <p>Your sign-in, the shared passkey, and a full backup of the website settings.</p>
+              </div>
+            </div>
+
+            <div class="card" id="account-card">
+              <h3 class="card-title">Your account</h3>
+              <p id="account-summary" style="font-size:13.5px;margin:0 0 14px;"></p>
+              <div id="account-password-box" hidden>
+                <div class="form-group">
+                  <label for="my-new-password">Change my password</label>
+                  <input type="password" id="my-new-password" minlength="10" autocomplete="new-password" placeholder="At least 10 characters">
+                </div>
+                <button type="button" class="btn-mini" id="btn-change-my-password">Update password</button>
+              </div>
+            </div>
+
+            <div class="card" id="legacy-card">
+              <h3 class="card-title">Shared passkey</h3>
+              <p id="legacy-status" style="font-size:13.5px;margin:0 0 12px;"></p>
+              <button type="button" class="btn-mini" id="btn-toggle-legacy">…</button>
+              <h3 class="card-title" style="margin-top:22px;">Change Manager Passkey</h3>
               <div class="form-group">
                 <label for="field-manager-passkey">New Passkey</label>
                 <input type="password" id="field-manager-passkey" placeholder="Leave blank to keep current passkey" minlength="8">

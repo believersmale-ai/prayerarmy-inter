@@ -23,6 +23,62 @@ const clearStoredPasskey = () => {
   localStorage.removeItem('pai_manager_passkey');
 };
 
+/* ---- Account sessions (Supabase Auth) -------------------------------------
+   An account session keeps its short-lived access token in the same slot the
+   shared passkey used (getPasskey()), so every existing request keeps working.
+   The token is refreshed automatically before it expires. */
+const SESSION_KEYS = ['pai_manager_authenticated', 'pai_manager_passkey', 'pai_manager_refresh', 'pai_manager_expires', 'pai_manager_mode'];
+const storeBoth = (k, v) => { sessionStorage.setItem(k, v); localStorage.setItem(k, v); };
+const getStored = (k) => sessionStorage.getItem(k) || localStorage.getItem(k) || '';
+const clearSession = () => SESSION_KEYS.forEach((k) => { sessionStorage.removeItem(k); localStorage.removeItem(k); });
+const isAccountSession = () => getStored('pai_manager_mode') === 'account';
+const saveTokens = (t) => {
+  setStoredPasskey(t.access_token);
+  storeBoth('pai_manager_refresh', t.refresh_token || '');
+  storeBoth('pai_manager_expires', String(Date.now() + (Number(t.expires_in) || 3600) * 1000));
+  storeBoth('pai_manager_mode', 'account');
+  storeBoth('pai_manager_authenticated', 'true');
+};
+
+const _origFetch = window.fetch.bind(window);
+let _refreshing = null;
+const ensureFreshToken = async (force = false) => {
+  if (!isAccountSession()) return false;
+  if (!force && Number(getStored('pai_manager_expires') || 0) - Date.now() > 120000) return false;
+  if (_refreshing) return _refreshing;
+  _refreshing = (async () => {
+    try {
+      const r = await _origFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ refresh_token: getStored('pai_manager_refresh') })
+      });
+      if (!r.ok) return false;
+      saveTokens(await r.json());
+      return true;
+    } catch { return false; } finally { _refreshing = null; }
+  })();
+  return _refreshing;
+};
+
+// Every call to an Edge Function gets a fresh token; one retry if the server says it expired.
+const swapToken = (init, from, to) =>
+  (from && init && typeof init.body === 'string') ? { ...init, body: init.body.split(from).join(to) } : init;
+window.fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : (input && input.url) || '';
+  if (!url.includes('/functions/v1/') || !isAccountSession()) return _origFetch(input, init);
+  const before = getPasskey();
+  const refreshed = await ensureFreshToken();
+  if (refreshed) init = swapToken(init, before, getPasskey());
+  let res = await _origFetch(input, init);
+  if (res.status === 401 && !refreshed) {
+    const stale = getPasskey();
+    if (await ensureFreshToken(true)) { init = swapToken(init, stale, getPasskey()); res = await _origFetch(input, init); }
+  }
+  if (res.status === 401 && isAccountSession()) signOutToLogin('Your session has expired. Please sign in again.');
+  return res;
+};
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -157,9 +213,97 @@ const authScreen = $('#auth-screen');
 const adminApp = $('#admin-app');
 const authForm = $('#auth-form');
 const passkeyInput = $('#passkey-input');
+const emailInput = $('#email-input');
+const accountPwInput = $('#account-pw-input');
 const authError = $('#auth-error');
 const togglePwBtn = $('#toggle-pw-btn');
 const btnLogout = $('#btn-logout');
+
+let me = null;               // who is signed in: { role, email, name, via, permissions }
+let legacyEnabled = true;    // is the shared passkey still switched on?
+const can = (perm) => !!me && me.permissions.includes(perm);
+const ROLE_LABEL = { owner: 'System admin', editor: 'Editor', media: 'Media', care: 'Pastoral care' };
+
+let authMode = 'account';
+const setAuthMode = (mode) => {
+  authMode = mode;
+  const acct = mode === 'account';
+  $('#auth-account-fields').hidden = !acct;
+  $('#auth-passkey-fields').hidden = acct;
+  emailInput.required = acct; accountPwInput.required = acct; passkeyInput.required = !acct;
+  $('#auth-intro').textContent = acct ? 'Sign in with your own account to manage the website.' : 'Enter the shared passkey. A system admin can turn this off once everyone has their own account.';
+  $('#auth-mode-toggle').textContent = acct ? 'Use the shared passkey instead' : 'Sign in with an account instead';
+  authError.textContent = '';
+  (acct ? emailInput : passkeyInput).focus();
+};
+$('#auth-mode-toggle')?.addEventListener('click', () => setAuthMode(authMode === 'account' ? 'passkey' : 'account'));
+
+// Back to the sign-in screen (used on sign out, expired sessions and removed access)
+function signOutToLogin(message) {
+  clearSession();
+  me = null;
+  adminApp.style.display = 'none';
+  authScreen.style.display = 'flex';
+  passkeyInput.value = ''; accountPwInput.value = '';
+  authError.textContent = message || '';
+}
+
+const loadMe = async () => {
+  try {
+    const res = await fetch(`${EDGE_BASE}/admin-users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ passkey: getPasskey(), action: 'whoami' })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: body.error || 'Could not check your access.' };
+    me = body.me; legacyEnabled = !!body.legacy_enabled;
+    return { me };
+  } catch { return { error: 'Could not reach the server. Check your connection.' }; }
+};
+
+// Show only the tabs this person's role allows
+const VIEW_PERM = { 'view-media': 'media', 'view-messages': 'messages', 'view-requests': 'care', 'view-connect': 'care',
+  'view-testimonies': 'care', 'view-wall': 'care', 'view-analytics': 'analytics', 'view-team': 'team', 'view-security': null };
+const applyRoleUI = () => {
+  const permFor = (viewId) => (viewId in VIEW_PERM ? VIEW_PERM[viewId] : 'settings');
+  let first = null, activeHidden = false;
+  sidebarButtons.forEach((b) => {
+    const perm = permFor(b.dataset.view);
+    const allowed = !perm || can(perm);
+    b.style.display = allowed ? '' : 'none';
+    if (allowed && !first) first = b;
+    if (!allowed && b.classList.contains('active')) activeHidden = true;
+  });
+  // hide group headings with nothing left under them
+  $$('.nav-group-title').forEach((t) => {
+    let n = t.nextElementSibling, any = false;
+    while (n && !n.classList.contains('nav-group-title')) { if (n.style.display !== 'none') any = true; n = n.nextElementSibling; }
+    t.style.display = any ? '' : 'none';
+  });
+  if (activeHidden && first) first.click();
+  $('#btn-save-all') && ($('#btn-save-all').style.display = can('settings') ? '' : 'none');
+  $('#live-broadcast-pill') && ($('#live-broadcast-pill').style.display = can('settings') ? '' : 'none');
+  $('#legacy-card') && ($('#legacy-card').hidden = !can('security'));
+  const backup = $('#btn-export-backup')?.closest('.card');
+  if (backup) backup.hidden = !can('settings');
+  const chip = $('#whoami-chip');
+  if (chip) chip.textContent = `${me.name || me.email} · ${ROLE_LABEL[me.role] || me.role}`;
+  renderAccountCard();
+};
+
+const showDashboard = async () => {
+  const r = await loadMe();
+  if (r.error) { signOutToLogin(r.error); return; }
+  authScreen.style.display = 'none';
+  adminApp.style.display = 'flex';
+  applyRoleUI();
+  loadSettings();
+  if (can('media') || can('messages')) loadMedia();
+  if (can('messages')) loadMessagesAdmin();
+  if (can('care')) { loadPrayerRequests(); loadConnectAdmin(); loadTestimoniesAdmin(); loadWallAdmin(); }
+  if (can('team')) loadTeam();
+};
 
 const checkAuthSession = () => {
   const isAuth = (sessionStorage.getItem('pai_manager_authenticated') === 'true' ||
@@ -170,71 +314,81 @@ const checkAuthSession = () => {
   } else {
     authScreen.style.display = 'flex';
     adminApp.style.display = 'none';
+    setAuthMode('account');
   }
 };
 
-const showDashboard = () => {
-  authScreen.style.display = 'none';
-  adminApp.style.display = 'flex';
-  loadSettings();
-  loadMedia();
-  loadMessagesAdmin();
-  loadPrayerRequests();
-  loadConnectAdmin();
-  loadTestimoniesAdmin();
-  loadWallAdmin();
-};
-
-togglePwBtn?.addEventListener('click', () => {
-  const isPw = passkeyInput.type === 'password';
-  passkeyInput.type = isPw ? 'text' : 'password';
-  togglePwBtn.textContent = isPw ? '🔒' : '👁';
+const wirePwToggle = (btn, input) => btn?.addEventListener('click', () => {
+  const isPw = input.type === 'password';
+  input.type = isPw ? 'text' : 'password';
+  btn.textContent = isPw ? '🔒' : '👁';
 });
+wirePwToggle(togglePwBtn, passkeyInput);
+wirePwToggle($('#toggle-account-pw-btn'), accountPwInput);
 
 authForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const passkey = passkeyInput.value.trim();
   authError.textContent = '';
   const submitBtn = $('#btn-auth-submit');
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Verifying...';
+  submitBtn.textContent = 'Signing in...';
 
   try {
-    const res = await fetch(`${EDGE_BASE}/verify-passkey`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify({ passkey })
-    });
-
-    if (res.ok) {
-      sessionStorage.setItem('pai_manager_authenticated', 'true');
-      localStorage.setItem('pai_manager_authenticated', 'true');
-      setStoredPasskey(passkey);
-      showDashboard();
-      showToast('Unlocked Site Manager Console', 'success');
+    if (authMode === 'account') {
+      const res = await _origFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email: emailInput.value.trim().toLowerCase(), password: accountPwInput.value })
+      });
+      if (!res.ok) {
+        authError.textContent = res.status === 429 ? 'Too many attempts. Please wait a few minutes and try again.' : 'Incorrect email or password.';
+        accountPwInput.select();
+        return;
+      }
+      saveTokens(await res.json());
+      const r = await loadMe();
+      if (r.error) { signOutToLogin(r.error); return; }
+      accountPwInput.value = '';
+      await showDashboard();
+      showToast('Signed in', 'success');
     } else {
-      const body = await res.json().catch(() => ({}));
-      authError.textContent = res.status === 429
-        ? (body.error || 'Too many attempts. Please wait before trying again.')
-        : 'Incorrect passkey. Please check and try again.';
-      passkeyInput.select();
+      const passkey = passkeyInput.value.trim();
+      const res = await fetch(`${EDGE_BASE}/verify-passkey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ passkey })
+      });
+      if (res.ok) {
+        sessionStorage.setItem('pai_manager_authenticated', 'true');
+        localStorage.setItem('pai_manager_authenticated', 'true');
+        storeBoth('pai_manager_mode', 'passkey');
+        setStoredPasskey(passkey);
+        await showDashboard();
+        showToast('Unlocked Site Manager Console', 'success');
+      } else {
+        const body = await res.json().catch(() => ({}));
+        authError.textContent = res.status === 429 || res.status === 401 && body.error?.includes('turned off')
+          ? (body.error || 'Too many attempts. Please wait before trying again.')
+          : 'Incorrect passkey. Please check and try again.';
+        passkeyInput.select();
+      }
     }
   } catch (err) {
-    authError.textContent = 'Could not verify passkey with server.';
+    authError.textContent = 'Could not reach the server. Check your connection and try again.';
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Unlock Console';
+    submitBtn.textContent = 'Sign in';
   }
 });
 
-btnLogout?.addEventListener('click', () => {
-  sessionStorage.removeItem('pai_manager_authenticated');
-  localStorage.removeItem('pai_manager_authenticated');
-  clearStoredPasskey();
-  adminApp.style.display = 'none';
-  authScreen.style.display = 'flex';
-  passkeyInput.value = '';
-  showToast('Logged out of Site Manager', 'success');
+btnLogout?.addEventListener('click', async () => {
+  if (isAccountSession()) {
+    // best effort: also end the session on the server
+    _origFetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${getPasskey()}` } }).catch(() => {});
+  }
+  signOutToLogin('');
+  setAuthMode('account');
+  showToast('Signed out of Site Manager', 'success');
 });
 
 /* =========================================================================
@@ -899,6 +1053,7 @@ const handleFileUpload = async (files) => {
     return;
   }
 
+  await ensureFreshToken();
   formData.append('passkey', getPasskey());
 
   uploadProgressBox.style.display = 'block';
@@ -1301,7 +1456,7 @@ const saveSettings = async (showNotification = true) => {
           body: JSON.stringify({ currentPasskey: getPasskey(), newPasskey })
         });
         if (pkRes.ok) {
-          setStoredPasskey(newPasskey);
+          if (!isAccountSession()) setStoredPasskey(newPasskey);
           $('#field-manager-passkey').value = '';
           showToast('✓ Changes saved and passkey updated!', 'success');
         } else {
@@ -1842,6 +1997,167 @@ const loadAnalytics = async () => {
   }
 };
 $('#btn-refresh-analytics')?.addEventListener('click', loadAnalytics);
+
+
+/* =========================================================================
+   TEAM & ACCOUNTS (system admin) + MY ACCOUNT
+   ========================================================================= */
+const callAdminUsers = async (action, payload = {}) => {
+  const res = await fetch(`${EDGE_BASE}/admin-users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify({ passkey: getPasskey(), action, payload })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+  return data;
+};
+
+const ROLE_HELP = {
+  owner: 'Everything, including this team page and security.',
+  editor: 'Website content, events, giving, live status, pictures, sermons and visitor stats. Cannot see private prayer requests or the team list.',
+  media: 'Pictures, videos, audio and the sermon archive only.',
+  care: 'Private prayer requests, new visitors and volunteers, testimonies and the prayer wall only.'
+};
+const showRoleHelp = () => { const el = $('#team-role-help'); if (el) el.textContent = ROLE_HELP[$('#team-role').value] || ''; };
+$('#team-role')?.addEventListener('change', showRoleHelp);
+showRoleHelp();
+
+const randomPassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint32Array(14));
+  return Array.from(bytes, (n) => chars[n % chars.length]).join('');
+};
+$('#btn-gen-password')?.addEventListener('click', () => { $('#team-password').value = randomPassword(); });
+
+const loadTeam = async () => {
+  const box = $('#team-list');
+  if (!box) return;
+  try {
+    const { users } = await callAdminUsers('list_users');
+    if (!users.length) {
+      box.innerHTML = '<p style="font-size:13px;color:#6b7280">No accounts yet. You are signed in with the shared passkey. Add your own system admin account below, sign in with it, then turn the shared passkey off under My Account &amp; Backup.</p>';
+      return;
+    }
+    box.innerHTML = users.map((u) => {
+      const mine = me && me.via === 'account' && (u.email || '').toLowerCase() === (me.email || '').toLowerCase();
+      return `
+      <div class="team-row${u.active ? '' : ' is-off'}" data-id="${u.user_id}">
+        <div>
+          <strong>${escapeAdminHtml(u.display_name || u.email)}</strong>${u.active ? '' : ' <span class="role-badge" style="background:#3a1a1f;color:#f3a3ac">Off</span>'}
+          <small>${escapeAdminHtml(u.email)} · last sign-in ${u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'never'}</small>
+        </div>
+        <div>
+          <select class="team-role-select" data-id="${u.user_id}" aria-label="Role for ${escapeAdminHtml(u.email)}">
+            ${Object.keys(ROLE_LABEL).map((r) => `<option value="${r}"${u.role === r ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+          </select>
+        </div>
+        <div class="team-actions">
+          <button type="button" class="btn-mini btn-team-reset" data-id="${u.user_id}">Reset password</button>
+          ${mine ? '' : `<button type="button" class="btn-mini btn-team-toggle" data-id="${u.user_id}" data-active="${u.active}">${u.active ? 'Turn off' : 'Turn on'}</button>
+          <button type="button" class="btn-mini danger btn-team-delete" data-id="${u.user_id}">Delete</button>`}
+        </div>
+      </div>`;
+    }).join('');
+
+    const guard = async (fn, okMsg) => {
+      try { await fn(); if (okMsg) showToast(okMsg, 'success'); } catch (err) { showToast(err.message || 'Something went wrong', 'error'); }
+      loadTeam();
+    };
+    $$('.team-role-select', box).forEach((sel) => sel.addEventListener('change', () =>
+      guard(() => callAdminUsers('set_role', { user_id: sel.dataset.id, role: sel.value }), 'Role updated')));
+    $$('.btn-team-toggle', box).forEach((b) => b.addEventListener('click', () =>
+      guard(() => callAdminUsers('set_active', { user_id: b.dataset.id, active: b.dataset.active !== 'true' }), 'Account updated')));
+    $$('.btn-team-reset', box).forEach((b) => b.addEventListener('click', () => {
+      const pw = window.prompt('Type a new temporary password (at least 10 characters). Share it privately.', randomPassword());
+      if (!pw) return;
+      guard(() => callAdminUsers('reset_password', { user_id: b.dataset.id, password: pw.trim() }), 'Password changed');
+    }));
+    $$('.btn-team-delete', box).forEach((b) => b.addEventListener('click', () => {
+      if (!confirm('Delete this account permanently? They will no longer be able to sign in.')) return;
+      guard(() => callAdminUsers('delete_user', { user_id: b.dataset.id }), 'Account deleted');
+    }));
+  } catch (err) {
+    box.innerHTML = `<p style="font-size:13px;color:#f87171">${escapeAdminHtml(err.message || 'Could not load the team list.')}</p>`;
+  }
+};
+
+$('#btn-create-team-user')?.addEventListener('click', async () => {
+  const btn = $('#btn-create-team-user');
+  const email = $('#team-email').value.trim();
+  const password = $('#team-password').value;
+  const out = $('#team-created');
+  out.hidden = true;
+  btn.disabled = true;
+  try {
+    await callAdminUsers('create_user', { name: $('#team-name').value.trim(), email, role: $('#team-role').value, password });
+    out.innerHTML = `Account created. Share these details privately:<br>Sign-in page: ${location.origin}/admin<br>Email: ${escapeAdminHtml(email)}<br>Temporary password: ${escapeAdminHtml(password)}<br><br>Ask them to change the password under My Account &amp; Backup.`;
+    out.hidden = false;
+    ['#team-name', '#team-email', '#team-password'].forEach((id) => { $(id).value = ''; });
+    showToast('Account created', 'success');
+    loadTeam();
+  } catch (err) {
+    showToast(err.message || 'Could not create the account', 'error');
+  }
+  btn.disabled = false;
+});
+
+// ---- My account card + shared passkey switch ----
+function renderAccountCard() {
+  const sum = $('#account-summary');
+  if (!sum || !me) return;
+  const viaPasskey = me.via === 'passkey';
+  sum.innerHTML = viaPasskey
+    ? 'You are signed in with the <strong>shared passkey</strong>. Anyone who knows it has system admin access. Create your own system admin account under Team &amp; Accounts, sign in with it, then turn the shared passkey off below.'
+    : `Signed in as <strong>${escapeAdminHtml(me.name || me.email)}</strong> (${escapeAdminHtml(me.email)}), role: <strong>${ROLE_LABEL[me.role] || me.role}</strong>.`;
+  const pw = $('#account-password-box');
+  if (pw) pw.hidden = viaPasskey;
+  const st = $('#legacy-status'), tg = $('#btn-toggle-legacy');
+  if (st && tg) {
+    st.textContent = legacyEnabled
+      ? 'The shared passkey is ON. Anyone who knows it can sign in as a system admin.'
+      : 'The shared passkey is OFF. Only personal accounts can sign in.';
+    tg.textContent = legacyEnabled ? 'Turn the shared passkey off' : 'Turn the shared passkey on';
+  }
+}
+
+$('#btn-toggle-legacy')?.addEventListener('click', async () => {
+  const turningOff = legacyEnabled;
+  const msg = turningOff
+    ? 'Turn the shared passkey off? Everyone must then sign in with their own account. (If you are using the passkey right now, you will be signed out.)'
+    : 'Turn the shared passkey back on?';
+  if (!confirm(msg)) return;
+  try {
+    await callAdminUsers('set_legacy', { enabled: !turningOff });
+    legacyEnabled = !turningOff;
+    if (turningOff && me?.via === 'passkey') { signOutToLogin('The shared passkey is now off. Sign in with your own account.'); return; }
+    renderAccountCard();
+    showToast(turningOff ? 'Shared passkey turned off' : 'Shared passkey turned on', 'success');
+  } catch (err) {
+    showToast(err.message || 'Could not change this setting', 'error');
+  }
+});
+
+$('#btn-change-my-password')?.addEventListener('click', async () => {
+  const input = $('#my-new-password');
+  const pw = input.value;
+  if (pw.length < 10) { showToast('Use at least 10 characters', 'error'); return; }
+  try {
+    await ensureFreshToken();
+    const res = await _origFetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${getPasskey()}` },
+      body: JSON.stringify({ password: pw })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(/reauth|nonce|recent/i.test(body.msg || body.message || '') ? 'For safety, sign out and sign in again, then change your password.' : (body.msg || body.message || 'Could not change the password'), 'error');
+      return;
+    }
+    input.value = '';
+    showToast('Password updated', 'success');
+  } catch { showToast('Network error while changing the password', 'error'); }
+});
 
 // Run initialization
 checkAuthSession();
