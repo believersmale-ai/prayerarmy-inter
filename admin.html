@@ -1910,7 +1910,7 @@
             <div class="view-header">
               <div class="view-header-text">
                 <h2><span>📊</span> Visitors &amp; Stats</h2>
-                <p>Last 30 days. Privacy-friendly: no cookies, no IP addresses and no personal data are stored. One visit is counted per browser session, and visitors who have "Do Not Track" turned on are not counted.</p>
+                <p>Last 30 days. Privacy-friendly: no cookies, no IP addresses and no personal data are stored. One visit is counted per browser session, and visitors who have "Do Not Track" turned on are not counted. The optional Meta Pixel is separate: it only runs after a visitor presses Accept on the cookie notice.</p>
               </div>
               <button type="button" class="btn-mini" id="btn-refresh-analytics">🔄 Refresh</button>
             </div>
@@ -2007,6 +2007,16 @@
               <div class="view-header-text">
                 <h2><span>🌐</span> Social Media Channels</h2>
                 <p>Input and update your ministry's social media profile URLs. These automatically render as interactive brand icons in the website footer and contact sections.</p>
+              </div>
+            </div>
+
+            <div class="card" id="tracking-card">
+              <h3 class="card-title">Visitor tracking and retargeting (Meta Pixel)</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px;">Paste your Meta Pixel ID to count visits and to build "people who visited our website" audiences in Meta Ads Manager (Facebook and Instagram). Visitors are asked for permission first, and nothing loads for people who decline. Only names of actions are sent to Meta (such as "viewed a sermon"), never names or messages. Only a System admin can change this.</p>
+              <div class="form-group">
+                <label for="field-meta-pixel-id">Meta Pixel ID</label>
+                <input type="text" id="field-meta-pixel-id" inputmode="numeric" maxlength="20" placeholder="e.g. 123456789012345" autocomplete="off">
+                <small>In Meta Events Manager, open Data sources, choose your Pixel, and copy the ID (digits only). Leave empty to turn tracking off.</small>
               </div>
             </div>
 

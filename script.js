@@ -50,7 +50,7 @@ const DEFAULT_SETTINGS = {
     storyTitle: "A prophetic ministry with a heart for people.",
     storyText: "Prayer Army International is a prophetic church headquartered in the Upper West Region of Ghana and founded by Prophet Suglo Prosper. The ministry's public expression brings together prayer, prophetic ministry, worship, teaching and the call to transformed Christian living.",
     founderBio: "Founder of Prayer Army International and a minister whose public ministry is expressed through preaching, prayer, prophetic ministry and the raising of believers for purposeful Christian service.",
-    faithImage: "assets/images/statement-of-faith.png"
+    faithImage: "assets/images/statement-of-faith.jpg"
   },
   live: {
     isLiveNow: false,
@@ -112,6 +112,7 @@ const DEFAULT_SETTINGS = {
     whatsapp: "https://wa.me/233241234567",
     telegram: ""
   },
+  tracking: { metaPixelId: "" },
   verses: [
     { text: "The LORD is my shepherd; I shall not want.", ref: "Psalm 23:1" },
     { text: "I can do all things through Christ which strengtheneth me.", ref: "Philippians 4:13" },
@@ -142,6 +143,11 @@ const extractYouTubeId = (url) => {
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+// Message to show when a public form is refused (too many submissions vs. a general failure)
+const failMessage = async (res, fallback) => {
+  const t = await res.text().catch(() => '');
+  return /rate_limited/.test(t) ? 'You have sent several messages in a short time. Please wait a little and try again.' : fallback;
+};
 const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
@@ -235,6 +241,16 @@ const tickCountdown = (cd) => {
 const updateCountdown = () => $$('.countdown[data-start]').forEach(tickCountdown);
 
 // Only ever turn admin-entered links into http(s) / in-page links
+// Links typed into the admin panel: allow http(s), mailto, tel, #anchors and relative paths only.
+const safeHref = (u) => {
+  const v = String(u || '').trim();
+  if (!v) return '';
+  const scheme = v.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (scheme && !['http', 'https', 'mailto', 'tel'].includes(scheme[1].toLowerCase())) return '';
+  return v;
+};
+// A value that is safe to place inside CSS url("...")
+const cssUrl = (u) => `url("${String(u || '').replace(/["\\\n\r)(]/g, (c) => encodeURIComponent(c))}")`;
 const safeUrl = (u) => {
   const v = String(u || '').trim();
   return /^(https?:\/\/|#|\/)/i.test(v) ? v : '';
@@ -245,8 +261,82 @@ const safeUrl = (u) => {
    ========================================================================= */
 const SITE_ORIGIN = location.origin && location.origin.startsWith('http') ? location.origin : 'https://prayerarmy-inter.vercel.app';
 
+/* =========================================================================
+   META PIXEL (optional, only after the visitor agrees)
+   The Pixel ID is set by a system admin in the admin panel. Nothing loads until the
+   visitor presses Accept, and visitors who send "Do Not Track" / Global Privacy Control
+   are never asked and never tracked. Only event names are sent, never names or messages.
+   ========================================================================= */
+const CONSENT_KEY = 'pai_consent';
+const readConsent = () => { try { return localStorage.getItem(CONSENT_KEY) || ''; } catch { return ''; } };
+const writeConsent = (v) => { try { localStorage.setItem(CONSENT_KEY, v); } catch {} };
+const privacySignal = () => navigator.doNotTrack === '1' || navigator.globalPrivacyControl === true;
+const PIXEL_ID_RE = /^\d{5,20}$/;
+let pixelId = '';
+let pixelLoaded = false;
+
+const loadMetaPixel = (id) => {
+  if (pixelLoaded || !PIXEL_ID_RE.test(id)) return;
+  pixelLoaded = true;
+  (function (w, d) {
+    if (w.fbq) return;
+    const q = function () { q.callMethod ? q.callMethod.apply(q, arguments) : q.queue.push(arguments); };
+    w.fbq = q; if (!w._fbq) w._fbq = q;
+    q.push = q; q.loaded = true; q.version = '2.0'; q.queue = [];
+    const t = d.createElement('script');
+    t.async = true; t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+    d.head.appendChild(t);
+  })(window, document);
+  window.fbq('init', id);
+  window.fbq('track', 'PageView');
+};
+
+// name: a Meta standard event (ViewContent, Lead, Contact) or, with custom=true, your own event name
+const pixelEvent = (name, params, custom) => {
+  if (!pixelLoaded || typeof window.fbq !== 'function') return;
+  try { window.fbq(custom ? 'trackCustom' : 'track', name, params || {}); } catch {}
+};
+
+const clearPixelCookies = () => {
+  ['_fbp', '_fbc'].forEach((n) => {
+    document.cookie = `${n}=; Max-Age=0; path=/`;
+    document.cookie = `${n}=; Max-Age=0; path=/; domain=${location.hostname}`;
+    document.cookie = `${n}=; Max-Age=0; path=/; domain=.${location.hostname}`;
+  });
+};
+
+const initTracking = (cfg) => {
+  const id = String(cfg?.metaPixelId || '').trim();
+  const banner = $('#consent-banner'), settingsBtn = $('#cookie-settings');
+  if (!PIXEL_ID_RE.test(id) || privacySignal()) {
+    if (banner) banner.hidden = true;
+    if (settingsBtn) settingsBtn.hidden = true;
+    return;
+  }
+  pixelId = id;
+  if (settingsBtn) settingsBtn.hidden = false;
+  const choice = readConsent();
+  if (choice === 'granted') loadMetaPixel(id);
+  else if (choice !== 'denied' && banner) banner.hidden = false;
+};
+
+$('#consent-accept')?.addEventListener('click', () => {
+  writeConsent('granted');
+  $('#consent-banner').hidden = true;
+  loadMetaPixel(pixelId);
+});
+$('#consent-decline')?.addEventListener('click', () => {
+  const wasOn = pixelLoaded;
+  writeConsent('denied');
+  $('#consent-banner').hidden = true;
+  if (wasOn) { clearPixelCookies(); location.reload(); }
+});
+$('#cookie-settings')?.addEventListener('click', () => { $('#consent-banner').hidden = false; });
+
 // Privacy-light analytics: no cookies, no IP, no personal data. Respects Do Not Track.
 const track = (kind, label) => {
+  if (kind === 'sermon_play') pixelEvent('ViewContent', { content_name: String(label || '').slice(0, 100), content_type: 'sermon' });
+  else if (kind === 'share') pixelEvent('ShareClick', { content_name: String(label || '').slice(0, 100) }, true);
   try {
     if (navigator.doNotTrack === '1' || navigator.webdriver) return;
     let ref = '';
@@ -588,11 +678,11 @@ const applySettings = (s) => {
   if (hTitleMain && s.hero?.titleMain) hTitleMain.textContent = s.hero.titleMain;
   if (hTitleAccent && s.hero?.titleAccent) hTitleAccent.textContent = s.hero.titleAccent;
   if (hCopy && s.hero?.copy) hCopy.textContent = s.hero.copy;
-  if (hNote && s.hero?.tagline) hNote.innerHTML = `<span class="pulse"></span> ${s.hero.tagline}`;
+  if (hNote && s.hero?.tagline) hNote.innerHTML = `<span class="pulse"></span> ${escapeHtml(s.hero.tagline)}`;
 
   if (hBtnPrimary) {
-    if (s.hero?.btnPrimaryText) hBtnPrimary.innerHTML = `${s.hero.btnPrimaryText} <span>→</span>`;
-    if (s.hero?.btnPrimaryLink) hBtnPrimary.href = s.hero.btnPrimaryLink;
+    if (s.hero?.btnPrimaryText) hBtnPrimary.innerHTML = `${escapeHtml(s.hero.btnPrimaryText)} <span>→</span>`;
+    if (s.hero?.btnPrimaryLink && safeHref(s.hero.btnPrimaryLink)) hBtnPrimary.href = safeHref(s.hero.btnPrimaryLink);
   }
 
   // Hero Background Media (Image or Video)
@@ -616,7 +706,7 @@ const applySettings = (s) => {
     } else {
       const vid = heroMedia.querySelector('video.hero-bg-video');
       if (vid) vid.remove();
-      heroMedia.style.backgroundImage = `url('${bg}')`;
+      heroMedia.style.backgroundImage = cssUrl(bg);
     }
   }
 
@@ -640,7 +730,7 @@ const applySettings = (s) => {
     }
     // Always keeps visitors on-site: jumps to the Live section, which plays
     // the broadcast inline rather than sending anyone to an external tab.
-    hBtnSecondary.href = isLive ? '#live' : (s.hero?.btnSecondaryLink || '#live');
+    hBtnSecondary.href = isLive ? '#live' : (safeHref(s.hero?.btnSecondaryLink) || '#live');
     hBtnSecondary.removeAttribute('target');
     hBtnSecondary.removeAttribute('rel');
     if (!hBtnSecondary.dataset.liveBound) {
@@ -683,7 +773,7 @@ const applySettings = (s) => {
   if (liveStatus) {
     liveStatus.innerHTML = isLive
       ? '<span class="pulse" style="background:#e53e3e"></span> Service is currently live — tune in now!'
-      : `<span class="pulse"></span> ${s.live?.statusNote || 'Regular Sunday and Prophetic Services streamed live'}`;
+      : `<span class="pulse"></span> ${escapeHtml(s.live?.statusNote || 'Regular Sunday and Prophetic Services streamed live')}`;
   }
 
   // Inline live video player -- previews with a thumbnail + play button and,
@@ -729,7 +819,7 @@ const applySettings = (s) => {
     if (ytId) {
       liveThumb.style.backgroundImage = `url('https://img.youtube.com/vi/${ytId}/hqdefault.jpg')`;
     } else {
-      liveThumb.style.backgroundImage = `url('${s.hero?.bgImage || 'assets/images/FB_IMG_1790281547438.jpg'}')`;
+      liveThumb.style.backgroundImage = cssUrl(s.hero?.bgImage || 'assets/images/FB_IMG_1790281547438.jpg');
     }
 
     const canPlayInline = Boolean(ytId || isDirectVideo);
@@ -787,7 +877,7 @@ const applySettings = (s) => {
   if (s.foundation?.founderBio && $('#foundation-founder-bio')) $('#foundation-founder-bio').textContent = s.foundation.founderBio;
   const faithImg = $('#foundation-faith-image'), faithMediaBox = $('#faith-media');
   if (faithImg && faithMediaBox) {
-    if (s.foundation?.faithImage) faithImg.src = s.foundation.faithImage;
+    if (s.foundation?.faithImage) faithImg.src = s.foundation.faithImage.replace('statement-of-faith.png', 'statement-of-faith.jpg');
     faithMediaBox.style.display = '';
   }
 
@@ -815,6 +905,7 @@ const applySettings = (s) => {
   renderEvents(s);
   renderWeekly(s);
   renderVerse(s);
+  initTracking(s.tracking);
   renderLocations(s);
 
   if (countdownTimer) clearInterval(countdownTimer);
@@ -845,8 +936,8 @@ const applySettings = (s) => {
 
   const giveBtn = $('#give-link-btn');
   if (giveBtn) {
-    if (s.giving?.link) {
-      giveBtn.href = s.giving.link;
+    if (safeHref(s.giving?.link)) {
+      giveBtn.href = safeHref(s.giving.link);
       giveBtn.target = '_blank';
       giveBtn.rel = 'noopener';
       giveBtn.innerHTML = 'Give online <span>→</span>';
@@ -862,14 +953,14 @@ const applySettings = (s) => {
   // Contacts & Socials
   const hqEl = $('#footer-hq-address');
   if (hqEl && s.contact?.address) {
-    hqEl.innerHTML = s.contact.address.replace(',', '<br>');
+    hqEl.innerHTML = escapeHtml(s.contact.address).replace(',', '<br>');
   }
 
   const cl = $('#contact-lines'), lines = [];
-  if (s.contact?.address) lines.push(s.contact.address);
-  if (s.contact?.phone) lines.push(`<a href="tel:${s.contact.phone.replace(/\s/g, '')}">${s.contact.phone}</a>`);
-  if (s.contact?.whatsapp) lines.push(`<a href="https://wa.me/${s.contact.whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">WhatsApp: ${s.contact.whatsapp}</a>`);
-  if (s.contact?.email) lines.push(`<a href="mailto:${s.contact.email}">${s.contact.email}</a>`);
+  if (s.contact?.address) lines.push(escapeHtml(s.contact.address));
+  if (s.contact?.phone) lines.push(`<a href="tel:${escapeHtml(s.contact.phone.replace(/[^\d+]/g, ''))}">${escapeHtml(s.contact.phone)}</a>`);
+  if (s.contact?.whatsapp) lines.push(`<a href="https://wa.me/${s.contact.whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">WhatsApp: ${escapeHtml(s.contact.whatsapp)}</a>`);
+  if (s.contact?.email) lines.push(`<a href="mailto:${escapeHtml(s.contact.email)}">${escapeHtml(s.contact.email)}</a>`);
   if (lines.length && cl) cl.innerHTML = lines.join('<br>');
 
   // Dedicated Contact Section Bindings
@@ -1107,10 +1198,11 @@ prayerForm?.addEventListener('submit', async e => {
         is_private: Boolean(data.private)
       })
     });
-    if (!r.ok) throw 0;
+    if (!r.ok) throw new Error(await failMessage(r, 'Sorry, something went wrong. Please try again in a moment.'));
+    pixelEvent('Contact', { content_name: 'prayer request' });
     done('Thank you — your request has been received and we are standing with you in prayer.');
-  } catch {
-    prayerNote.textContent = 'Sorry, something went wrong. Please try again in a moment.';
+  } catch (err) {
+    prayerNote.textContent = err instanceof Error ? err.message : 'Sorry, something went wrong. Please try again in a moment.';
     prayerNote.className = 'form-note err';
   }
   btn.disabled = false;
@@ -1394,7 +1486,7 @@ const buildMessageCard = (msg) => {
         },
         body: JSON.stringify({ message_id: msg.id, name, comment })
       });
-      if (!res.ok) throw 0;
+      if (!res.ok) throw new Error(await failMessage(res, 'Could not post your comment. Please try again.'));
       const [saved] = await res.json();
       msg.comments = [...(msg.comments || []), saved];
       renderComments(commentList, msg.comments);
@@ -1402,8 +1494,8 @@ const buildMessageCard = (msg) => {
       form.reset();
       note.textContent = 'Comment posted — thank you!';
       note.className = 'form-note ok';
-    } catch {
-      note.textContent = 'Could not post your comment. Please try again.';
+    } catch (err) {
+      note.textContent = err instanceof Error && err.message ? err.message : 'Could not post your comment. Please try again.';
       note.className = 'form-note err';
     }
     submitBtn.disabled = false;
@@ -1535,7 +1627,7 @@ const wirePublicForm = (formSel, noteSel, table, toRow, okMessage, after) => {
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: 'return=minimal' },
         body: JSON.stringify(row)
       });
-      if (!res.ok) throw new Error('rejected');
+      if (!res.ok) throw new Error('S:' + await failMessage(res, 'Sorry, that did not go through. Please try again in a moment.'));
       form.reset();
       note.textContent = okMessage;
       note.className = 'form-note ok';
@@ -1543,7 +1635,7 @@ const wirePublicForm = (formSel, noteSel, table, toRow, okMessage, after) => {
     } catch (err) {
       note.textContent = err.message === 'missing'
         ? 'Please add a phone number or an email so we can reach you.'
-        : 'Sorry, that did not go through. Please try again in a moment.';
+        : (String(err.message).startsWith('S:') ? err.message.slice(2) : 'Sorry, that did not go through. Please try again in a moment.');
       note.className = 'form-note err';
     }
     btn.disabled = false; btn.classList.remove('loading'); btn.innerHTML = restore;
@@ -1561,7 +1653,8 @@ wirePublicForm('#connect-form', '#connect-note', 'connect_requests',
     return { name: (d.name || '').trim().slice(0, 120), phone: phone.slice(0, 40) || null, email: email.slice(0, 160) || null,
       kind: ['visitor', 'volunteer', 'counseling', 'other'].includes(d.kind) ? d.kind : 'visitor', note: (d.note || '').trim().slice(0, 2000) || null };
   },
-  'Thank you! Someone from the ministry will be in touch with you soon.');
+  'Thank you! Someone from the ministry will be in touch with you soon.',
+  () => pixelEvent('Lead', { content_name: 'connect form' }));
 
 
 // Podcast feed link
@@ -1623,3 +1716,8 @@ loadWall();
 wirePublicForm('#wall-form', '#wall-note', 'wall_prayers',
   (d) => ({ name: (d.name || '').trim().slice(0, 60) || null, request: (d.request || '').trim().slice(0, 400) }),
   'Thank you. Your request will appear on the wall once it has been reviewed. We are praying with you.');
+
+// Giving: count clicks on the payment buttons (event name only, no amounts or details)
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#give-link-btn, .pay-link')) pixelEvent('GiveClick', {}, true);
+});

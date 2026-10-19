@@ -1,34 +1,44 @@
 ## Deployment & backend (read this first)
 
-This site deploys to Vercel as a **plain static site** — no server, no build
-step. All admin-editable content (the text throughout the site) and media
-uploaded through the Site Manager (`/admin`) are stored in Supabase, not on
-disk, so nothing is lost between deploys or requests:
+This site deploys to Vercel as a **plain static site**. No server, no build step, no environment
+variables. Everything you edit in the admin panel (`/admin`) is stored in Supabase.
 
-- **`site_settings` table** — holds all the editable site copy. Publicly
-  readable (that's how the homepage loads it), writable only through the
-  `save-settings` Edge Function.
-- **`admin_config` table** — holds the manager passkey. Not readable by
-  anyone except the service role inside Edge Functions.
-- **`media` storage bucket** — holds files uploaded through the Site
-  Manager. Publicly readable, writable only through the `upload-media` /
-  `delete-media` Edge Functions.
-- **Edge Functions** (`verify-passkey`, `save-settings`, `upload-media`,
-  `delete-media`, `change-passkey`) — every one of these re-checks the
-  passkey server-side before touching anything, so the passkey itself is
-  never exposed in a public API response (it used to be, in the old
-  file-based version).
+### How access works
+- Each person signs in at `/admin` with **their own email and password**. Roles:
+  - **System admin**: everything, including the Team page and security.
+  - **Editor**: website content, events, giving, live status, pictures, sermons, visitor stats.
+  - **Media**: pictures, videos, audio and the sermon archive only.
+  - **Pastoral care**: private prayer requests, new visitors, testimonies and the prayer wall only.
+- Roles are checked on the server (Supabase Edge Functions), not just hidden in the page.
+- A **shared passkey** still exists for the first sign-in. Use it once to create a System admin
+  account under *Team & Accounts*, then turn it off under *My Account & Backup*.
+- If every System admin is locked out, run `update admin_config set legacy_enabled = true;` in the
+  Supabase SQL editor to bring the shared passkey back, then fix the accounts.
 
-The Supabase URL and anon key are embedded directly in `script.js` and
-`admin.js` — that's expected, the anon key can only do what Row Level
-Security explicitly allows (read public settings/media). Nothing secret is
-in the client code.
+### Before going public (checklist)
+1. Create your own System admin account and turn the shared passkey off.
+2. In Supabase: Authentication > Sign In / Providers > Email > turn **off** "Allow new users to sign up".
+3. Check `/functions/v1/podcast-feed` opens as XML (it feeds your audio sermons to podcast apps).
+4. Optional Meta Pixel: a System admin pastes the Pixel ID under *Social Media Channels*. Visitors see a
+   cookie notice and nothing loads until they press Accept (people who send Do Not Track or Global
+   Privacy Control are never tracked). Only event names are sent (page view, sermon viewed, share,
+   connect form, prayer request, giving click), never names or messages. `privacy.html` explains this
+   to visitors; have it reviewed for your situation, and check whether the church must register with
+   Ghana's Data Protection Commission.
+5. If you add a custom domain: add it to `ALLOWED_EXACT` in each Edge Function's `cors.ts`, and
+   update the `og:url` / `og:image` addresses in `index.html`.
 
-To change the manager passkey, log into `/admin`, go to Settings, type a
-new passkey into "New Passkey", and click Save — no code changes needed.
+### What lives where
+- `site_settings`: all editable site text (publicly readable, written only by `save-settings`).
+- `messages`, `message_comments`, `testimonies`, `wall_prayers`, `prayer_requests`,
+  `connect_requests`: public forms can only add rows; everything private is read through
+  `manage-content`, which checks the person's role.
+- `admin_roles`, `admin_config`, `login_attempts`, `rate_limits`: no public access at all.
+- `media` storage bucket: public to read, written only by `upload-media` / `delete-media`.
+- Public forms are rate limited per visitor (for example 20 prayer requests per hour).
 
-Just push this folder to Vercel (or any static host). There's no `PORT`,
-no environment variables, and no server process to configure.
+The Supabase URL and anon key inside `script.js` and `admin.js` are meant to be public. They can
+only do what the database's access rules allow.
 
 ---
 
@@ -140,8 +150,7 @@ The Live section has a real inline video player, not just a link out:
    already reflect that).
 3. Deploy. No environment variables are required; the Supabase URL and
    anon key are safe to ship in the client code (see above).
-4. Visit `/admin` on your deployed domain to manage content — sign in with
-   the passkey stored in Supabase's `admin_config` table.
+4. Visit `/admin` on your deployed domain and sign in (see "How access works" at the top).
 
 
 

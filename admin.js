@@ -285,6 +285,7 @@ const applyRoleUI = () => {
   $('#btn-save-all') && ($('#btn-save-all').style.display = can('settings') ? '' : 'none');
   $('#live-broadcast-pill') && ($('#live-broadcast-pill').style.display = can('settings') ? '' : 'none');
   $('#legacy-card') && ($('#legacy-card').hidden = !can('security'));
+  $('#tracking-card') && ($('#tracking-card').hidden = !can('security'));
   const backup = $('#btn-export-backup')?.closest('.card');
   if (backup) backup.hidden = !can('settings');
   const chip = $('#whoami-chip');
@@ -668,6 +669,7 @@ const populateForm = (s) => {
   $('#field-prayer-endpoint').value = s.prayer?.endpoint || '';
 
   // Announcement Banner
+  $('#field-meta-pixel-id').value = s.tracking?.metaPixelId || '';
   $('#field-banner-enabled').checked = Boolean(s.announcement?.enabled);
   $('#field-banner-text').value = s.announcement?.text || '';
 
@@ -812,6 +814,7 @@ const collectFormData = () => {
       linkedin: $('#field-social-linkedin')?.value.trim() || '',
       spotify: $('#field-social-spotify')?.value.trim() || ''
     },
+    tracking: { metaPixelId: $('#field-meta-pixel-id').value.replace(/\D/g, '').slice(0, 20) },
     announcement: {
       enabled: $('#field-banner-enabled').checked,
       text: $('#field-banner-text').value.trim()

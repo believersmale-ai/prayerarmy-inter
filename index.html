@@ -142,7 +142,7 @@
             <p class="eyebrow dark">STATEMENT OF FAITH</p>
             <h3>What we believe</h3>
             <div class="faith-media" id="faith-media">
-              <img id="foundation-faith-image" src="assets/images/statement-of-faith.png" alt="Prayer Army International — Statement of Faith">
+              <img id="foundation-faith-image" width="1200" height="900" loading="lazy" decoding="async" src="assets/images/statement-of-faith.jpg" alt="Prayer Army International — Statement of Faith">
             </div>
           </div>
           <div class="faith-copy">
@@ -449,11 +449,21 @@
     </div>
     <div class="container footer-bottom">
       <span>© <span id="year"></span> Prayer Army International. All rights reserved.</span>
-      <div>
-        <span>Built for ministry, media & mission.</span>
+      <div class="footer-legal">
+        <a href="/privacy">Privacy</a>
+        <button type="button" class="link-btn" id="cookie-settings" hidden>Cookie settings</button>
+        <span>Built for ministry, media &amp; mission.</span>
       </div>
     </div>
   </footer>
+
+  <div class="consent-banner" id="consent-banner" role="region" aria-label="Cookie choices" hidden>
+    <p>May we use Meta (Facebook and Instagram) cookies to count visits and share our church updates with people who have visited? This is optional. Your prayer requests, testimonies and messages are never sent to Meta. <a href="/privacy">Read how we handle your information</a>.</p>
+    <div class="consent-actions">
+      <button type="button" class="btn btn-gold" id="consent-accept">Accept</button>
+      <button type="button" class="btn btn-ghost" id="consent-decline">Decline</button>
+    </div>
+  </div>
 
   <dialog class="sermon-player" id="sermon-player" aria-label="Sermon player">
     <div class="sp-bar"><p class="sp-title" id="sp-title"></p><button type="button" class="sp-close" aria-label="Close player">✕</button></div>
