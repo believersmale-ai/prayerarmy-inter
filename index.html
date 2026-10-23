@@ -180,6 +180,20 @@
             <p>We believe in the Great Commission: that every believer is called to share the gospel, make disciples and demonstrate God's love through service.</p>
           </div>
         </div>
+
+        <div class="story-grid reveal">
+          <div class="story-card">
+            <span class="eyebrow dark">OUR STORY</span>
+            <h3>A prophetic ministry with a heart for people.</h3>
+            <p>Prayer Army International is a prophetic church headquartered in the Upper West Region of Ghana and founded by Prophet Suglo Prosper. The ministry's public expression brings together prayer, prophetic ministry, worship, teaching and the call to transformed Christian living.</p>
+          </div>
+          <div class="story-card founder-card">
+            <span class="eyebrow">FOUNDER</span>
+            <h3>Prophet Suglo Prosper</h3>
+            <p>Founder of Prayer Army International and a minister whose public ministry is expressed through preaching, prayer, prophetic ministry and the raising of believers for purposeful Christian service.</p>
+            <a href="#about" class="text-link">Meet the founder <span>↑</span></a>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -234,6 +248,17 @@
             </div>
           </div>
         </div>
+
+        <!-- Messages Archive Placeholder (Populated by JS) -->
+        <div id="messages-archive" class="messages-archive reveal">
+          <div class="messages-archive-head">
+            <h3>Sermon Archive</h3>
+            <p>Every past message and live service is kept here. Press play to watch or listen without leaving the site.</p>
+          </div>
+          <div class="messages-list" id="messages-list">
+            <p class="messages-empty">Loading sermons…</p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -254,7 +279,6 @@
         </div>
         <div class="live-video-wrap reveal" id="live-video-frame">
           <div class="live-video-frame">
-            <!-- Inline player placeholder, JS will inject iframe/video here -->
             <div class="live-video-thumb" style="background-image: url('assets/images/FB_IMG_1790281547438.jpg');"></div>
             <button class="live-play-btn" aria-label="Play Live Stream">
               <span class="live-play-icon">▶</span>
@@ -322,7 +346,8 @@
           <div class="weekly-head">
             <h3>Life at <span>Prayer Army</span></h3>
           </div>
-          <div class="weekly-grid">
+          <div class="weekly-grid" id="weekly-grid">
+            <!-- Populated by JS -->
             <div class="weekly-card is-today">
               <div class="weekly-when">
                 <span class="weekly-day">Sunday</span>
@@ -366,7 +391,7 @@
           </div>
           <a href="#gallery" class="text-link">View gallery <span>→</span></a>
         </div>
-        <div class="gallery-grid reveal">
+        <div class="gallery-grid reveal" id="gallery-grid">
           <figure class="g1"><img src="assets/images/FB_IMG_1790281482379.jpg" alt="Ministry moment" loading="lazy"></figure>
           <figure class="g2"><img src="assets/images/FB_IMG_1790281547438.jpg" alt="Ministry moment" loading="lazy"></figure>
           <figure class="g3"><img src="assets/images/FB_IMG_1790281482379.jpg" alt="Ministry moment" loading="lazy"></figure>
@@ -405,6 +430,77 @@
           </label>
           <button type="submit" class="btn btn-gold"><span>Submit Prayer Request →</span></button>
           <p class="form-note">Your request is saved privately and securely.</p>
+        </form>
+      </div>
+
+      <!-- Prayer Wall Placeholder -->
+      <div class="container" style="margin-top: 80px;">
+        <div class="section-head reveal">
+          <div>
+            <span class="eyebrow dark">THE PRAYER WALL</span>
+            <h2>Stand with <span>our church family.</span></h2>
+          </div>
+        </div>
+        <div class="wall-grid" id="prayer-wall-grid">
+          <p class="messages-empty">Loading prayer requests…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonies Section -->
+    <section class="section testimonies">
+      <div class="container">
+        <div class="section-head reveal">
+          <div>
+            <span class="eyebrow dark">WHAT GOD HAS DONE</span>
+            <h2>Testimonies of <span>God's faithfulness</span></h2>
+          </div>
+        </div>
+        <div class="testimonies-grid" id="testimonies-grid">
+          <p class="messages-empty">Loading testimonies…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Connect Section -->
+    <section class="section connect">
+      <div class="container">
+        <div class="section-head reveal">
+          <div>
+            <span class="eyebrow dark">NEW HERE? LET'S CONNECT</span>
+            <h2>We would love to <span>meet you.</span></h2>
+          </div>
+          <p class="foundation-intro">Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.</p>
+        </div>
+        <form class="prayer-form reveal" id="connect-form" style="max-width: 720px; margin: 0 auto;">
+          <div>
+            <label for="connect-help">How can we help?</label>
+            <select id="connect-help" name="help_type">
+              <option>I'm new / visiting</option>
+              <option>I want to volunteer (choir, ushers, media, children…)</option>
+              <option>I'd like counseling or a pastoral appointment</option>
+              <option>Something else</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="connect-name">Name</label>
+              <input type="text" id="connect-name" name="name" required>
+            </div>
+            <div>
+              <label for="connect-phone">Phone / WhatsApp</label>
+              <input type="text" id="connect-phone" name="phone" required>
+            </div>
+          </div>
+          <div>
+            <label for="connect-email">Email</label>
+            <input type="email" id="connect-email" name="email">
+          </div>
+          <div>
+            <label for="connect-notes">Anything we should know?</label>
+            <textarea id="connect-notes" name="notes" rows="4"></textarea>
+          </div>
+          <button type="submit" class="btn btn-gold"><span>Send →</span></button>
         </form>
       </div>
     </section>
