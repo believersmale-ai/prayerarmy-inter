@@ -194,6 +194,7 @@ app.delete('/api/media/:filename', (req, res) => {
   }
 });
 
+app.get('/{*splat}', (req, res) => {
 app.get('/api/health/db', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT 1 AS connected');
