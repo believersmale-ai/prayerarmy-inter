@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import db from './database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -190,6 +191,88 @@ app.delete('/api/media/:filename', (req, res) => {
     res.status(404).json({ error: 'File not found in uploads' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete file' });
+  }
+});
+
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT 1 AS connected');
+
+    res.json({
+      success: true,
+      database: rows[0].connected === 1
+    });
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+
+    res.status(500).json({
+      success: false,
+      error: 'Database connection failed'
+    });
+  }
+});
+
+app.post('/api/rest/v1/prayer_requests', async (req, res) => {
+  try {
+    const { name, email, phone, request } = req.body;
+
+    if (!name || !request) {
+      return res.status(400).json({
+        error: 'Name and prayer request are required'
+      });
+    }
+
+    const [result] = await db.execute(
+      `INSERT INTO prayer_requests
+       (name, email, phone, request)
+       VALUES (?, ?, ?, ?)`,
+      [name, email || null, phone || null, request]
+    );
+
+    res.status(201).json({
+      success: true,
+      id: result.insertId
+    });
+  } catch (error) {
+    console.error('Prayer request error:', error.message);
+    res.status(500).json({
+      error: 'Unable to save prayer request'
+    });
+  }
+});
+
+app.post('/api/rest/v1/connect_requests', async (req, res) => {
+  try {
+    const { name, email, phone, subject, message } = req.body;
+
+    if (!name || !message) {
+      return res.status(400).json({
+        error: 'Name and message are required'
+      });
+    }
+
+    const [result] = await db.execute(
+      `INSERT INTO connect_requests
+       (name, email, phone, subject, message)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        name,
+        email || null,
+        phone || null,
+        subject || null,
+        message
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      id: result.insertId
+    });
+  } catch (error) {
+    console.error('Contact message error:', error.message);
+    res.status(500).json({
+      error: 'Unable to save contact message'
+    });
   }
 });
 
