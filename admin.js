@@ -2,12 +2,11 @@
    PRAYER ARMY INTERNATIONAL - DEDICATED SITE MANAGER CONTROLLER
    ========================================================================= */
 
-// Supabase project backing this admin panel. The anon key is safe to expose --
-// every privileged action (save settings, upload/delete media, change passkey)
-// goes through an Edge Function that re-checks the passkey server-side against
-// the service-role-only admin_config table before touching anything.
-const SUPABASE_URL = "https://rftshprvuniszeorgrvd.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdHNocHJ2dW5pc3plb3JncnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyODY0MDAsImV4cCI6MjEwNTg2MjQwMH0.l2avLrx2ftsC7sbS-1F_Z05OShGLoCak-iWcU0YTJos";
+// Backend: the PHP/MySQL API in /api on this same Hostinger site. Every privileged action
+// (save settings, upload/delete media, team, private requests) is re-checked on the server
+// against the signed-in account's role before anything happens.
+const SUPABASE_URL = `${location.origin}/api`;   // kept name for compatibility: this is now your own Hostinger PHP/MySQL API
+const SUPABASE_ANON_KEY = "";                      // not used any more
 const EDGE_BASE = `${SUPABASE_URL}/functions/v1`;
 
 const getPasskey = () =>
@@ -23,7 +22,7 @@ const clearStoredPasskey = () => {
   localStorage.removeItem('pai_manager_passkey');
 };
 
-/* ---- Account sessions (Supabase Auth) -------------------------------------
+/* ---- Account sessions (own accounts) -------------------------------------
    An account session keeps its short-lived access token in the same slot the
    shared passkey used (getPasskey()), so every existing request keeps working.
    The token is refreshed automatically before it expires. */
@@ -61,7 +60,7 @@ const ensureFreshToken = async (force = false) => {
   return _refreshing;
 };
 
-// Every call to an Edge Function gets a fresh token; one retry if the server says it expired.
+// Every call to an server call gets a fresh token; one retry if the server says it expired.
 const swapToken = (init, from, to) =>
   (from && init && typeof init.body === 'string') ? { ...init, body: init.body.split(from).join(to) } : init;
 window.fetch = async (input, init) => {
@@ -554,7 +553,7 @@ const renderExtrasEditors = (s) => {
   if (vb) vb.innerHTML = verses.map(verseRowHtml).join('');
   if (bb) bb.innerHTML = (Array.isArray(s.branches) ? s.branches : []).map(branchRowHtml).join('');
   const feed = $('#podcast-feed-url');
-  if (feed) feed.value = `${SUPABASE_URL}/functions/v1/podcast-feed`;
+  if (feed) feed.value = `${location.origin}/podcast.xml`;
 };
 const collectVerseRows = () => $$('#verses-editor .repeat-row').map(r => ({ text: $('.vs-text', r).value.trim(), ref: $('.vs-ref', r).value.trim() })).filter(v => v.text);
 const collectBranchRows = () => $$('#branches-editor .repeat-row').map(r => ({
@@ -1046,7 +1045,7 @@ const handleFileUpload = async (files) => {
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     if (f.type.startsWith('image/') || f.type.startsWith('video/') || f.type.startsWith('audio/')) {
-      formData.append('files', f);
+      formData.append('files[]', f);
       count++;
     }
   }
@@ -1067,7 +1066,6 @@ const handleFileUpload = async (files) => {
   try {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${EDGE_BASE}/upload-media`);
-    xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -1088,7 +1086,9 @@ const handleFileUpload = async (files) => {
         showToast(`Successfully uploaded ${count} media file(s)!`, 'success');
         loadMedia();
       } else {
-        showToast('Upload failed. Check file size or format.', 'error');
+        let why = 'Upload failed. Check file size or format.';
+        try { why = JSON.parse(xhr.responseText).error || why; } catch {}
+        showToast(why, 'error');
         uploadProgressBox.style.display = 'none';
       }
     };
@@ -1105,7 +1105,7 @@ const handleFileUpload = async (files) => {
   }
 };
 
-// Load Media Files (bundled church photos + Supabase Storage uploads)
+// Load Media Files (bundled church photos + uploaded files)
 const loadMedia = async () => {
   try {
     const media = [];
@@ -1119,7 +1119,7 @@ const loadMedia = async () => {
       }
     } catch {}
 
-    // 2. Admin-uploaded media in the Supabase Storage bucket
+    // 2. Admin-uploaded media in the uploads folder
     const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/media`, {
       method: 'POST',
       headers: {
@@ -1138,7 +1138,7 @@ const loadMedia = async () => {
         const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'oga', 'flac'].includes(ext);
         media.push({
           filename: obj.name,
-          url: `${SUPABASE_URL}/storage/v1/object/public/media/${encodeURIComponent(obj.name)}`,
+          url: `/uploads/${encodeURIComponent(obj.name)}`,
           type: isVideo ? 'video' : isAudio ? 'audio' : 'image',
           size: obj.metadata?.size || 0,
           isUpload: true
@@ -1840,7 +1840,7 @@ const loadPrayerRequests = async () => {
       });
     });
   } catch (err) {
-    requestsAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load prayer requests. Is the manage-content Edge Function deployed?</p>';
+    requestsAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load prayer requests. Please refresh and try again.</p>';
   }
 };
 
@@ -1887,7 +1887,7 @@ const loadConnectAdmin = async () => {
       catch (err) { showToast(err.message || 'Could not delete', 'error'); }
     }));
   } catch {
-    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load this list. Is the manage-content function deployed?</p>';
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load this list. Please refresh and try again.</p>';
   }
 };
 
@@ -1921,7 +1921,7 @@ const loadTestimoniesAdmin = async () => {
       catch (err) { showToast(err.message || 'Could not delete', 'error'); }
     }));
   } catch {
-    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load testimonies. Is the manage-content function deployed?</p>';
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load testimonies. Please refresh and try again.</p>';
   }
 };
 
@@ -1959,7 +1959,7 @@ const loadWallAdmin = async () => {
       catch (err) { showToast(err.message || 'Could not delete', 'error'); }
     }));
   } catch {
-    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load the prayer wall. Is the manage-content function deployed?</p>';
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load the prayer wall. Please refresh and try again.</p>';
   }
 };
 
@@ -1996,7 +1996,7 @@ const loadAnalytics = async () => {
       </div>
       <div class="card"><h3 class="card-title">Devices</h3>${rank(devRows, 'No visits yet.')}</div>`;
   } catch {
-    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load statistics. Is the manage-content function deployed?</p>';
+    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load statistics. Please refresh and try again.</p>';
   }
 };
 $('#btn-refresh-analytics')?.addEventListener('click', loadAnalytics);

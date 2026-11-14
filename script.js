@@ -1,10 +1,9 @@
 /* ========= PRAYER ARMY INTERNATIONAL - COMPLETE SITE CONTROLLER ========= */
 
-// Supabase project used for the site's live content + media storage.
-// The anon key is safe to expose publicly -- it can only read what Row
-// Level Security explicitly allows (site_settings, published media).
-const SUPABASE_URL = "https://rftshprvuniszeorgrvd.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdHNocHJ2dW5pc3plb3JncnZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyODY0MDAsImV4cCI6MjEwNTg2MjQwMH0.l2avLrx2ftsC7sbS-1F_Z05OShGLoCak-iWcU0YTJos";
+// Backend: the PHP/MySQL API in /api on this same site (public forms and public content only;
+// everything private is checked on the server).
+const SUPABASE_URL = `${location.origin}/api`;   // kept name for compatibility: this is now your own Hostinger PHP/MySQL API
+const SUPABASE_ANON_KEY = "";                      // not used any more
 
 const DEFAULT_SETTINGS = {
   general: {
@@ -259,7 +258,7 @@ const safeUrl = (u) => {
 /* =========================================================================
    SHARE + ADD-TO-CALENDAR HELPERS
    ========================================================================= */
-const SITE_ORIGIN = location.origin && location.origin.startsWith('http') ? location.origin : 'https://prayerarmy-inter.vercel.app';
+const SITE_ORIGIN = location.origin && location.origin.startsWith('http') ? location.origin : 'https://YOUR-DOMAIN.com';
 
 /* =========================================================================
    META PIXEL (optional, only after the visitor agrees)
@@ -1102,7 +1101,7 @@ if (urlParams.has("manage") || urlParams.has("admin")) {
 const loadInitialSettings = async () => {
   let loaded = null;
 
-  // Try Supabase first
+  // Try the server first
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/site_settings?select=data&id=eq.1`,
@@ -1659,7 +1658,7 @@ wirePublicForm('#connect-form', '#connect-note', 'connect_requests',
 
 // Podcast feed link
 $('#copy-podcast-feed')?.addEventListener('click', async () => {
-  const feed = `${SUPABASE_URL}/functions/v1/podcast-feed`;
+  const feed = `${location.origin}/podcast.xml`;
   try { await navigator.clipboard.writeText(feed); showToast('Podcast feed link copied. Paste it into your podcast app.'); }
   catch { window.prompt('Copy this podcast feed link:', feed); }
 });

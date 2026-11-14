@@ -1,3 +1,8 @@
+> **Hosting update:** the live site now runs on Hostinger with its own PHP + MySQL backend (`api/`).
+> Follow **HOSTINGER-DEPLOY.md** to deploy. The Supabase / Vercel notes below describe the previous
+> setup and are kept for reference (`supabase/` and `docs/` are not uploaded or served).
+> `server.js` is a leftover Node helper that the website does not use.
+
 ## Deployment & backend (read this first)
 
 This site deploys to Vercel as a **plain static site**. No server, no build step, no environment
