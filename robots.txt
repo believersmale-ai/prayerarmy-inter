@@ -5,3 +5,5 @@ Disallow: /portal
 Disallow: /api/
 Disallow: /uploads/
 Allow: /
+
+Sitemap: https://YOUR-DOMAIN.com/sitemap.xml

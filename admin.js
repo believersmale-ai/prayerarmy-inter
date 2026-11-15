@@ -52,7 +52,17 @@ const ensureFreshToken = async (force = false) => {
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
         body: JSON.stringify({ refresh_token: getStored('pai_manager_refresh') })
       });
-      if (!r.ok) return false;
+      if (!r.ok) {
+        // Another tab may have just refreshed (refresh tokens are single-use): adopt its newer tokens and retry once.
+        const theirs = localStorage.getItem('pai_manager_refresh');
+        if (theirs && theirs !== getStored('pai_manager_refresh')) {
+          sessionStorage.setItem('pai_manager_refresh', theirs);
+          sessionStorage.setItem('pai_manager_passkey', localStorage.getItem('pai_manager_passkey') || '');
+          sessionStorage.setItem('pai_manager_expires', localStorage.getItem('pai_manager_expires') || '0');
+          return Number(localStorage.getItem('pai_manager_expires') || 0) - Date.now() > 0;
+        }
+        return false;
+      }
       saveTokens(await r.json());
       return true;
     } catch { return false; } finally { _refreshing = null; }
@@ -65,7 +75,13 @@ const swapToken = (init, from, to) =>
   (from && init && typeof init.body === 'string') ? { ...init, body: init.body.split(from).join(to) } : init;
 window.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : (input && input.url) || '';
-  if (!url.includes('/functions/v1/') || !isAccountSession()) return _origFetch(input, init);
+  if (!url.includes('/functions/v1/')) return _origFetch(input, init);
+  if (!isAccountSession()) {
+    // Shared-passkey session: no refresh exists, so a 401 means the passkey was turned off or changed.
+    const r = await _origFetch(input, init);
+    if (r.status === 401 && getStored('pai_manager_authenticated') === 'true' && !url.endsWith('/verify-passkey')) signOutToLogin('Your session has ended. Please sign in again.');
+    return r;
+  }
   const before = getPasskey();
   const refreshed = await ensureFreshToken();
   if (refreshed) init = swapToken(init, before, getPasskey());
@@ -96,6 +112,45 @@ const showToast = (message, type = 'success') => {
     toast.className = '';
   }, type === 'error' ? 8000 : 3500);
 };
+
+/* One reusable, accessible edit dialog (native <dialog>: focus is trapped, Esc closes).
+   fields: [{ name, label, type: 'text'|'textarea'|'checkbox'|'url', value, maxlength, required, list }] */
+const openEditDialog = ({ title, fields, onSave }) => new Promise((resolve) => {
+  const dlg = document.getElementById('edit-dialog');
+  const form = document.getElementById('edit-dialog-form');
+  const box = document.getElementById('edit-dialog-fields');
+  const note = document.getElementById('edit-dialog-note');
+  const saveBtn = document.getElementById('edit-dialog-save');
+  document.getElementById('edit-dialog-title').textContent = title;
+  note.textContent = ''; note.className = 'form-note';
+  const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  box.innerHTML = fields.map((f, i) => {
+    const id = `ed-${i}`;
+    if (f.type === 'checkbox') return `<label class="check-line"><input type="checkbox" id="${id}" data-name="${f.name}"${f.value ? ' checked' : ''}> ${esc(f.label)}</label>`;
+    const input = f.type === 'textarea'
+      ? `<textarea id="${id}" data-name="${f.name}" rows="5" maxlength="${f.maxlength || 4000}">${esc(f.value)}</textarea>`
+      : `<input id="${id}" data-name="${f.name}" type="text" maxlength="${f.maxlength || 300}" value="${esc(f.value)}"${f.list ? ` list="${f.list}"` : ''}>`;
+    return `<div class="form-group"><label for="${id}">${esc(f.label)}${f.required ? ' *' : ''}</label>${input}</div>`;
+  }).join('');
+  const done = () => { dlg.close(); form.onsubmit = null; resolve(); };
+  document.getElementById('edit-dialog-cancel').onclick = done;
+  dlg.oncancel = () => resolve();
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const values = {};
+    for (const f of fields) {
+      const el = box.querySelector(`[data-name="${f.name}"]`);
+      values[f.name] = f.type === 'checkbox' ? el.checked : el.value.trim();
+      if (f.required && !values[f.name]) { note.textContent = `${f.label} is required.`; note.className = 'form-note err'; el.focus(); return; }
+    }
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+    try { await onSave(values); done(); }
+    catch (err) { note.textContent = err.message || 'Could not save. Please try again.'; note.className = 'form-note err'; }
+    saveBtn.disabled = false; saveBtn.textContent = 'Save';
+  };
+  dlg.showModal();
+  box.querySelector('input,textarea')?.focus();
+});
 
 const escAttr = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -211,6 +266,7 @@ const formatBytes = (bytes) => {
 const authScreen = $('#auth-screen');
 const adminApp = $('#admin-app');
 const authForm = $('#auth-form');
+$('#auth-error')?.setAttribute('role', 'alert');
 const passkeyInput = $('#passkey-input');
 const emailInput = $('#email-input');
 const accountPwInput = $('#account-pw-input');
@@ -241,6 +297,11 @@ $('#auth-mode-toggle')?.addEventListener('click', () => setAuthMode(authMode ===
 function signOutToLogin(message) {
   clearSession();
   me = null;
+  // Drop everything the previous person could see so the next sign-in (maybe another role) never inherits it
+  ['requests-admin-list', 'connect-admin-list', 'testimonies-admin-list', 'wall-admin-list', 'messages-admin-list', 'dash-body', 'analytics-body']
+    .forEach((id) => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+  try { requestsCache = []; testimoniesCache = []; wallCache = []; messagesCache = []; messageCommentsCache = {}; } catch {}
+  document.body.classList.remove('drawer-open');
   adminApp.style.display = 'none';
   authScreen.style.display = 'flex';
   passkeyInput.value = ''; accountPwInput.value = '';
@@ -255,14 +316,14 @@ const loadMe = async () => {
       body: JSON.stringify({ passkey: getPasskey(), action: 'whoami' })
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) return { error: body.error || 'Could not check your access.' };
+    if (!res.ok) return { error: body.error || 'Could not check your access.', network: res.status >= 500 };
     me = body.me; legacyEnabled = !!body.legacy_enabled;
     return { me };
-  } catch { return { error: 'Could not reach the server. Check your connection.' }; }
+  } catch { return { error: 'Could not reach the server. Check your connection and reload the page.', network: true }; }
 };
 
 // Show only the tabs this person's role allows
-const VIEW_PERM = { 'view-media': 'media', 'view-messages': 'messages', 'view-requests': 'care', 'view-connect': 'care',
+const VIEW_PERM = { 'view-dashboard': null, 'view-media': 'media', 'view-messages': 'messages', 'view-requests': 'care', 'view-connect': 'care',
   'view-testimonies': 'care', 'view-wall': 'care', 'view-analytics': 'analytics', 'view-team': 'team', 'view-security': null };
 const applyRoleUI = () => {
   const permFor = (viewId) => (viewId in VIEW_PERM ? VIEW_PERM[viewId] : 'settings');
@@ -282,7 +343,6 @@ const applyRoleUI = () => {
   });
   if (activeHidden && first) first.click();
   $('#btn-save-all') && ($('#btn-save-all').style.display = can('settings') ? '' : 'none');
-  $('#btn-preview') && ($('#btn-preview').style.display = can('settings') ? '' : 'none');
   $('#live-broadcast-pill') && ($('#live-broadcast-pill').style.display = can('settings') ? '' : 'none');
   $('#legacy-card') && ($('#legacy-card').hidden = !can('security'));
   $('#tracking-card') && ($('#tracking-card').hidden = !can('security'));
@@ -295,10 +355,21 @@ const applyRoleUI = () => {
 
 const showDashboard = async () => {
   const r = await loadMe();
-  if (r.error) { signOutToLogin(r.error); return; }
+  if (r.error) {
+    if (r.network) {
+      // Server unreachable: do NOT wipe a valid sign-in; just say so and let a reload retry.
+      authScreen.style.display = 'flex'; adminApp.style.display = 'none';
+      authError.textContent = r.error;
+      return;
+    }
+    signOutToLogin(r.error); return;
+  }
   authScreen.style.display = 'none';
   adminApp.style.display = 'flex';
   applyRoleUI();
+  $('.sidebar-btn[data-view="view-dashboard"]')?.click();   // always start on the Dashboard for whoever just signed in
+  window.__paiAdminReady = true;
+  document.dispatchEvent(new CustomEvent('pai:admin-ready'));
   loadSettings();
   if (can('media') || can('messages')) loadMedia();
   if (can('messages')) loadMessagesAdmin();
@@ -415,11 +486,6 @@ sidebarButtons.forEach(btn => {
    3. SETTINGS DATA & DOM POPULATION
    ========================================================================= */
 const loadSettings = async () => {
-  let defaults = {};
-  try {
-    const defaultsRes = await fetch('/site-settings.json', { cache: 'no-store' });
-    if (defaultsRes.ok) defaults = await defaultsRes.json();
-  } catch {}
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/site_settings?select=data&id=eq.1`,
@@ -427,18 +493,11 @@ const loadSettings = async () => {
     );
     if (res.ok) {
       const rows = await res.json();
-      const stored = rows?.[0]?.data || {};
-      currentSettings = { ...defaults, ...stored, content: { ...(defaults.content || {}), ...(stored.content || {}) } };
-      populateForm(currentSettings);
-    } else if (Object.keys(defaults).length) {
-      currentSettings = defaults;
+      currentSettings = rows?.[0]?.data || {};
       populateForm(currentSettings);
     }
   } catch (err) {
-    if (Object.keys(defaults).length) {
-      currentSettings = defaults;
-      populateForm(currentSettings);
-    } else showToast('Failed to load settings from server', 'error');
+    showToast('Failed to load settings from server', 'error');
   }
 };
 
@@ -456,6 +515,10 @@ const eventRowHtml = (ev = {}) => `
     <div class="form-grid-2">
       <div class="form-group"><label>Title</label><input type="text" class="ev-title" value="${escAttr(ev.title)}" placeholder="Youth Revival Night"></div>
       <div class="form-group"><label>Display dates text</label><input type="text" class="ev-dates" value="${escAttr(ev.dates)}" placeholder="Fri 12 December 2026, 6:00 PM"></div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Venue</label><input type="text" class="ev-venue" maxlength="160" value="${escAttr(ev.venue)}" placeholder="Church auditorium, Wa"></div>
+      <div class="form-group"><label class="check-line"><input type="checkbox" class="ev-published"${ev.published === false ? '' : ' checked'}> Published (untick to hide without deleting)</label></div>
     </div>
     <div class="form-group"><label>Description</label><textarea class="ev-desc" rows="2">${escAttr(ev.description)}</textarea></div>
     <div class="form-grid-2">
@@ -504,8 +567,59 @@ const collectEventRows = () => $$('#events-editor .repeat-row').map(row => ({
   start: localValueToIso($('.ev-start', row).value),
   end: localValueToIso($('.ev-end', row).value),
   link: $('.ev-link', row).value.trim(),
-  image: $('.ev-image', row).value.trim()
+  image: $('.ev-image', row).value.trim(),
+  venue: $('.ev-venue', row).value.trim(),
+  published: $('.ev-published', row).checked
 })).filter(ev => ev.title);
+
+/* =========================================================================
+   ANNOUNCEMENTS EDITOR (settings.announcements)
+   ========================================================================= */
+const ANNOUNCE_CATS = [['programme', 'Church programme'], ['service', 'Special service'], ['notice', 'Important notice'], ['update', 'Ministry update']];
+const announceRowHtml = (a = {}) => `
+  <div class="repeat-row announce-row" data-kind="announcement">
+    <div class="repeat-row-head"><span>Announcement</span><button type="button" class="btn-mini danger btn-remove-row">Remove</button></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Title</label><input type="text" class="an-title" maxlength="120" value="${escAttr(a.title)}" placeholder="Special thanksgiving service"></div>
+      <div class="form-group"><label>Type</label><select class="an-cat">${ANNOUNCE_CATS.map(([v, l]) => `<option value="${v}"${v === (a.category || 'update') ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-group"><label>Message</label><textarea class="an-body" rows="3" maxlength="600">${escAttr(a.body)}</textarea></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Show from (optional)</label><input type="date" class="an-date" value="${escAttr(a.date)}"><small>Leave empty to show immediately. A future date schedules it.</small></div>
+      <div class="form-group"><label>Hide after (optional)</label><input type="date" class="an-expires" value="${escAttr(a.expires)}"><small>It disappears automatically after this day.</small></div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Link (optional)</label><input type="text" class="an-link" value="${escAttr(a.link)}" placeholder="https://… or #events"></div>
+      <div class="form-group"><label>Link text</label><input type="text" class="an-linktext" maxlength="40" value="${escAttr(a.linkText)}" placeholder="Learn more"></div>
+    </div>
+    <label class="check-line"><input type="checkbox" class="an-published"${a.published ? ' checked' : ''}> Published</label>
+    <label class="check-line"><input type="checkbox" class="an-pinned"${a.pinned ? ' checked' : ''}> Pin to the top</label>
+  </div>`;
+const renderAnnouncementEditor = (s) => {
+  const box = $('#announcements-editor');
+  if (box) box.innerHTML = (Array.isArray(s.announcements) ? s.announcements : []).map(announceRowHtml).join('')
+    || '<p class="muted-note" id="announce-empty">No announcements yet. Click “Add announcement”.</p>';
+};
+const collectAnnouncementRows = () => $$('#announcements-editor .announce-row').map(row => ({
+  title: $('.an-title', row).value.trim(),
+  category: $('.an-cat', row).value,
+  body: $('.an-body', row).value.trim(),
+  date: $('.an-date', row).value,
+  expires: $('.an-expires', row).value,
+  link: $('.an-link', row).value.trim(),
+  linkText: $('.an-linktext', row).value.trim(),
+  published: $('.an-published', row).checked,
+  pinned: $('.an-pinned', row).checked
+})).filter(a => a.title);
+$('#btn-add-announcement')?.addEventListener('click', () => {
+  $('#announce-empty')?.remove();
+  $('#announcements-editor')?.insertAdjacentHTML('beforeend', announceRowHtml({ published: true }));
+  $('#announcements-editor .announce-row:last-child .an-title')?.focus();
+});
+$('#announcements-editor')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-remove-row');
+  if (btn && confirm('Remove this announcement? (It leaves the site only after you click Save Changes.)')) btn.closest('.announce-row')?.remove();
+});
 
 const collectWeeklyRows = () => $$('#weekly-editor .repeat-row').map(row => ({
   day: $('.wk-day', row).value,
@@ -585,245 +699,6 @@ $('#btn-copy-feed')?.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(v); showToast('Podcast feed link copied', 'success'); } catch { $('#podcast-feed-url')?.select(); }
 });
 
-/* =========================================================================
-   PAGE BUILDER: section order / visibility / publishing / custom sections,
-   friendly page-text editor, and preview (nothing is published until Save).
-   ========================================================================= */
-const SECTION_CATALOG = [
-  { id: 'hero-section', label: 'Hero banner', pinned: true },
-  { id: 'quick-links', label: 'Quick links strip' },
-  { id: 'verse', label: 'Verse of the day' },
-  { id: 'about', label: 'About / welcome' },
-  { id: 'foundation', label: 'Mission, vision & statement of faith' },
-  { id: 'sermons', label: 'Sermons' },
-  { id: 'live', label: 'Livestream' },
-  { id: 'events', label: 'Events & weekly activities' },
-  { id: 'gallery', label: 'Gallery' },
-  { id: 'prayer', label: 'Prayer request form' },
-  { id: 'prayer-wall', label: 'Prayer wall' },
-  { id: 'testimonies', label: 'Testimonies' },
-  { id: 'connect', label: 'Connect / new visitors' },
-  { id: 'give', label: 'Giving' },
-  { id: 'locations', label: 'Locations' },
-  { id: 'contact', label: 'Contact' }
-];
-let layoutState = { items: [], custom: [] };
-let openSectionId = null;
-
-const loadLayoutState = (s) => {
-  const lay = (s && s.layout) || {};
-  const custom = (Array.isArray(lay.custom) ? lay.custom : []).filter((c) => c && c.id).map((c) => ({ ...c }));
-  const known = new Set([...SECTION_CATALOG.map((b) => b.id), ...custom.map((c) => c.id)]);
-  const items = [], seen = new Set();
-  (Array.isArray(lay.items) ? lay.items : []).forEach((it) => {
-    if (it && known.has(it.id) && !seen.has(it.id)) { seen.add(it.id); items.push({ id: it.id, visible: it.visible !== false, published: it.published !== false }); }
-  });
-  SECTION_CATALOG.forEach((b) => { if (!seen.has(b.id)) { seen.add(b.id); items.push({ id: b.id, visible: true, published: true }); } });
-  custom.forEach((c) => { if (!seen.has(c.id)) { seen.add(c.id); items.push({ id: c.id, visible: true, published: true }); } });
-  const h = items.findIndex((x) => x.id === 'hero-section');
-  if (h > 0) items.unshift(items.splice(h, 1)[0]);
-  layoutState = { items, custom };
-};
-
-const collectLayout = () => ({
-  items: layoutState.items.map((x) => ({ id: x.id, visible: x.visible !== false, published: x.published !== false })),
-  custom: layoutState.custom.map((c) => ({ ...c }))
-});
-
-const sectionTitle = (id) => {
-  const b = SECTION_CATALOG.find((x) => x.id === id);
-  if (b) return b.label;
-  const c = layoutState.custom.find((x) => x.id === id);
-  return String((c && c.title) || 'Untitled section').replace(/\|/g, ' ');
-};
-
-const customEditorHtml = (c) => `
-  <div class="lay-edit">
-    <div class="form-grid-2">
-      <div class="form-group"><label>Heading <small>(use | for a highlighted ending)</small></label><input type="text" data-f="title" value="${escAttr(c.title)}" maxlength="200" placeholder="Join our|prayer meeting"></div>
-      <div class="form-group"><label>Small label above heading</label><input type="text" data-f="eyebrow" value="${escAttr(c.eyebrow)}" maxlength="120" placeholder="EVERY FRIDAY"></div>
-    </div>
-    <div class="form-group"><label>Text <small>(blank line = new paragraph)</small></label><textarea data-f="body" rows="5" maxlength="8000">${escAttr(c.body)}</textarea></div>
-    <div class="form-grid-2">
-      <div class="form-group"><label>Layout</label>
-        <select data-f="style">${[['text', 'Text only'], ['image-right', 'Text + picture on the right'], ['image-left', 'Text + picture on the left'], ['banner', 'Banner (centred, background picture)']].map(([v, l]) => `<option value="${v}" ${(c.style || 'text') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-      <div class="form-group"><label>Picture (pick from library or paste a link)</label><input type="text" data-f="imageUrl" list="event-image-options" value="${escAttr(c.imageUrl)}" placeholder="assets/images/..."></div>
-    </div>
-    <div class="form-group"><label>Background picture (optional)</label><input type="text" data-f="bgImage" list="event-image-options" value="${escAttr(c.bgImage)}" placeholder="assets/images/..."></div>
-    <div class="form-grid-2">
-      <div class="form-group"><label>Button 1 label</label><input type="text" data-f="buttonLabel" value="${escAttr(c.buttonLabel)}" maxlength="60"></div>
-      <div class="form-group"><label>Button 1 link</label><input type="text" data-f="buttonUrl" value="${escAttr(c.buttonUrl)}" placeholder="https://... or #contact"></div>
-      <div class="form-group"><label>Button 2 label</label><input type="text" data-f="button2Label" value="${escAttr(c.button2Label)}" maxlength="60"></div>
-      <div class="form-group"><label>Button 2 link</label><input type="text" data-f="button2Url" value="${escAttr(c.button2Url)}" placeholder="https://... or #contact"></div>
-    </div>
-    <div class="form-grid-2">
-      <div class="form-group"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-f="showInMenu" ${c.showInMenu ? 'checked' : ''}> Show in the top menu</label></div>
-      <div class="form-group"><label>Menu label</label><input type="text" data-f="navLabel" value="${escAttr(c.navLabel)}" maxlength="30" placeholder="Fellowship"></div>
-    </div>
-  </div>`;
-
-const renderLayoutEditor = () => {
-  const box = $('#layout-list');
-  if (!box) return;
-  box.innerHTML = layoutState.items.map((it, i) => {
-    const builtin = SECTION_CATALOG.find((b) => b.id === it.id);
-    const pinned = !!(builtin && builtin.pinned);
-    const c = builtin ? null : layoutState.custom.find((x) => x.id === it.id);
-    const off = !pinned && it.visible === false;
-    const upOff = pinned || i <= 1;
-    const downOff = pinned || i === layoutState.items.length - 1;
-    return `<div class="lay-row ${off ? 'is-off' : ''}" data-id="${escAttr(it.id)}">
-      <div class="lay-main">
-        <div class="lay-move"><button type="button" data-act="up" ${upOff ? 'disabled' : ''} aria-label="Move up">▲</button><button type="button" data-act="down" ${downOff ? 'disabled' : ''} aria-label="Move down">▼</button></div>
-        <div class="lay-name"><span data-role="name">${escAttr(sectionTitle(it.id))}</span>${pinned ? '<span class="lay-badge">ALWAYS FIRST</span>' : ''}${c ? '<span class="lay-badge">CUSTOM</span>' : ''}${!pinned && it.published === false ? '<span class="lay-badge draft">DRAFT</span>' : ''}<small>#${escAttr(it.id)}</small></div>
-        <div class="lay-flags">
-          <label><input type="checkbox" data-flag="visible" ${it.visible !== false ? 'checked' : ''} ${pinned ? 'disabled' : ''}> Visible</label>
-          <label><input type="checkbox" data-flag="published" ${it.published !== false ? 'checked' : ''} ${pinned ? 'disabled' : ''}> Published</label>
-          ${c ? `<button type="button" class="btn-mini" data-act="edit">${openSectionId === it.id ? 'Close' : 'Edit'}</button><button type="button" class="btn-mini danger" data-act="delete">Delete</button>` : ''}
-        </div>
-      </div>
-      ${c && openSectionId === it.id ? customEditorHtml(c) : ''}
-    </div>`;
-  }).join('');
-};
-
-const layoutBoxEvents = () => {
-  const box = $('#layout-list');
-  if (!box || box.dataset.wired) return;
-  box.dataset.wired = '1';
-  const rowOf = (el) => el.closest('.lay-row');
-  box.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-act]');
-    if (!btn) return;
-    const row = rowOf(btn); const id = row.dataset.id;
-    const i = layoutState.items.findIndex((x) => x.id === id);
-    const act = btn.dataset.act;
-    if (act === 'up' && i > 1) [layoutState.items[i - 1], layoutState.items[i]] = [layoutState.items[i], layoutState.items[i - 1]];
-    else if (act === 'down' && i < layoutState.items.length - 1) [layoutState.items[i + 1], layoutState.items[i]] = [layoutState.items[i], layoutState.items[i + 1]];
-    else if (act === 'edit') openSectionId = openSectionId === id ? null : id;
-    else if (act === 'delete') {
-      if (!confirm('Delete this section? This cannot be undone after you save.')) return;
-      layoutState.items.splice(i, 1);
-      layoutState.custom = layoutState.custom.filter((x) => x.id !== id);
-      if (openSectionId === id) openSectionId = null;
-    } else return;
-    renderLayoutEditor(); sendPreviewSoon();
-  });
-  box.addEventListener('change', (e) => {
-    const row = rowOf(e.target); if (!row) return;
-    const id = row.dataset.id;
-    if (e.target.dataset.flag) {
-      const it = layoutState.items.find((x) => x.id === id);
-      if (it) it[e.target.dataset.flag] = e.target.checked;
-      renderLayoutEditor();
-    } else if (e.target.dataset.f) {
-      const c = layoutState.custom.find((x) => x.id === id);
-      if (c) c[e.target.dataset.f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    }
-  });
-  box.addEventListener('input', (e) => {
-    const f = e.target.dataset && e.target.dataset.f;
-    if (!f) return;
-    const row = rowOf(e.target); const c = layoutState.custom.find((x) => x.id === row.dataset.id);
-    if (!c) return;
-    c[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    if (f === 'title') { const n = $('[data-role="name"]', row); if (n) n.textContent = sectionTitle(c.id); }
-  });
-};
-
-const addCustomSection = () => {
-  if (layoutState.custom.length >= 40) { showToast('You can add up to 40 custom sections.', 'error'); return; }
-  const id = 'c-' + Math.random().toString(36).slice(2, 8);
-  layoutState.custom.push({ id, title: 'New section', eyebrow: '', body: '', imageUrl: '', bgImage: '', buttonLabel: '', buttonUrl: '', button2Label: '', button2Url: '', style: 'text', navLabel: '', showInMenu: false });
-  layoutState.items.push({ id, visible: true, published: false });   // new sections start as drafts
-  openSectionId = id;
-  renderLayoutEditor(); sendPreviewSoon();
-  showToast('Section added as a draft. Fill it in, tick Published, then Save Changes.', 'success');
-};
-
-/* ---- friendly page-text editor (reads and writes the same JSON as the Advanced box) ---- */
-const humanizeKey = (k) => String(k).replace(/([A-Z])/g, ' $1').replace(/(\d+)/g, ' $1').replace(/^./, (ch) => ch.toUpperCase()).trim();
-const PT_GROUPS = [
-  ['Menu & buttons', null],
-  ['Quick links', /^quick/], ['Foundation, mission & faith', /^(foundation|mission|vision|values|faith(?!Statements)|story|founder|aboutExplore)/],
-  ['Sermons', /^sermons/], ['Events & weekly', /^(events|weekly)/], ['Gallery', /^gallery/],
-  ['Prayer wall & testimonies', /^(wall|testimonies)/], ['Connect', /^connect/], ['Giving & locations', /^(giving|locations)/],
-  ['Contact & social', /^(contact|social)/], ['Footer', /^footer/]
-];
-const getContentObj = () => {
-  try { const o = JSON.parse($('#field-page-content')?.value || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : null; } catch { return null; }
-};
-const writeContentObj = (o) => { const ta = $('#field-page-content'); if (ta) ta.value = JSON.stringify(o, null, 2); sendPreviewSoon(); };
-const ptField = (attr, key, val) => {
-  const long = String(val).length > 80 || String(val).includes('\n');
-  return `<div class="${long ? 'wide' : ''}"><label>${escAttr(humanizeKey(key))}</label>${long
-    ? `<textarea ${attr}="${escAttr(key)}" rows="${Math.min(6, Math.ceil(String(val).length / 90) + 1)}">${escAttr(val)}</textarea>`
-    : `<input type="text" ${attr}="${escAttr(key)}" value="${escAttr(val)}">`}</div>`;
-};
-const renderPageText = () => {
-  const box = $('#page-text-editor');
-  if (!box) return;
-  const obj = getContentObj();
-  if (obj === null) { box.innerHTML = '<p class="form-help">The Advanced JSON box in About &amp; Foundation has a mistake. Fix it there and this editor will come back.</p>'; return; }
-  const uiText = obj.uiText && typeof obj.uiText === 'object' ? obj.uiText : {};
-  const keys = Object.keys(obj).filter((k) => typeof obj[k] === 'string');
-  const claimed = new Set();
-  let html = '';
-  PT_GROUPS.slice(1).forEach(([title, re]) => {
-    const ks = keys.filter((k) => !claimed.has(k) && re.test(k));
-    ks.forEach((k) => claimed.add(k));
-    if (ks.length) html += `<div class="pt-group"><h4>${title}</h4><div class="pt-grid">${ks.map((k) => ptField('data-k', k, obj[k])).join('')}</div></div>`;
-  });
-  const rest = keys.filter((k) => !claimed.has(k));
-  if (rest.length) html += `<div class="pt-group"><h4>Other text</h4><div class="pt-grid">${rest.map((k) => ptField('data-k', k, obj[k])).join('')}</div></div>`;
-  const uk = Object.keys(uiText).filter((k) => typeof uiText[k] === 'string');
-  if (uk.length) html += `<div class="pt-group"><h4>Menu, buttons &amp; form labels</h4><div class="pt-grid">${uk.map((k) => ptField('data-ui', k, uiText[k])).join('')}</div></div>`;
-  const faith = Array.isArray(obj.faithStatements) ? obj.faithStatements : [];
-  html += `<div class="pt-group"><h4>Statement of faith</h4><div id="pt-faith">${faith.map((t, i) => `<div class="pt-faith-row"><textarea data-faith="${i}" rows="2">${escAttr(t)}</textarea><button type="button" class="btn-mini danger" data-faith-del="${i}">Remove</button></div>`).join('')}</div><button type="button" class="btn-mini" id="pt-faith-add">+ Add a statement</button></div>`;
-  box.innerHTML = html;
-};
-const wirePageText = () => {
-  const box = $('#page-text-editor');
-  if (!box || box.dataset.wired) return;
-  box.dataset.wired = '1';
-  box.addEventListener('input', (e) => {
-    const t = e.target; const obj = getContentObj(); if (!obj) return;
-    if (t.dataset.k) obj[t.dataset.k] = t.value;
-    else if (t.dataset.ui) { obj.uiText = obj.uiText && typeof obj.uiText === 'object' ? obj.uiText : {}; obj.uiText[t.dataset.ui] = t.value; }
-    else if (t.dataset.faith !== undefined) { if (!Array.isArray(obj.faithStatements)) obj.faithStatements = []; obj.faithStatements[Number(t.dataset.faith)] = t.value; }
-    else return;
-    writeContentObj(obj);
-  });
-  box.addEventListener('click', (e) => {
-    const obj = getContentObj(); if (!obj) return;
-    const del = e.target.closest('[data-faith-del]');
-    if (del) { obj.faithStatements = (obj.faithStatements || []).filter((_, i) => i !== Number(del.dataset.faithDel)); writeContentObj(obj); renderPageText(); }
-    else if (e.target.closest('#pt-faith-add')) { obj.faithStatements = [...(obj.faithStatements || []), '']; writeContentObj(obj); renderPageText(); }
-  });
-  $('#field-page-content')?.addEventListener('change', renderPageText);
-};
-
-/* ---- preview ---- */
-let previewWin = null, previewTimer = null;
-const sendPreview = () => {
-  if (!previewWin || previewWin.closed || getContentObj() === null) return;
-  try { previewWin.postMessage({ type: 'pai-preview', settings: collectFormData() }, location.origin); } catch { /* window gone */ }
-};
-function sendPreviewSoon() { clearTimeout(previewTimer); previewTimer = setTimeout(sendPreview, 500); }
-const openPreview = () => {
-  previewWin = window.open('/?preview=1', 'pai-preview');
-  if (!previewWin) showToast('Your browser blocked the preview window. Please allow pop-ups for this site.', 'error');
-};
-window.addEventListener('message', (e) => {
-  if (e.origin !== location.origin || !previewWin || e.source !== previewWin) return;
-  if (e.data && e.data.type === 'pai-preview-ready') sendPreview();
-});
-$('#btn-preview')?.addEventListener('click', openPreview);
-$('#btn-layout-preview')?.addEventListener('click', openPreview);
-$('#btn-add-section')?.addEventListener('click', addCustomSection);
-document.addEventListener('input', sendPreviewSoon);
-document.addEventListener('change', sendPreviewSoon);
-
 const populateForm = (s) => {
   // Live Broadcast
   const isLive = Boolean(s.live?.isLiveNow);
@@ -834,6 +709,16 @@ const populateForm = (s) => {
   $('#field-live-status-note').value = s.live?.statusNote || '';
   updateLivePill(isLive);
   updateLiveStreamPreview(s.live?.url);
+
+  $('#field-live-next-title').value = s.live?.nextTitle || '';
+  $('#field-live-next-start').value = s.live?.nextStart ? isoToLocalValue(s.live.nextStart) : '';
+  $('#field-hero-btn-visit-text').value = s.hero?.btnVisitText || '';
+  $('#field-hero-btn-visit-link').value = s.hero?.btnVisitLink || '';
+  $('#field-event-venue').value = s.event?.venue || '';
+  $('#field-seo-title').value = s.seo?.title || '';
+  $('#field-seo-desc').value = s.seo?.description || '';
+  $('#field-seo-image').value = s.seo?.ogImage || '';
+  renderAnnouncementEditor(s);
 
   // Hero Section
   $('#field-hero-eyebrow').value = s.hero?.eyebrow || '';
@@ -902,7 +787,6 @@ const populateForm = (s) => {
   $('#field-values-text').value = s.foundation?.valuesText || '';
   $('#field-founder-bio').value = s.foundation?.founderBio || '';
   $('#field-faith-image').value = s.foundation?.faithImage || '';
-  if ($('#field-page-content')) $('#field-page-content').value = JSON.stringify(s.content || {}, null, 2);
 
   // Giving
   $('#field-give-heading').value = s.giving?.heading || '';
@@ -942,9 +826,6 @@ const populateForm = (s) => {
   // This field is write-only: fill it in to set a NEW passkey.)
   $('#field-manager-passkey').value = '';
   $('#field-manager-passkey').placeholder = 'Leave blank to keep current passkey';
-
-  // Page Builder
-  loadLayoutState(s); layoutBoxEvents(); renderLayoutEditor(); wirePageText(); renderPageText();
 };
 
 // Collect Form Fields into JSON (site content only -- the passkey lives in
@@ -968,6 +849,8 @@ const collectFormData = () => {
       btnPrimaryLink: $('#field-hero-btn-primary-link').value.trim(),
       btnSecondaryText: $('#field-hero-btn-secondary-text').value.trim(),
       btnSecondaryLink: $('#field-hero-btn-secondary-link').value.trim(),
+      btnVisitText: $('#field-hero-btn-visit-text').value.trim(),
+      btnVisitLink: $('#field-hero-btn-visit-link').value.trim(),
       bgImage: $('#field-hero-bg').value.trim()
     },
     about: {
@@ -996,23 +879,15 @@ const collectFormData = () => {
       founderBio: $('#field-founder-bio').value.trim(),
       faithImage: $('#field-faith-image').value.trim()
     },
-    layout: collectLayout(),
-    content: (() => {
-      try {
-        const parsed = JSON.parse($('#field-page-content')?.value || '{}');
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Content must be a JSON object');
-        return parsed;
-      } catch (error) {
-        showToast('Page Content JSON is invalid. Please correct it before saving.', 'error');
-        return currentSettings.content || {};
-      }
-    })(),
     live: {
       isLiveNow: $('#field-is-live').checked,
       title: $('#field-live-title').value.trim(),
       description: $('#field-live-desc').value.trim(),
       url: $('#field-live-url').value.trim(),
-      statusNote: $('#field-live-status-note').value.trim()
+      statusNote: $('#field-live-status-note').value.trim(),
+      nextTitle: $('#field-live-next-title').value.trim(),
+      nextStart: $('#field-live-next-start').value ? new Date($('#field-live-next-start').value + ':00Z').toISOString() : ''
+
     },
     sermons: {
       heading: $('#field-sermons-heading').value.trim(),
@@ -1041,9 +916,18 @@ const collectFormData = () => {
       start: $('#field-event-start').value ? new Date($('#field-event-start').value + ':00Z').toISOString() : currentSettings.event?.start,
       end: $('#field-event-end').value ? new Date($('#field-event-end').value + ':00Z').toISOString() : currentSettings.event?.end,
       link: $('#field-event-link').value.trim(),
-      stackCaption: $('#field-event-caption').value.trim()
+      stackCaption: $('#field-event-caption').value.trim(),
+      venue: $('#field-event-venue').value.trim(),
+      image: currentSettings.event?.image || ''
+
     },
     events: collectEventRows(),
+    announcements: collectAnnouncementRows(),
+    seo: {
+      title: $('#field-seo-title').value.trim(),
+      description: $('#field-seo-desc').value.trim(),
+      ogImage: $('#field-seo-image').value.trim()
+    },
     weekly: collectWeeklyRows(),
     verses: collectVerseRows(),
     branches: collectBranchRows(),
@@ -1701,15 +1585,6 @@ const renderMediaGrid = () => {
 const btnSaveAll = $('#btn-save-all');
 
 const saveSettings = async (showNotification = true) => {
-  try {
-    const rawPageContent = $('#field-page-content')?.value || '{}';
-    const parsedPageContent = JSON.parse(rawPageContent);
-    if (!parsedPageContent || typeof parsedPageContent !== 'object' || Array.isArray(parsedPageContent)) throw new Error('Page content must be a JSON object');
-  } catch {
-    showToast('Page Content JSON is invalid. Correct it before saving.', 'error');
-    $('#field-page-content')?.focus();
-    return;
-  }
   const data = collectFormData();
   const newPasskey = $('#field-manager-passkey')?.value.trim();
   btnSaveAll.disabled = true;
@@ -1872,117 +1747,132 @@ const populateMessageMediaSelect = () => {
   if (candidates.some((m) => m.url === current)) msgMediaSelect.value = current;
 };
 
+let messagesCache = [];
+let messageCommentsCache = {};
+const renderMessagesAdmin = () => {
+  const q = ($('#msg-filter-q')?.value || '').trim().toLowerCase();
+  const cat = $('#msg-filter-cat')?.value || '';
+  const featOnly = $('#msg-filter-feat')?.value === '1';
+  const messages = messagesCache.filter((m) => (!cat || m.category === cat) && (!featOnly || m.is_featured)
+    && (!q || `${m.title} ${m.description || ''} ${m.speaker || ''} ${m.category || ''}`.toLowerCase().includes(q)));
+  messagesAdminCount.textContent = messagesCache.length;
+  if (!messages.length) {
+    messagesAdminList.innerHTML = `<p style="font-size:13px;color:#6b7280">${messagesCache.length ? 'No messages match your search.' : 'No messages yet.'}</p>`;
+    return;
+  }
+  messagesAdminList.innerHTML = messages.map((m) => {
+    const msgComments = messageCommentsCache[m.id] || [];
+    const dateStr = new Date(m.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return `
+      <div class="admin-item" data-id="${m.id}">
+        <div class="admin-item-head">
+          <h4>${m.source === 'live' ? '🔴 ' : ''}${escapeAdminHtml(m.title)}${m.is_featured ? ' <span class="req-badge">Featured</span>' : ''}${m.category ? ` <span class="req-badge">${escapeAdminHtml(m.category)}</span>` : ''}</h4>
+          <time>${dateStr}</time>
+        </div>
+        ${m.speaker ? `<p style="font-size:12px;color:#d9ae56">${escapeAdminHtml(m.speaker)}</p>` : ''}
+        ${m.description ? `<p>${escapeAdminHtml(m.description)}</p>` : ''}
+        ${m.link ? `<p style="font-size:11.5px"><a href="${escapeAdminHtml(m.link)}" target="_blank" rel="noopener" style="color:var(--gold)">${escapeAdminHtml(m.link)}</a></p>` : ''}
+        ${m.media_url ? `<p style="font-size:11.5px;color:#8890a0">📎 ${m.media_type || 'media'} attached</p>` : ''}
+        <div class="admin-item-actions">
+          <button type="button" class="btn-mini btn-edit-message" data-id="${m.id}">✎ Edit details</button>
+          <button type="button" class="btn-mini btn-feature-message" data-id="${m.id}">${m.is_featured ? '★ Unfeature' : '☆ Feature'}</button>
+          <button type="button" class="btn-mini btn-edit-notes" data-id="${m.id}">${m.notes_url ? '📎 Change notes link' : '📎 Add notes link'}</button>
+          ${m.media_url || isPlayableLink(m.link) ? '' : `<button type="button" class="btn-mini btn-fix-link" data-id="${m.id}">⚠ Add recording link</button>`}
+          <button type="button" class="btn-mini danger btn-delete-message" data-id="${m.id}">Delete message</button>
+        </div>
+        ${msgComments.length ? `
+          <div class="comment-mini">
+            ${msgComments.map((c) => `
+              <div class="comment-mini-row" data-comment-id="${c.id}">
+                <span><strong>${escapeAdminHtml(c.name)}:</strong> ${escapeAdminHtml(c.comment)}</span>
+                <button type="button" class="btn-mini danger btn-delete-comment" data-id="${c.id}" style="padding:2px 8px" aria-label="Delete this comment">✕</button>
+              </div>`).join('')}
+          </div>` : ''}
+      </div>`;
+  }).join('');
+};
+
 const loadMessagesAdmin = async () => {
   if (!messagesAdminList) return;
   try {
     const [msgRes, commentRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=created_at.desc&limit=100`, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
-      }),
-      fetch(`${SUPABASE_URL}/rest/v1/message_comments?select=*&order=created_at.desc`, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
-      })
+      fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=created_at.desc&limit=500`),
+      fetch(`${SUPABASE_URL}/rest/v1/message_comments?select=*&order=created_at.desc`)
     ]);
-    const messages = msgRes.ok ? await msgRes.json() : [];
+    messagesCache = msgRes.ok ? await msgRes.json() : [];
     const comments = commentRes.ok ? await commentRes.json() : [];
-    const byMessage = {};
-    comments.forEach((c) => { (byMessage[c.message_id] ||= []).push(c); });
-
-    messagesAdminCount.textContent = messages.length;
-    if (!messages.length) {
-      messagesAdminList.innerHTML = '<p style="font-size:13px;color:#6b7280">No messages yet.</p>';
-      return;
-    }
-
-    messagesAdminList.innerHTML = messages.map((m) => {
-      const msgComments = byMessage[m.id] || [];
-      const dateStr = new Date(m.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-      return `
-        <div class="admin-item" data-id="${m.id}">
-          <div class="admin-item-head">
-            <h4>${m.source === 'live' ? '🔴 ' : ''}${escapeAdminHtml(m.title)}</h4>
-            <time>${dateStr}</time>
-          </div>
-          ${m.description ? `<p>${escapeAdminHtml(m.description)}</p>` : ''}
-          ${m.link ? `<p style="font-size:11.5px"><a href="${escapeAdminHtml(m.link)}" target="_blank" rel="noopener" style="color:var(--gold)">${escapeAdminHtml(m.link)}</a></p>` : ''}
-          ${m.media_url ? `<p style="font-size:11.5px;color:#8890a0">📎 ${m.media_type || 'media'} attached</p>` : ''}
-          <div class="admin-item-actions">
-            <button type="button" class="btn-mini btn-edit-notes" data-id="${m.id}">${m.notes_url ? '📎 Change notes link' : '📎 Add notes link'}</button>
-            ${m.media_url || isPlayableLink(m.link) ? '' : `<button type="button" class="btn-mini btn-fix-link" data-id="${m.id}">⚠ Add recording link</button>`}
-            <button type="button" class="btn-mini danger btn-delete-message" data-id="${m.id}">Delete message</button>
-          </div>
-          ${msgComments.length ? `
-            <div class="comment-mini">
-              ${msgComments.map((c) => `
-                <div class="comment-mini-row" data-comment-id="${c.id}">
-                  <span><strong>${escapeAdminHtml(c.name)}:</strong> ${escapeAdminHtml(c.comment)}</span>
-                  <button type="button" class="btn-mini danger btn-delete-comment" data-id="${c.id}" style="padding:2px 8px">✕</button>
-                </div>`).join('')}
-            </div>` : ''}
-        </div>`;
-    }).join('');
-
-    $$('.btn-edit-notes', messagesAdminList).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const m = messages.find((x) => String(x.id) === btn.dataset.id);
-        if (!m) return;
-        const val = window.prompt('Paste the sermon notes link (leave empty to remove it):', m.notes_url || '');
-        if (val === null) return;
-        const url = val.trim();
-        if (url && !/^https?:\/\//i.test(url)) { showToast('Please paste a full link starting with https://', 'error'); return; }
-        try { await callManageContent('update_message', { id: m.id, notes_url: url }); showToast('Notes link saved', 'success'); loadMessagesAdmin(); }
-        catch (err) { showToast(err.message || 'Could not save the link', 'error'); }
-      });
-    });
-
-    $$('.btn-fix-link', messagesAdminList).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const m = messages.find((x) => String(x.id) === btn.dataset.id);
-        if (!m) return;
-        const link = askRecordingLink(m.link || '');
-        if (!link) return;
-        if (!isPlayableLink(link)) { showToast('That link cannot play on the site. Use a YouTube, Facebook or Vimeo video link, or an MP4/MP3 file.', 'error'); return; }
-        btn.disabled = true;
-        try {
-          await callManageContent('update_message', { id: m.id, link });
-          showToast('Recording link saved — it now plays on the website', 'success');
-          loadMessagesAdmin();
-        } catch (err) {
-          showToast(err.message || 'Could not update this message', 'error');
-          btn.disabled = false;
-        }
-      });
-    });
-
-    $$('.btn-delete-message', messagesAdminList).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Delete this message? This also removes its comments. This cannot be undone.')) return;
-        try {
-          await callManageContent('delete_message', { id: btn.dataset.id });
-          showToast('Message deleted', 'success');
-          loadMessagesAdmin();
-        } catch (err) {
-          showToast(err.message || 'Failed to delete message', 'error');
-        }
-      });
-    });
-
-    $$('.btn-delete-comment', messagesAdminList).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Delete this comment?')) return;
-        try {
-          await callManageContent('delete_comment', { id: btn.dataset.id });
-          showToast('Comment deleted', 'success');
-          loadMessagesAdmin();
-        } catch (err) {
-          showToast(err.message || 'Failed to delete comment', 'error');
-        }
-      });
-    });
+    messageCommentsCache = {};
+    comments.forEach((c) => { (messageCommentsCache[c.message_id] ||= []).push(c); });
+    // category suggestions + filter
+    const cats = [...new Set(messagesCache.map((m) => m.category).filter(Boolean))].sort();
+    const dl = $('#msg-category-options'); if (dl) dl.innerHTML = cats.map((c) => `<option value="${escAttr(c)}">`).join('');
+    const fc = $('#msg-filter-cat'); if (fc) { const cur = fc.value; fc.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option value="${escAttr(c)}">${escAttr(c)}</option>`).join(''); fc.value = cats.includes(cur) ? cur : ''; }
+    renderMessagesAdmin();
   } catch (err) {
     messagesAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load messages.</p>';
   }
 };
+['#msg-filter-q', '#msg-filter-cat', '#msg-filter-feat'].forEach((sel) => $(sel)?.addEventListener('input', () => renderMessagesAdmin()));
+
+messagesAdminList?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-id]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const m = messagesCache.find((x) => String(x.id) === id);
+  const cls = btn.classList;
+  try {
+    if (cls.contains('btn-edit-message') && m) {
+      await openEditDialog({
+        title: 'Edit message',
+        fields: [
+          { name: 'title', label: 'Title', required: true, value: m.title, maxlength: 200 },
+          { name: 'description', label: 'Description', type: 'textarea', value: m.description, maxlength: 4000 },
+          { name: 'speaker', label: 'Speaker', value: m.speaker, maxlength: 120 },
+          { name: 'category', label: 'Category', value: m.category, maxlength: 60, list: 'msg-category-options' },
+          { name: 'thumbnail_url', label: 'Thumbnail picture link (optional)', value: m.thumbnail_url, maxlength: 2000, list: 'event-image-options' },
+          { name: 'link', label: 'Video link (YouTube / Facebook / Vimeo)', value: m.link, maxlength: 2000 },
+          { name: 'is_featured', label: 'Featured sermon', type: 'checkbox', value: m.is_featured }
+        ],
+        onSave: async (v) => {
+          if (v.link && !/^https?:\/\//i.test(v.link)) throw new Error('The video link must start with https://');
+          if (v.thumbnail_url && !/^(https?:\/\/|\/|assets\/|uploads\/)/i.test(v.thumbnail_url)) throw new Error('The thumbnail must be a link or a library picture.');
+          await callManageContent('update_message', { id, ...v });
+          showToast('Message updated', 'success');
+          await loadMessagesAdmin();
+        }
+      });
+    } else if (cls.contains('btn-feature-message') && m) {
+      await callManageContent('update_message', { id, is_featured: !m.is_featured });
+      showToast(m.is_featured ? 'No longer featured' : 'Marked as featured', 'success');
+      loadMessagesAdmin();
+    } else if (cls.contains('btn-edit-notes') && m) {
+      const val = window.prompt('Paste the sermon notes link (leave empty to remove it):', m.notes_url || '');
+      if (val === null) return;
+      const url = val.trim();
+      if (url && !/^https?:\/\//i.test(url)) { showToast('Please paste a full link starting with https://', 'error'); return; }
+      await callManageContent('update_message', { id, notes_url: url }); showToast('Notes link saved', 'success'); loadMessagesAdmin();
+    } else if (cls.contains('btn-fix-link') && m) {
+      const link = askRecordingLink(m.link || '');
+      if (!link) return;
+      if (!isPlayableLink(link)) { showToast('That link cannot play on the site. Use a YouTube, Facebook or Vimeo video link, or an MP4/MP3 file.', 'error'); return; }
+      btn.disabled = true;
+      await callManageContent('update_message', { id, link });
+      showToast('Recording link saved — it now plays on the website', 'success');
+      loadMessagesAdmin();
+    } else if (cls.contains('btn-delete-message')) {
+      if (!confirm('Delete this message? This also removes its comments. This cannot be undone.')) return;
+      await callManageContent('delete_message', { id });
+      showToast('Message deleted', 'success'); loadMessagesAdmin();
+    } else if (cls.contains('btn-delete-comment')) {
+      if (!confirm('Delete this comment?')) return;
+      await callManageContent('delete_comment', { id });
+      showToast('Comment deleted', 'success'); loadMessagesAdmin();
+    }
+  } catch (err) {
+    showToast(err.message || 'That did not work. Please try again.', 'error');
+    btn.disabled = false;
+  }
+});
 
 function escapeAdminHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({
@@ -1998,6 +1888,10 @@ $('#btn-create-message')?.addEventListener('click', async () => {
   const selectedOpt = msgMediaSelect?.selectedOptions?.[0];
   const media_url = msgMediaSelect?.value || '';
   const media_type = media_url ? (selectedOpt?.dataset.kind || 'video') : '';
+  const speaker = $('#msg-speaker')?.value.trim() || '';
+  const category = $('#msg-category')?.value.trim() || '';
+  const thumbnail_url = $('#msg-thumb')?.value.trim() || '';
+  const is_featured = Boolean($('#msg-featured')?.checked);
   const note = $('#msg-create-note');
   const btn = $('#btn-create-message');
 
@@ -2005,13 +1899,15 @@ $('#btn-create-message')?.addEventListener('click', async () => {
 
   btn.disabled = true;
   try {
-    await callManageContent('create_message', { title, description, link, media_url, media_type, notes_url, source: 'manual' });
+    await callManageContent('create_message', { title, description, link, media_url, media_type, notes_url, source: 'manual', speaker, category, thumbnail_url, is_featured });
     note.textContent = 'Message added.';
     note.className = 'form-note ok';
     $('#msg-title').value = '';
     $('#msg-desc').value = '';
     $('#msg-link').value = '';
     if ($('#msg-notes')) $('#msg-notes').value = '';
+    ['#msg-speaker', '#msg-category', '#msg-thumb'].forEach((sel) => { if ($(sel)) $(sel).value = ''; });
+    if ($('#msg-featured')) $('#msg-featured').checked = false;
     if (msgMediaSelect) msgMediaSelect.value = '';
     loadMessagesAdmin();
   } catch (err) {
@@ -2063,68 +1959,89 @@ $('#btn-archive-live')?.addEventListener('click', async () => {
 const requestsAdminList = $('#requests-admin-list');
 const requestsBadge = $('#sidebar-requests-badge');
 
+let requestsCache = [];
+const FOLLOW_LABEL = { new: 'New', in_progress: 'Following up', done: 'Follow-up done' };
+const renderRequests = () => {
+  if (!requestsAdminList) return;
+  const q = ($('#req-filter-q')?.value || '').trim().toLowerCase();
+  const st = $('#req-filter-status')?.value || '';
+  const list = requestsCache.filter((r) => {
+    if (q && !`${r.name} ${r.request} ${r.contact || ''}`.toLowerCase().includes(q)) return false;
+    if (st === 'unread') return !r.is_read;
+    if (st === 'private') return r.is_private;
+    if (st === 'in_progress' || st === 'done') return r.follow_up === st;
+    return true;
+  });
+  if (!requestsCache.length) { requestsAdminList.innerHTML = '<p style="font-size:13px;color:#6b7280">No prayer requests submitted yet.</p>'; return; }
+  if (!list.length) { requestsAdminList.innerHTML = '<p style="font-size:13px;color:#6b7280">No requests match your search.</p>'; return; }
+  requestsAdminList.innerHTML = list.map((r) => {
+    const dateStr = new Date(r.created_at).toLocaleString();
+    const fu = r.follow_up || 'new';
+    return `
+      <div class="admin-item${r.is_read ? '' : ' unread'}" data-id="${r.id}">
+        <div class="admin-item-head">
+          <h4>${escapeAdminHtml(r.name)}${r.is_private ? ' <span class="req-badge">🔒 Confidential</span>' : ''}${fu !== 'new' ? ` <span class="req-badge">${FOLLOW_LABEL[fu]}</span>` : ''}</h4>
+          <time>${dateStr}</time>
+        </div>
+        <p>${escapeAdminHtml(r.request)}</p>
+        ${r.contact ? `<p style="font-size:11.5px;color:#8890a0">Contact: ${escapeAdminHtml(r.contact)}</p>` : ''}
+        <div class="req-follow">
+          <select class="status-select req-status" data-id="${r.id}" aria-label="Follow-up status for ${escapeAdminHtml(r.name)}">
+            ${Object.entries(FOLLOW_LABEL).map(([v, l]) => `<option value="${v}"${v === fu ? ' selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <input type="text" class="note-input req-note" data-id="${r.id}" maxlength="1000" value="${escapeAdminHtml(r.admin_note || '')}" placeholder="Private follow-up note (never public)" aria-label="Follow-up note">
+        </div>
+        <div class="admin-item-actions">
+          <button type="button" class="btn-mini btn-save-follow" data-id="${r.id}">Save follow-up</button>
+          <button type="button" class="btn-mini btn-toggle-read" data-id="${r.id}" data-read="${r.is_read}">${r.is_read ? 'Mark unread' : 'Mark read'}</button>
+          <button type="button" class="btn-mini danger btn-delete-request" data-id="${r.id}">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+};
 const loadPrayerRequests = async () => {
   if (!requestsAdminList) return;
   try {
     const { requests } = await callManageContent('list_prayer_requests');
+    requestsCache = requests;
     const unread = requests.filter((r) => !r.is_read).length;
     if (requestsBadge) {
       requestsBadge.style.display = unread ? 'inline-block' : 'none';
       requestsBadge.textContent = unread;
     }
-    if (!requests.length) {
-      requestsAdminList.innerHTML = '<p style="font-size:13px;color:#6b7280">No prayer requests submitted yet.</p>';
-      return;
-    }
-    requestsAdminList.innerHTML = requests.map((r) => {
-      const dateStr = new Date(r.created_at).toLocaleString();
-      return `
-        <div class="admin-item${r.is_read ? '' : ' unread'}" data-id="${r.id}">
-          <div class="admin-item-head">
-            <h4>${escapeAdminHtml(r.name)}${r.is_private ? ' <span class="req-badge">Confidential</span>' : ''}</h4>
-            <time>${dateStr}</time>
-          </div>
-          <p>${escapeAdminHtml(r.request)}</p>
-          ${r.contact ? `<p style="font-size:11.5px;color:#8890a0">Contact: ${escapeAdminHtml(r.contact)}</p>` : ''}
-          <div class="admin-item-actions">
-            <button type="button" class="btn-mini btn-toggle-read" data-id="${r.id}" data-read="${r.is_read}">${r.is_read ? 'Mark unread' : 'Mark read'}</button>
-            <button type="button" class="btn-mini danger btn-delete-request" data-id="${r.id}">Delete</button>
-          </div>
-        </div>`;
-    }).join('');
-
-    $$('.btn-toggle-read', requestsAdminList).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        try {
-          await callManageContent('mark_prayer_request_read', { id: btn.dataset.id, is_read: btn.dataset.read !== 'true' });
-          loadPrayerRequests();
-        } catch (err) {
-          showToast(err.message || 'Could not update request', 'error');
-        }
-      });
-    });
-    $$('.btn-delete-request', requestsAdminList).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Delete this prayer request permanently?')) return;
-        try {
-          await callManageContent('delete_prayer_request', { id: btn.dataset.id });
-          showToast('Request deleted', 'success');
-          loadPrayerRequests();
-        } catch (err) {
-          showToast(err.message || 'Could not delete request', 'error');
-        }
-      });
-    });
+    renderRequests();
   } catch (err) {
-    requestsAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load prayer requests. Please refresh and try again.</p>';
+    requestsAdminList.innerHTML = `<p style="font-size:13px;color:#f87171">${escapeAdminHtml(err.message || 'Could not load prayer requests.')} Please refresh and try again.</p>`;
   }
 };
+['#req-filter-q', '#req-filter-status'].forEach((sel) => $(sel)?.addEventListener('input', renderRequests));
+requestsAdminList?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-id]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  try {
+    if (btn.classList.contains('btn-toggle-read')) {
+      await callManageContent('mark_prayer_request_read', { id, is_read: btn.dataset.read !== 'true' });
+      loadPrayerRequests();
+    } else if (btn.classList.contains('btn-save-follow')) {
+      const row = btn.closest('.admin-item');
+      await callManageContent('set_prayer_followup', { id, follow_up: $('.req-status', row).value, admin_note: $('.req-note', row).value });
+      showToast('Follow-up saved', 'success');
+      loadPrayerRequests();
+    } else if (btn.classList.contains('btn-delete-request')) {
+      if (!confirm('Delete this prayer request permanently? This cannot be undone.')) return;
+      await callManageContent('delete_prayer_request', { id });
+      showToast('Request deleted', 'success');
+      loadPrayerRequests();
+    }
+  } catch (err) { showToast(err.message || 'Could not update request', 'error'); }
+});
 
 
 /* =========================================================================
    NEW VISITORS / VOLUNTEERS + TESTIMONIES (admin)
    ========================================================================= */
-const KIND_LABEL = { visitor: 'New visitor', volunteer: 'Volunteer', counseling: 'Counseling', other: 'Other' };
+const KIND_LABEL = { visitor: 'First-time visitor', callback: 'Call-back request', question: 'Question', volunteer: 'Volunteer', counseling: 'Counseling', other: 'Other' };
 const setBadge = (el, n) => { if (el) { el.style.display = n ? 'inline-block' : 'none'; el.textContent = n; } };
 
 const loadConnectAdmin = async () => {
@@ -2167,84 +2084,144 @@ const loadConnectAdmin = async () => {
   }
 };
 
+let testimoniesCache = [];
+const renderTestimonies = () => {
+  const box = $('#testimonies-admin-list');
+  if (!box) return;
+  const q = ($('#tes-filter-q')?.value || '').trim().toLowerCase();
+  const st = $('#tes-filter-status')?.value || '';
+  const list = testimoniesCache.filter((t) => (!q || `${t.name} ${t.location || ''} ${t.testimony}`.toLowerCase().includes(q))
+    && (!st || (st === 'pending' ? !t.is_approved : t.is_approved)));
+  if (!testimoniesCache.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">No testimonies submitted yet.</p>'; return; }
+  if (!list.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">No testimonies match your search.</p>'; return; }
+  box.innerHTML = list.map((t) => `
+    <div class="admin-item${t.is_approved ? '' : ' unread'}" data-id="${t.id}">
+      <div class="admin-item-head">
+        <h4>${escapeAdminHtml(t.name)}${t.location ? ` <span style="font-weight:500;color:#8890a0;font-size:12px">· ${escapeAdminHtml(t.location)}</span>` : ''}
+          <span class="req-badge" style="${t.is_approved ? 'background:#1f4d2e;color:#a7f3c0' : ''}">${t.is_approved ? 'Published' : 'Awaiting approval'}</span>
+          <span class="req-badge">${t.show_name === false ? 'Shown as Anonymous' : 'Name may be shown'}</span></h4>
+        <time>${new Date(t.created_at).toLocaleString()}</time>
+      </div>
+      <p>${escapeAdminHtml(t.testimony)}</p>
+      <div class="admin-item-actions">
+        <button type="button" class="btn-mini btn-approve" data-id="${t.id}" data-ok="${t.is_approved}">${t.is_approved ? 'Unpublish' : 'Approve & publish'}</button>
+        <button type="button" class="btn-mini btn-edit-testimony" data-id="${t.id}">✎ Edit</button>
+        <button type="button" class="btn-mini danger btn-del-testimony" data-id="${t.id}">Delete</button>
+      </div>
+    </div>`).join('');
+};
 const loadTestimoniesAdmin = async () => {
   const box = $('#testimonies-admin-list');
   if (!box) return;
   try {
     const { testimonies } = await callManageContent('list_testimonies');
+    testimoniesCache = testimonies;
     setBadge($('#sidebar-testimonies-badge'), testimonies.filter((t) => !t.is_approved).length);
-    if (!testimonies.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">No testimonies submitted yet.</p>'; return; }
-    box.innerHTML = testimonies.map((t) => `
-      <div class="admin-item${t.is_approved ? '' : ' unread'}" data-id="${t.id}">
-        <div class="admin-item-head">
-          <h4>${escapeAdminHtml(t.name)}${t.location ? ` <span style="font-weight:500;color:#8890a0;font-size:12px">· ${escapeAdminHtml(t.location)}</span>` : ''}
-            <span class="req-badge" style="${t.is_approved ? 'background:#1f4d2e;color:#a7f3c0' : ''}">${t.is_approved ? 'Published' : 'Awaiting approval'}</span></h4>
-          <time>${new Date(t.created_at).toLocaleString()}</time>
-        </div>
-        <p>${escapeAdminHtml(t.testimony)}</p>
-        <div class="admin-item-actions">
-          <button type="button" class="btn-mini btn-approve" data-id="${t.id}" data-ok="${t.is_approved}">${t.is_approved ? 'Unpublish' : 'Approve & publish'}</button>
-          <button type="button" class="btn-mini danger btn-del-testimony" data-id="${t.id}">Delete</button>
-        </div>
-      </div>`).join('');
-    $$('.btn-approve', box).forEach((b) => b.addEventListener('click', async () => {
-      try { await callManageContent('set_testimony_approved', { id: b.dataset.id, is_approved: b.dataset.ok !== 'true' }); loadTestimoniesAdmin(); }
-      catch (err) { showToast(err.message || 'Could not update', 'error'); }
-    }));
-    $$('.btn-del-testimony', box).forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('Delete this testimony permanently?')) return;
-      try { await callManageContent('delete_testimony', { id: b.dataset.id }); loadTestimoniesAdmin(); }
-      catch (err) { showToast(err.message || 'Could not delete', 'error'); }
-    }));
-  } catch {
-    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load testimonies. Please refresh and try again.</p>';
+    renderTestimonies();
+  } catch (err) {
+    box.innerHTML = `<p style="font-size:13px;color:#f87171">${escapeAdminHtml(err.message || 'Could not load testimonies.')} Please refresh and try again.</p>`;
   }
 };
+['#tes-filter-q', '#tes-filter-status'].forEach((sel) => $(sel)?.addEventListener('input', renderTestimonies));
+$('#testimonies-admin-list')?.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-id]');
+  if (!b) return;
+  const id = b.dataset.id, t = testimoniesCache.find((x) => x.id === id);
+  try {
+    if (b.classList.contains('btn-approve')) {
+      await callManageContent('set_testimony_approved', { id, is_approved: b.dataset.ok !== 'true' });
+      showToast(b.dataset.ok === 'true' ? 'Testimony unpublished' : 'Testimony published', 'success'); loadTestimoniesAdmin();
+    } else if (b.classList.contains('btn-edit-testimony') && t) {
+      await openEditDialog({
+        title: 'Edit testimony',
+        fields: [
+          { name: 'name', label: 'Name', required: true, value: t.name, maxlength: 80 },
+          { name: 'location', label: 'Town / Country', value: t.location, maxlength: 80 },
+          { name: 'testimony', label: 'Testimony', type: 'textarea', required: true, value: t.testimony, maxlength: 1500 },
+          { name: 'show_name', label: 'The person agreed to show their name publicly', type: 'checkbox', value: t.show_name !== false }
+        ],
+        onSave: async (v) => { await callManageContent('update_testimony', { id, ...v }); showToast('Testimony updated', 'success'); await loadTestimoniesAdmin(); }
+      });
+    } else if (b.classList.contains('btn-del-testimony')) {
+      if (!confirm('Delete this testimony permanently?')) return;
+      await callManageContent('delete_testimony', { id }); showToast('Testimony deleted', 'success'); loadTestimoniesAdmin();
+    }
+  } catch (err) { showToast(err.message || 'Could not update', 'error'); }
+});
 
 
 /* =========================================================================
    PRAYER WALL MODERATION + ANALYTICS (admin)
    ========================================================================= */
+let wallCache = [];
+const renderWall = () => {
+  const box = $('#wall-admin-list');
+  if (!box) return;
+  const q = ($('#wall-filter-q')?.value || '').trim().toLowerCase();
+  const st = $('#wall-filter-status')?.value || '';
+  const list = wallCache.filter((p) => (!q || `${p.name || ''} ${p.request}`.toLowerCase().includes(q)) && (!st || (st === 'pending' ? !p.is_approved : p.is_approved)));
+  if (!wallCache.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">Nothing has been added to the wall yet.</p>'; return; }
+  if (!list.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">Nothing matches your search.</p>'; return; }
+  const total = wallCache.filter((p) => p.is_approved).reduce((t, p) => t + (p.prayed_count || 0), 0);
+  box.innerHTML = `<p class="muted-note" style="margin:0 0 12px">Published prayers have been prayed over <strong>${total}</strong> times in total (one count per person per request).</p>` + list.map((p) => `
+    <div class="admin-item${p.is_approved ? '' : ' unread'}" data-id="${p.id}">
+      <div class="admin-item-head">
+        <h4>${escapeAdminHtml(p.name || 'Anonymous')}
+          <span class="req-badge" style="${p.is_approved ? 'background:#1f4d2e;color:#a7f3c0' : ''}">${p.is_approved ? `Published · 🙏 ${p.prayed_count}` : 'Awaiting approval'}</span></h4>
+        <time>${new Date(p.created_at).toLocaleString()}</time>
+      </div>
+      <p>${escapeAdminHtml(p.request)}</p>
+      <div class="admin-item-actions">
+        <button type="button" class="btn-mini btn-wall-approve" data-id="${p.id}" data-ok="${p.is_approved}">${p.is_approved ? 'Unpublish' : 'Approve & publish'}</button>
+        <button type="button" class="btn-mini btn-wall-edit" data-id="${p.id}">✎ Edit / clean up</button>
+        <button type="button" class="btn-mini danger btn-wall-del" data-id="${p.id}">Delete</button>
+      </div>
+    </div>`).join('');
+};
 const loadWallAdmin = async () => {
   const box = $('#wall-admin-list');
   if (!box) return;
   try {
     const { prayers } = await callManageContent('list_wall_prayers');
+    wallCache = prayers;
     setBadge($('#sidebar-wall-badge'), prayers.filter((p) => !p.is_approved).length);
-    if (!prayers.length) { box.innerHTML = '<p style="font-size:13px;color:#6b7280">Nothing has been added to the wall yet.</p>'; return; }
-    box.innerHTML = prayers.map((p) => `
-      <div class="admin-item${p.is_approved ? '' : ' unread'}" data-id="${p.id}">
-        <div class="admin-item-head">
-          <h4>${escapeAdminHtml(p.name || 'Anonymous')}
-            <span class="req-badge" style="${p.is_approved ? 'background:#1f4d2e;color:#a7f3c0' : ''}">${p.is_approved ? `Published · 🙏 ${p.prayed_count}` : 'Awaiting approval'}</span></h4>
-          <time>${new Date(p.created_at).toLocaleString()}</time>
-        </div>
-        <p>${escapeAdminHtml(p.request)}</p>
-        <div class="admin-item-actions">
-          <button type="button" class="btn-mini btn-wall-approve" data-id="${p.id}" data-ok="${p.is_approved}">${p.is_approved ? 'Unpublish' : 'Approve & publish'}</button>
-          <button type="button" class="btn-mini danger btn-wall-del" data-id="${p.id}">Delete</button>
-        </div>
-      </div>`).join('');
-    $$('.btn-wall-approve', box).forEach((b) => b.addEventListener('click', async () => {
-      try { await callManageContent('set_wall_approved', { id: b.dataset.id, is_approved: b.dataset.ok !== 'true' }); loadWallAdmin(); }
-      catch (err) { showToast(err.message || 'Could not update', 'error'); }
-    }));
-    $$('.btn-wall-del', box).forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('Delete this request permanently?')) return;
-      try { await callManageContent('delete_wall_prayer', { id: b.dataset.id }); loadWallAdmin(); }
-      catch (err) { showToast(err.message || 'Could not delete', 'error'); }
-    }));
-  } catch {
-    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load the prayer wall. Please refresh and try again.</p>';
+    renderWall();
+  } catch (err) {
+    box.innerHTML = `<p style="font-size:13px;color:#f87171">${escapeAdminHtml(err.message || 'Could not load the prayer wall.')} Please refresh and try again.</p>`;
   }
 };
+['#wall-filter-q', '#wall-filter-status'].forEach((sel) => $(sel)?.addEventListener('input', renderWall));
+$('#wall-admin-list')?.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-id]');
+  if (!b) return;
+  const id = b.dataset.id, p = wallCache.find((x) => x.id === id);
+  try {
+    if (b.classList.contains('btn-wall-approve')) {
+      await callManageContent('set_wall_approved', { id, is_approved: b.dataset.ok !== 'true' });
+      showToast(b.dataset.ok === 'true' ? 'Removed from the public wall' : 'Published on the wall', 'success'); loadWallAdmin();
+    } else if (b.classList.contains('btn-wall-edit') && p) {
+      await openEditDialog({
+        title: 'Edit wall request',
+        fields: [
+          { name: 'name', label: 'First name (blank = Anonymous)', value: p.name, maxlength: 60 },
+          { name: 'request', label: 'Request (remove any phone numbers or private details)', type: 'textarea', required: true, value: p.request, maxlength: 400 }
+        ],
+        onSave: async (v) => { await callManageContent('update_wall_prayer', { id, ...v }); showToast('Request updated', 'success'); await loadWallAdmin(); }
+      });
+    } else if (b.classList.contains('btn-wall-del')) {
+      if (!confirm('Delete this request permanently?')) return;
+      await callManageContent('delete_wall_prayer', { id }); showToast('Request deleted', 'success'); loadWallAdmin();
+    }
+  } catch (err) { showToast(err.message || 'Could not update', 'error'); }
+});
 
 const loadAnalytics = async () => {
   const box = $('#analytics-body');
   if (!box) return;
   box.innerHTML = '<p style="font-size:13px;color:#6b7280">Loading…</p>';
   try {
-    const { analytics: a } = await callManageContent('get_analytics');
+    const span = Number($('#analytics-range')?.value) || 30;
+    const { analytics: a } = await callManageContent('get_analytics', { days: span });
     const days = a.days || [];
     const sum = (k, from = 0) => days.slice(from).reduce((t, d) => t + (d[k] || 0), 0);
     const maxViews = Math.max(1, ...days.map((d) => d.views));
@@ -2252,12 +2229,12 @@ const loadAnalytics = async () => {
       ? `<ul class="rank-list">${rows.map(([n, c]) => `<li><span>${escapeAdminHtml(n)}</span><b>${c}</b></li>`).join('')}</ul>`
       : `<p style="font-size:13px;color:#6b7280">${empty}</p>`;
     const dev = a.devices || {};
-    const devRows = Object.entries(dev).sort((x, y) => y[1] - x[1]).map(([k, v]) => [k.charAt(0).toUpperCase() + k.slice(1), v]);
+    const devTotal = Object.values(dev).reduce((t, v) => t + v, 0) || 1;
+    const devRows = Object.entries(dev).sort((x, y) => y[1] - x[1]).map(([k, v]) => [`${k.charAt(0).toUpperCase() + k.slice(1)} (${Math.round(v / devTotal * 100)}%)`, v]);
     box.innerHTML = `
       <div class="stat-grid">
         <div class="stat-box"><b>${days.length ? days[days.length - 1].views : 0}</b><span>Visits today</span></div>
-        <div class="stat-box"><b>${sum('views', Math.max(0, days.length - 7))}</b><span>Last 7 days</span></div>
-        <div class="stat-box"><b>${sum('views')}</b><span>Last 30 days</span></div>
+        <div class="stat-box"><b>${sum('views')}</b><span>Visits, last ${span} days</span></div>
         <div class="stat-box"><b>${sum('plays')}</b><span>Sermon plays</span></div>
         <div class="stat-box"><b>${a.shares || 0}</b><span>Shares</span></div>
       </div>
@@ -2267,15 +2244,19 @@ const loadAnalytics = async () => {
         <div class="bar-axis"><span>${days[0]?.day || ''}</span><span>${days[days.length - 1]?.day || ''}</span></div>
       </div>
       <div class="form-grid-2" style="align-items:start">
+        <div class="card"><h3 class="card-title">Popular pages</h3>${rank(a.topPages || [], 'No visits yet.')}</div>
         <div class="card"><h3 class="card-title">Most played sermons</h3>${rank(a.topSermons || [], 'No sermon plays yet.')}</div>
-        <div class="card"><h3 class="card-title">Where visitors come from</h3>${rank(a.referrers || [], 'No visits yet.')}</div>
       </div>
-      <div class="card"><h3 class="card-title">Devices</h3>${rank(devRows, 'No visits yet.')}</div>`;
-  } catch {
-    box.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load statistics. Please refresh and try again.</p>';
+      <div class="form-grid-2" style="align-items:start">
+        <div class="card"><h3 class="card-title">Where visitors come from</h3>${rank(a.referrers || [], 'No visits yet.')}</div>
+        <div class="card"><h3 class="card-title">Devices</h3>${rank(devRows, 'No visits yet.')}</div>
+      </div>`;
+  } catch (err) {
+    box.innerHTML = `<p style="font-size:13px;color:#f87171">${escapeAdminHtml(err.message || 'Could not load statistics.')} Please refresh and try again.</p>`;
   }
 };
 $('#btn-refresh-analytics')?.addEventListener('click', loadAnalytics);
+$('#analytics-range')?.addEventListener('change', loadAnalytics);
 
 
 /* =========================================================================

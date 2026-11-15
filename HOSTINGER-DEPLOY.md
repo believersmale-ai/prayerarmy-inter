@@ -71,3 +71,6 @@ are checked by content, and the uploads folder cannot run code; private requests
 - **Upload fails for big files**: raise `upload_max_filesize` / `post_max_size` in hPanel PHP Configuration.
 - **"Too many attempts"** on sign-in: wait 15 minutes. If you sit behind Cloudflare or a shared proxy, all visitors can look like one address; tell me and I will adapt the limiter.
 - **Locked out of every admin account**: in phpMyAdmin run `UPDATE admin_users SET active = 1;` and reset a password by deleting the row and visiting `api/setup.php` again after restoring it from the package.
+
+## Upgrade pass
+See **UPGRADE-NOTES.md** for the upgrade steps, new features, tests and outstanding configuration.

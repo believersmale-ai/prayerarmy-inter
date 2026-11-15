@@ -1123,48 +1123,66 @@
       .sidebar-btn { flex: 0 0 auto; width: auto; }
       .app-body { flex-direction: column; }
     }
-  </style>
-<style id="pai-premium-admin-overrides">
-  :root { --admin-accent:#d2ad62; --admin-radius:14px; --admin-line:rgba(210,173,98,.2); }
-  body { background:#080d17; }
-  .sidebar { background:#0b1220 !important; border-right:1px solid rgba(210,173,98,.15); }
-  .sidebar-btn { transition:background .2s ease, color .2s ease, transform .2s ease; }
-  .sidebar-btn:hover { background:rgba(210,173,98,.09); transform:translateX(2px); }
-  .sidebar-btn.active { background:rgba(210,173,98,.13) !important; color:#f2d89f !important; }
-  .view-header { margin-bottom:26px; }
-  .view-header h2 { letter-spacing:-.035em; }
-  .card, .panel, .admin-card, .stat-card, .settings-card, .admin-item { border:1px solid rgba(210,173,98,.16) !important; border-radius:14px !important; background:#111a2b !important; box-shadow:0 16px 40px rgba(0,0,0,.18) !important; }
-  .card { padding:clamp(18px,2.4vw,28px); }
-  input, textarea, select { border-radius:8px !important; border-color:#344057 !important; background:#0b1322 !important; }
-  input:focus, textarea:focus, select:focus { border-color:#d2ad62 !important; box-shadow:0 0 0 3px rgba(210,173,98,.12) !important; outline:none; }
-  button, .btn-mini { transition:filter .2s ease, transform .2s ease; }
-  button:hover, .btn-mini:hover { filter:brightness(1.08); }
-  #field-page-content { min-height:460px; tab-size:2; }
 
-  /* Page Builder */
-  .lay-list{display:flex;flex-direction:column;gap:10px}
-  .lay-row{border:1px solid var(--panel-border);border-radius:10px;background:#0b1322;padding:10px 12px}
-  .lay-row.is-off{opacity:.62}
-  .lay-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .lay-move{display:flex;flex-direction:column;gap:2px}
-  .lay-move button{border:1px solid var(--panel-border);background:transparent;color:var(--text);border-radius:5px;width:28px;height:22px;line-height:1;cursor:pointer;font-size:12px}
-  .lay-move button:disabled{opacity:.3;cursor:default}
-  .lay-name{flex:1;min-width:140px;font-weight:600}
-  .lay-name small{display:block;color:var(--text-muted);font-weight:500;font-size:11px;letter-spacing:.04em}
-  .lay-flags{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-  .lay-flags label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;margin:0}
-  .lay-edit{margin-top:12px;padding-top:12px;border-top:1px dashed var(--panel-border)}
-  .lay-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 7px;border-radius:4px;background:var(--admin-accent-soft);color:var(--gold2);margin-left:6px}
-  .lay-badge.draft{background:rgba(239,68,68,.15);color:#fca5a5}
-  .pt-group{margin-bottom:22px}
-  .pt-group h4{margin:0 0 12px;color:var(--gold2);font-size:14px;letter-spacing:.04em}
-  .pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-  .pt-grid .wide{grid-column:1/-1}
-  .pt-grid label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px}
-  .pt-faith-row{display:flex;gap:8px;margin-bottom:8px}
-  .pt-faith-row textarea{flex:1}
-  @media(max-width:760px){ .card{padding:18px !important;} }
-</style>
+    /* ===== Upgrade layer: dashboard, toolbars, dialogs, mobile drawer ===== */
+    .muted-note { font-size: 13px; color: var(--text-muted); }
+    .check-line { display: flex; align-items: flex-start; gap: 10px; margin: 10px 0; font-size: 13.5px; color: #dfe4ec; cursor: pointer; }
+    .check-line input { width: auto; margin-top: 3px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .toolbar input[type=search] { flex: 1 1 220px; min-width: 0; padding: 10px 12px; }
+    .toolbar select { flex: 0 1 190px; padding: 10px 12px; }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .dash-card { display: block; text-align: left; width: 100%; font: inherit; color: inherit; border: 1px solid var(--admin-line); border-radius: 12px; padding: 16px 16px 14px; background: rgba(255,255,255,.035); cursor: pointer; min-height: 44px; }
+    .dash-card:hover { border-color: var(--admin-accent); }
+    .dash-card b { display: block; font-size: 30px; line-height: 1.1; color: #fff; }
+    .dash-card span { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+    .dash-card small { display: block; margin-top: 8px; font-size: 12px; color: var(--admin-accent); }
+    .dash-card.attention { border-color: rgba(224,184,78,.55); background: rgba(224,184,78,.07); }
+    .dash-card.live-on { border-color: #e53e3e; background: rgba(229,62,62,.09); }
+    .dash-two { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: start; }
+    .activity-list { list-style: none; margin: 0; padding: 0; }
+    .activity-list li { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--admin-line); font-size: 13px; }
+    .activity-list li:last-child { border-bottom: 0; }
+    .activity-list em { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--admin-accent); margin-right: 8px; }
+    .activity-list time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .mini-bars { display: flex; align-items: flex-end; gap: 3px; height: 110px; margin-top: 8px; }
+    .mini-bars i { flex: 1; min-height: 2px; background: var(--admin-accent); border-radius: 2px 2px 0 0; opacity: .85; }
+    .status-select { padding: 8px 10px; font-size: 12.5px; }
+    .note-input { width: 100%; margin: 6px 0 8px; padding: 9px 11px; font-size: 12.5px; }
+    .announce-row .check-line { margin: 6px 0; }
+    .edit-dialog { width: min(560px, calc(100% - 24px)); max-height: 90vh; overflow: auto; padding: 24px; border: 1px solid var(--admin-line); border-radius: 14px; background: #0f1626; color: #fff; }
+    .edit-dialog::backdrop { background: rgba(3,6,12,.78); }
+    .edit-dialog h3 { margin: 0 0 16px; }
+    .edit-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+    .menu-fab { display: none; }
+    .drawer-backdrop { display: none; }
+    .btn-mini, .btn-primary, .sidebar-btn { min-height: 40px; }
+    :focus-visible { outline: 2px solid var(--admin-accent); outline-offset: 2px; }
+    @media (max-width: 900px) {
+      .dash-two { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      /* Phone: the menu becomes a slide-in drawer instead of a long scrolling strip */
+      .menu-fab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--admin-line); background: rgba(255,255,255,.06); color: #fff; font: 700 13px inherit; cursor: pointer; }
+      .sidebar { position: fixed !important; z-index: 200; top: 0; left: 0; bottom: 0; width: min(84vw, 320px) !important; height: auto !important; flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; transform: translateX(-102%); transition: transform .28s ease; background: #0c1322 !important; padding-top: 18px; }
+      body.drawer-open .sidebar { transform: none; }
+      .sidebar-btn { width: 100% !important; white-space: normal !important; text-align: left; }
+      .nav-group-title { display: block !important; }
+      .drawer-backdrop { display: block; position: fixed; inset: 0; z-index: 150; background: rgba(3,6,12,.7); opacity: 0; pointer-events: none; transition: opacity .25s; }
+      body.drawer-open .drawer-backdrop { opacity: 1; pointer-events: auto; }
+      body.drawer-open { overflow: hidden; }
+      .top-bar { flex-wrap: wrap; gap: 8px; padding: 10px 12px; height: auto; }
+      .top-left { flex: 1 1 auto; min-width: 0; gap: 8px; }
+      .top-brand-text, #whoami-chip { display: none !important; }
+      .top-brand img { height: 34px; width: auto; }
+      .top-right { flex-wrap: wrap; gap: 8px; margin-left: auto; min-width: 0; }
+      .top-right .btn-save-master, #btn-save-all { padding-inline: 14px; }
+      .main-area, .app-body, #settings-form { min-width: 0; max-width: 100%; }
+      .toolbar select { flex: 1 1 100%; }
+      .admin-item-actions .btn-mini { flex: 1 1 auto; justify-content: center; }
+    }
+    @media (prefers-reduced-motion: reduce) { .sidebar, .drawer-backdrop { transition: none !important; } }
+  </style>
 </head>
 <body>
 
@@ -1230,10 +1248,6 @@
           <span>Public Site</span> <span>↗</span>
         </a>
 
-        <button type="button" class="btn-live-site" id="btn-preview" title="Open the website with your unsaved changes (nothing is published)">
-          <span>👁</span> Preview
-        </button>
-
         <button type="button" class="btn-save-master" id="btn-save-all">
           <span>💾</span> Save Changes
         </button>
@@ -1247,8 +1261,13 @@
     <div class="app-body">
       <!-- Sidebar Navigation -->
       <aside class="sidebar">
+        <div class="nav-group-title">Overview</div>
+        <button type="button" class="sidebar-btn active" data-view="view-dashboard">
+          <span>🏠</span> Dashboard
+        </button>
+
         <div class="nav-group-title">Live & Broadcast</div>
-        <button type="button" class="sidebar-btn active" data-view="view-live">
+        <button type="button" class="sidebar-btn" data-view="view-live">
           <span>📡</span> Live Stream
           <span class="badge-pill" id="sidebar-live-badge" style="display:none">LIVE</span>
         </button>
@@ -1263,9 +1282,6 @@
         <button type="button" class="sidebar-btn" data-view="view-hero">
           <span>⚡</span> Hero Banner
         </button>
-        <button type="button" class="sidebar-btn" data-view="view-layout">
-          <span>🧩</span> Page Builder
-        </button>
         <button type="button" class="sidebar-btn" data-view="view-general">
           <span>🏛</span> General & Contacts
         </button>
@@ -1274,6 +1290,9 @@
         </button>
         <button type="button" class="sidebar-btn" data-view="view-events">
           <span>📅</span> Events & Programs
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-announcements">
+          <span>📣</span> Announcements
         </button>
         <button type="button" class="sidebar-btn" data-view="view-about">
           <span>🕊</span> About & Foundation
@@ -1312,6 +1331,9 @@
         <button type="button" class="sidebar-btn" data-view="view-social">
           <span>🌐</span> Social Channels
         </button>
+        <button type="button" class="sidebar-btn" data-view="view-notifications">
+          <span>🔔</span> Notifications
+        </button>
 
         <div class="nav-group-title">System</div>
         <button type="button" class="sidebar-btn" data-view="view-team">
@@ -1326,8 +1348,20 @@
       <main class="main-area">
         <form id="settings-form">
 
+          <!-- 0. DASHBOARD OVERVIEW -->
+          <section class="tab-view active" id="view-dashboard">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🏠</span> Dashboard</h2>
+                <p id="dash-welcome">Everything below comes from your real website records. Nothing here is sample data.</p>
+              </div>
+              <button type="button" class="btn-mini" id="btn-refresh-dashboard">🔄 Refresh</button>
+            </div>
+            <div id="dash-body"><p class="muted-note">Loading…</p></div>
+          </section>
+
           <!-- 1. LIVE STREAM & BROADCAST VIEW -->
-          <section class="tab-view active" id="view-live">
+          <section class="tab-view" id="view-live">
             <div class="view-header">
               <div class="view-header-text">
                 <h2><span>📡</span> Live Services & Broadcast</h2>
@@ -1372,6 +1406,18 @@
                 <div class="form-group">
                   <label for="field-live-status-note">Schedule / Status Note</label>
                   <input type="text" id="field-live-status-note" placeholder="Regular Sunday and Prophetic Services streamed live">
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-live-next-title">Next Broadcast Title (optional)</label>
+                  <input type="text" id="field-live-next-title" maxlength="120" placeholder="Sunday Prophetic Service">
+                </div>
+                <div class="form-group">
+                  <label for="field-live-next-start">Next Broadcast Starts</label>
+                  <input type="datetime-local" id="field-live-next-start">
+                  <small>Shows a countdown on the site. Times are in <strong>GMT (Ghana time)</strong>. The site is only marked LIVE when you switch the broadcast on above, never because the time arrived.</small>
                 </div>
               </div>
 
@@ -1464,6 +1510,22 @@
                 <label for="msg-desc">Description</label>
                 <textarea id="msg-desc" rows="3" placeholder="A short note about this message or broadcast."></textarea>
               </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="msg-speaker">Speaker</label>
+                  <input type="text" id="msg-speaker" maxlength="120" placeholder="Prophet Suglo Prosper">
+                </div>
+                <div class="form-group">
+                  <label for="msg-category">Category</label>
+                  <input type="text" id="msg-category" maxlength="60" list="msg-category-options" placeholder="Prayer, Faith, Prophetic…">
+                  <datalist id="msg-category-options"></datalist>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="msg-thumb">Thumbnail picture (optional)</label>
+                <input type="text" id="msg-thumb" list="event-image-options" placeholder="Pick from the library or paste a link. YouTube videos use their own thumbnail if this is empty.">
+              </div>
+              <label class="check-line"><input type="checkbox" id="msg-featured"> Feature this sermon (shows first, with a Featured badge)</label>
               <div class="form-group">
                 <label for="msg-link">Video link — YouTube / Facebook / Vimeo (plays on the website)</label>
                 <input type="url" id="msg-link" placeholder="https://www.youtube.com/watch?v=...">
@@ -1486,6 +1548,11 @@
 
             <div class="card">
               <h3 class="card-title">Messages (<span id="messages-admin-count">0</span>)</h3>
+              <div class="toolbar">
+                <input type="search" id="msg-filter-q" placeholder="Search title, speaker, category…" aria-label="Search messages">
+                <select id="msg-filter-cat" aria-label="Filter by category"><option value="">All categories</option></select>
+                <select id="msg-filter-feat" aria-label="Filter featured"><option value="">All</option><option value="1">Featured only</option></select>
+              </div>
               <div id="messages-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
             </div>
           </section>
@@ -1551,6 +1618,16 @@
                   <input type="text" id="field-hero-btn-secondary-link" placeholder="#live">
                 </div>
               </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="field-hero-btn-visit-text">Visit Button Label</label>
+                  <input type="text" id="field-hero-btn-visit-text" placeholder="Plan a Visit">
+                </div>
+                <div class="form-group">
+                  <label for="field-hero-btn-visit-link">Visit Button Link</label>
+                  <input type="text" id="field-hero-btn-visit-link" placeholder="#connect">
+                </div>
+              </div>
             </div>
 
             <div class="card">
@@ -1572,6 +1649,23 @@
               <div class="view-header-text">
                 <h2><span>🏛</span> Church Info & Contacts</h2>
                 <p>Update headquarters details, founder profile, phone, WhatsApp direct chat, and email address.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Search &amp; Sharing (SEO)</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 16px;">How the website appears on Google and when a link is shared on WhatsApp, Facebook or X. Leave blank to keep the defaults.</p>
+              <div class="form-group">
+                <label for="field-seo-title">Page title <small>(about 50–60 characters)</small></label>
+                <input type="text" id="field-seo-title" maxlength="90" placeholder="Prayer Army International | Raising Generals, Transforming Generations">
+              </div>
+              <div class="form-group">
+                <label for="field-seo-desc">Description <small>(about 150 characters)</small></label>
+                <textarea id="field-seo-desc" rows="2" maxlength="300" placeholder="A prophetic church in the Upper West Region of Ghana…"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="field-seo-image">Sharing picture (pick from the library or paste a URL)</label>
+                <input type="text" id="field-seo-image" list="event-image-options" placeholder="assets/images/…">
               </div>
             </div>
 
@@ -1766,6 +1860,10 @@
                   <input type="url" id="field-event-link" placeholder="https://...">
                 </div>
                 <div class="form-group">
+                  <label for="field-event-venue">Venue</label>
+                  <input type="text" id="field-event-venue" maxlength="160" placeholder="Church auditorium, Wa">
+                </div>
+                <div class="form-group">
                   <label for="field-event-caption">Event Photo Quote / Caption</label>
                   <input type="text" id="field-event-caption" placeholder="Every gathering is an opportunity to seek God together.">
                 </div>
@@ -1788,32 +1886,21 @@
             </div>
           </section>
 
-          <!-- 7. ABOUT & FOUNDATION -->
-          <section class="tab-view" id="view-layout">
+          <!-- ANNOUNCEMENTS -->
+          <section class="tab-view" id="view-announcements">
             <div class="view-header">
               <div class="view-header-text">
-                <h2><span>🧩</span> Page Builder</h2>
-                <p>Reorder, hide or unpublish homepage sections, add your own sections, and edit the wording of the whole page. Use <strong>Preview</strong> to see your changes first, then <strong>Save Changes</strong> to publish.</p>
-              </div>
-              <div class="view-header-actions">
-                <button type="button" class="btn-mini" id="btn-layout-preview">👁 Preview changes</button>
+                <h2><span>📣</span> Announcements</h2>
+                <p>Notices for programmes, special services and ministry updates. They appear in the "Church announcements" section of the home page. Click <strong>Save Changes</strong> (top right) to publish.</p>
               </div>
             </div>
-
             <div class="card">
-              <h3 class="card-title">Homepage sections</h3>
-              <p class="form-help">Use the arrows to reorder. <strong>Visible</strong> off = hidden everywhere. <strong>Published</strong> off = a draft: hidden from visitors but shown (outlined) in Preview. Hidden sections also disappear from the menu. The hero banner always stays on top.</p>
-              <div class="lay-list" id="layout-list"></div>
-              <div style="margin-top:14px"><button type="button" class="btn-mini" id="btn-add-section">+ Add a new section</button></div>
-            </div>
-
-            <div class="card">
-              <h3 class="card-title">Page text</h3>
-              <p class="form-help">Edit headings, introductions, menu and button labels and the Statement of Faith. In a heading, type <code>|</code> to split it: the first part is normal, the second part is highlighted (example: <code>Built on|prayer, truth and faith.</code>).</p>
-              <div id="page-text-editor"></div>
+              <div id="announcements-editor"></div>
+              <button type="button" class="btn-mini" id="btn-add-announcement">＋ Add announcement</button>
             </div>
           </section>
 
+          <!-- 7. ABOUT & FOUNDATION -->
           <section class="tab-view" id="view-about">
             <div class="view-header">
               <div class="view-header-text">
@@ -1879,16 +1966,6 @@
                 <label for="field-founder-bio">Founder Story / Bio</label>
                 <textarea id="field-founder-bio" rows="3"></textarea>
               </div>
-            </div>
-
-            <div class="card">
-              <h3 class="card-title">Website Page Content</h3>
-              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px;">Edit the remaining public page headings, labels and explanatory copy here. Keep the JSON structure and edit only the text between quotation marks. For split headings, use the vertical bar | to separate the gold-highlighted phrase. Statement of faith entries are one item per line.</p>
-              <div class="form-group">
-                <label for="field-page-content">Additional page content (JSON)</label>
-                <textarea id="field-page-content" rows="28" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.55;"></textarea>
-              </div>
-              <p class="form-help">This editor controls section headings, section introductions, contact-card labels, footer labels and the full Statement of Faith. Existing forms, media, events and other features remain separate.</p>
             </div>
 
             <div class="card">
@@ -2004,6 +2081,13 @@
               </div>
             </div>
             <div class="card">
+              <div class="toolbar">
+                <input type="search" id="req-filter-q" placeholder="Search name or request…" aria-label="Search prayer requests">
+                <select id="req-filter-status" aria-label="Filter prayer requests">
+                  <option value="">All requests</option><option value="unread">Unread</option><option value="private">Confidential</option>
+                  <option value="in_progress">Following up</option><option value="done">Follow-up done</option>
+                </select>
+              </div>
               <div id="requests-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
             </div>
           </section>
@@ -2015,7 +2099,12 @@
                 <p>Requests visitors add to the public wall stay hidden until you approve them. Check each one for private details (phone numbers, addresses) before publishing.</p>
               </div>
             </div>
-            <div class="card"><div id="wall-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div></div>
+            <div class="card">
+              <div class="toolbar">
+                <input type="search" id="wall-filter-q" placeholder="Search the wall…" aria-label="Search prayer wall">
+                <select id="wall-filter-status" aria-label="Filter prayer wall"><option value="">All</option><option value="pending">Awaiting approval</option><option value="published">Published</option></select>
+              </div>
+              <p style="font-size:13px;color:#6b7280">Loading…</p></div></div>
           </section>
 
           <section class="tab-view" id="view-analytics">
@@ -2024,7 +2113,10 @@
                 <h2><span>📊</span> Visitors &amp; Stats</h2>
                 <p>Last 30 days. Privacy-friendly: no cookies, no IP addresses and no personal data are stored. One visit is counted per browser session, and visitors who have "Do Not Track" turned on are not counted. The optional Meta Pixel is separate: it only runs after a visitor presses Accept on the cookie notice.</p>
               </div>
-              <button type="button" class="btn-mini" id="btn-refresh-analytics">🔄 Refresh</button>
+              <div class="toolbar" style="margin:0">
+                <select id="analytics-range" aria-label="Date range"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+                <button type="button" class="btn-mini" id="btn-refresh-analytics">🔄 Refresh</button>
+              </div>
             </div>
             <div id="analytics-body"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
           </section>
@@ -2080,6 +2172,10 @@
               </div>
             </div>
             <div class="card">
+              <div class="toolbar">
+                <input type="search" id="tes-filter-q" placeholder="Search testimonies…" aria-label="Search testimonies">
+                <select id="tes-filter-status" aria-label="Filter testimonies"><option value="">All</option><option value="pending">Awaiting approval</option><option value="published">Published</option></select>
+              </div>
               <div id="testimonies-admin-list"><p style="font-size:13px;color:#6b7280">Loading…</p></div>
             </div>
           </section>
@@ -2253,6 +2349,27 @@
           </section>
 
           <!-- 12. SECURITY & BACKUP -->
+          <section class="tab-view" id="view-notifications">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🔔</span> Notifications</h2>
+                <p>Get an e-mail when something needs attention. E-mails only say <em>what</em> arrived (for example "a new prayer request") and never contain private prayer text. They are sent by your hosting's mail service, and the address below is never shown on the public website.</p>
+              </div>
+            </div>
+            <div class="card">
+              <div class="form-group">
+                <label for="notify-email">Send alerts to</label>
+                <input type="email" id="notify-email" maxlength="190" placeholder="pastor@example.com" autocomplete="off">
+              </div>
+              <label class="check-line"><input type="checkbox" id="notify-prayer"> New prayer request</label>
+              <label class="check-line"><input type="checkbox" id="notify-connect"> New visitor / enquiry</label>
+              <label class="check-line"><input type="checkbox" id="notify-testimony"> New testimony waiting for approval</label>
+              <label class="check-line"><input type="checkbox" id="notify-wall"> New prayer wall post waiting for approval</label>
+              <p style="margin-top:14px"><button type="button" class="btn-primary" id="btn-save-notify">Save notification settings</button></p>
+              <p class="form-note" id="notify-note" role="status"></p>
+            </div>
+          </section>
+
           <section class="tab-view" id="view-team">
             <div class="view-header">
               <div class="view-header-text">
@@ -2361,6 +2478,19 @@
   <!-- Toast Notification Container -->
   <div id="toast"></div>
 
+  <dialog class="edit-dialog" id="edit-dialog" aria-labelledby="edit-dialog-title">
+    <form method="dialog" id="edit-dialog-form" novalidate>
+      <h3 id="edit-dialog-title">Edit</h3>
+      <div id="edit-dialog-fields"></div>
+      <p class="form-note" id="edit-dialog-note" role="alert"></p>
+      <div class="edit-dialog-actions">
+        <button type="button" class="btn-mini" id="edit-dialog-cancel">Cancel</button>
+        <button type="submit" class="btn-primary" id="edit-dialog-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
   <script src="admin.js"></script>
+  <script src="admin-extras.js"></script>
 </body>
 </html>

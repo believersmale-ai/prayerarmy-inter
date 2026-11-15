@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS messages (
   media_type VARCHAR(5) NULL,
   notes_url VARCHAR(2000) NULL,
   source VARCHAR(6) NOT NULL DEFAULT 'manual',
+  speaker VARCHAR(120) NULL,
+  category VARCHAR(60) NULL,
+  thumbnail_url VARCHAR(2000) NULL,
+  is_featured TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
   KEY messages_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -35,6 +39,8 @@ CREATE TABLE IF NOT EXISTS prayer_requests (
   request TEXT NOT NULL,
   is_private TINYINT(1) NOT NULL DEFAULT 0,
   is_read TINYINT(1) NOT NULL DEFAULT 0,
+  follow_up VARCHAR(12) NOT NULL DEFAULT 'new',
+  admin_note VARCHAR(1000) NULL,
   created_at DATETIME NOT NULL,
   KEY pr_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -57,6 +63,7 @@ CREATE TABLE IF NOT EXISTS testimonies (
   location VARCHAR(80) NULL,
   testimony VARCHAR(1500) NOT NULL,
   is_approved TINYINT(1) NOT NULL DEFAULT 0,
+  show_name TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL,
   KEY t_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -110,7 +117,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS admin_config (
   id TINYINT UNSIGNED PRIMARY KEY,
   legacy_enabled TINYINT(1) NOT NULL DEFAULT 0,
-  passkey_hash VARCHAR(255) NULL
+  passkey_hash VARCHAR(255) NULL,
+  notify_json TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS rate_limits (
@@ -118,4 +126,14 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   win INT UNSIGNED NOT NULL,
   hits INT UNSIGNED NOT NULL,
   ts INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- one row per person per prayer: stops repeated clicks and scripted inflation of "I prayed" counts
+CREATE TABLE IF NOT EXISTS wall_votes (
+  prayer_id CHAR(36) NOT NULL,
+  voter CHAR(32) NOT NULL,
+  ip CHAR(32) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (prayer_id, voter),
+  KEY wv_ip (prayer_id, ip, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -20,6 +20,7 @@ function out($data, int $code = 200): void {
     header('Content-Type: application/json; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: no-store');
+    header('Referrer-Policy: same-origin');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
@@ -32,12 +33,14 @@ function db(): PDO {
     static $pdo = null;
     if ($pdo === null) {
         try {
-            $pdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [
+            $dsn = 'mysql:host=' . DB_HOST . (defined('DB_PORT') ? ';port=' . DB_PORT : '') . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+            $pdo = new PDO($dsn, DB_USER, DB_PASS, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
             $pdo->exec("SET time_zone = '+00:00'");
+            migrate($pdo);
         } catch (Throwable $e) {
             error_log('PAI db connect: ' . $e->getMessage());
             fail('The database is not reachable. Check api/config.php.', 500);
@@ -57,6 +60,84 @@ function uuid(): string {
     $b[8] = chr((ord($b[8]) & 0x3f) | 0x80);
     $h = bin2hex($b);
     return sprintf('%s-%s-%s-%s-%s', substr($h, 0, 8), substr($h, 8, 4), substr($h, 12, 4), substr($h, 16, 4), substr($h, 20));
+}
+
+/* ---------- safe, additive schema upgrades ----------
+   Runs once per schema version (a single tiny query on every other request).
+   It only ever CREATEs missing tables and ADDs missing columns: it never drops,
+   renames or rewrites existing data. */
+const SCHEMA_VERSION = 3;
+function migrate(PDO $pdo): void {
+    $pdo->exec('CREATE TABLE IF NOT EXISTS schema_meta (k VARCHAR(30) PRIMARY KEY, v INT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    $cur = (int)$pdo->query("SELECT v FROM schema_meta WHERE k = 'version'")->fetchColumn();
+    if ($cur >= SCHEMA_VERSION) return;
+
+    // 1) any missing tables (schema.sql only uses CREATE TABLE IF NOT EXISTS)
+    foreach (array_filter(array_map('trim', explode(';', (string)file_get_contents(__DIR__ . '/schema.sql')))) as $stmt) {
+        if (preg_match('/^(--[^\n]*\n)*\s*$/', $stmt)) continue;
+        $pdo->exec($stmt);
+    }
+    // 2) any missing columns on tables that existed before this version
+    $add = [
+        ['messages', 'speaker', 'VARCHAR(120) NULL'],
+        ['messages', 'category', 'VARCHAR(60) NULL'],
+        ['messages', 'thumbnail_url', 'VARCHAR(2000) NULL'],
+        ['messages', 'is_featured', 'TINYINT(1) NOT NULL DEFAULT 0'],
+        ['prayer_requests', 'follow_up', "VARCHAR(12) NOT NULL DEFAULT 'new'"],
+        ['prayer_requests', 'admin_note', 'VARCHAR(1000) NULL'],
+        ['testimonies', 'show_name', 'TINYINT(1) NOT NULL DEFAULT 1'],
+        ['admin_config', 'notify_json', 'TEXT NULL'],
+    ];
+    foreach ($add as [$t, $c, $def]) {
+        $has = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+        $has->execute([$t, $c]);
+        if ((int)$has->fetchColumn() === 0) {
+            try { $pdo->exec("ALTER TABLE `$t` ADD COLUMN `$c` $def"); }
+            catch (Throwable $e) { if (!str_contains($e->getMessage(), '1060')) throw $e; } // 1060 = another request added it first
+        }
+    }
+    $pdo->prepare("INSERT INTO schema_meta (k, v) VALUES ('version', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([SCHEMA_VERSION]);
+}
+
+/* ---------- spam protection: signed, time-limited form tokens ----------
+   A form fetches a token when it is shown. The server accepts a submission only if the token is
+   genuine and between 2 seconds and 4 hours old, which blocks simple bots that post straight to the API. */
+function form_token(): string {
+    $ts = (string)time();
+    return $ts . '.' . substr(hash_hmac('sha256', "form|$ts", secret()), 0, 32);
+}
+function form_token_ok($t): bool {
+    if (!is_string($t) || !preg_match('/^(\d{9,11})\.([a-f0-9]{32})$/', $t, $m)) return false;
+    if (!hash_equals(substr(hash_hmac('sha256', "form|{$m[1]}", secret()), 0, 32), $m[2])) return false;
+    $age = time() - (int)$m[1];
+    return $age >= 2 && $age <= 4 * 3600;
+}
+
+/* ---------- site settings + admin notifications ---------- */
+function site_settings(): array {
+    static $cache = null;
+    if ($cache === null) {
+        $r = q('SELECT data FROM site_settings WHERE id = 1')->fetch();
+        $cache = $r ? (json_decode($r['data'], true) ?: []) : [];
+    }
+    return $cache;
+}
+/** Notification preferences. Kept in admin_config (NOT in the public site settings) so the address is never published. */
+function notify_prefs(): array {
+    $r = q('SELECT notify_json FROM admin_config WHERE id = 1')->fetch();
+    $j = $r && $r['notify_json'] ? json_decode($r['notify_json'], true) : null;
+    return is_array($j) ? $j : [];
+}
+/** Optional e-mail alert to the address chosen under Settings > Notifications. Never includes private request text. */
+function notify(string $event, string $subject, string $line): void {
+    try {
+        $n = notify_prefs();
+        $to = trim((string)($n['email'] ?? ''));
+        if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL) || empty($n[$event])) return;
+        $host = preg_replace('/[^A-Za-z0-9.-]/', '', preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? 'localhost'));
+        $headers = "From: Prayer Army Website <noreply@$host>\r\nContent-Type: text/plain; charset=UTF-8\r\nX-Mailer: PAI";
+        @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $line . "\n\nOpen the admin dashboard to view it: https://$host/admin\n", $headers);
+    } catch (Throwable $e) { error_log('PAI notify: ' . $e->getMessage()); }
 }
 
 /* ---------- request helpers ---------- */
@@ -156,7 +237,7 @@ function require_perm(string $perm): array {
 function iso(?string $d): ?string { return $d ? str_replace(' ', 'T', $d) . '.000Z' : null; }
 function fmt(array $r): array {
     foreach (['created_at', 'updated_at', 'last_sign_in_at'] as $c) if (array_key_exists($c, $r)) $r[$c] = iso($r[$c]);
-    foreach (['is_private', 'is_read', 'is_contacted', 'is_approved', 'active', 'legacy_enabled'] as $c) if (array_key_exists($c, $r)) $r[$c] = (bool)$r[$c];
+    foreach (['is_private', 'is_read', 'is_contacted', 'is_approved', 'active', 'legacy_enabled', 'is_featured', 'show_name'] as $c) if (array_key_exists($c, $r)) $r[$c] = (bool)$r[$c];
     if (isset($r['prayed_count'])) $r['prayed_count'] = (int)$r['prayed_count'];
     return $r;
 }

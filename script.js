@@ -5,19 +5,6 @@
 const SUPABASE_URL = `${location.origin}/api`;   // kept name for compatibility: this is now your own Hostinger PHP/MySQL API
 const SUPABASE_ANON_KEY = "";                      // not used any more
 
-// Preview mode (opened from the admin panel as /?preview=1): nothing is saved and no analytics are sent.
-const PREVIEW = new URLSearchParams(location.search).get('preview') === '1' && !!window.opener;
-let previewLocked = false;
-
-// Only http(s), mailto, tel and same-site paths are allowed in editable links and images.
-const safeLinkUrl = (u) => {
-  const v = String(u || '').trim().replace(/[\u0000-\u001f\u007f]/g, '');
-  if (!v) return '';
-  const m = v.match(/^([a-z][a-z0-9+.-]*):/i);
-  if (m) return /^(https?|mailto|tel)$/i.test(m[1]) ? v : '';
-  return v.startsWith('//') ? '' : v;
-};
-
 const DEFAULT_SETTINGS = {
   general: {
     churchName: "Prayer Army International",
@@ -124,91 +111,6 @@ const DEFAULT_SETTINGS = {
     whatsapp: "https://wa.me/233241234567",
     telegram: ""
   },
-  content: {
-    "foundationEyebrow": "OUR FOUNDATION",
-    "foundationHeading": "Built on|prayer, truth and faith.",
-    "foundationIntro": "Who we are, where we are headed, and the convictions that hold us together.",
-    "missionKicker": "OUR MISSION",
-    "visionKicker": "OUR VISION",
-    "valuesKicker": "OUR VALUES",
-    "faithEyebrow": "STATEMENT OF FAITH",
-    "faithHeading": "What we believe",
-    "faithStatements": [
-        "We believe in one God, eternally existing as Father, Son and Holy Spirit, the Creator of heaven and earth and the source of all life.",
-        "We believe in Jesus Christ, the Son of God, who came in the flesh, died for our sins, rose again, and is Lord and Saviour of all who believe in Him.",
-        "We believe in the Holy Spirit, who convicts, regenerates, indwells, guides and empowers believers to live holy lives and serve God’s purposes.",
-        "We believe the Bible is God’s Word, trustworthy and authoritative for faith, doctrine, character and Christian living.",
-        "We believe in salvation by grace through faith in Jesus Christ, repentance from sin, the new birth and a life that reflects the character of Christ.",
-        "We believe in prayer, worship and the spiritual gifts, and that God still works through the Holy Spirit to strengthen, comfort, equip and build His Church.",
-        "We believe in the Great Commission: that every believer is called to share the gospel, make disciples and demonstrate God’s love through service.",
-        "We believe in the return of Jesus Christ, the resurrection of the dead, the final judgment and the eternal hope promised by God to His people."
-    ],
-    "storyEyebrow": "OUR STORY",
-    "founderEyebrow": "FOUNDER",
-    "founderCardName": "Prophet Suglo Prosper",
-    "sermonsEyebrow": "WATCH & LISTEN",
-    "sermonsArchiveLabel": "Sermon archive",
-    "sermonsArchiveHeading": "Sermon archive",
-    "sermonsArchiveCopy": "Every past message and live service is kept here. Press play to watch or listen without leaving the site.",
-    "eventsEyebrow": "PROGRAMS & EVENTS",
-    "eventsHeading": "Gather. Pray.|Transform.",
-    "eventsLinkLabel": "All events",
-    "weeklyEyebrow": "EVERY WEEK",
-    "weeklyHeading": "Weekly|activities",
-    "galleryEyebrow": "LIFE AT PRAYER ARMY",
-    "galleryHeading": "Moments from the|ministry.",
-    "galleryLinkLabel": "View gallery",
-    "wallEyebrow": "STAND WITH US",
-    "wallHeading": "The|prayer wall",
-    "wallCopy": "Requests shared by our church family. Tap “I prayed” to let them know someone stood with them.",
-    "testimoniesEyebrow": "WHAT GOD HAS DONE",
-    "testimoniesHeading": "Testimonies of|God’s faithfulness",
-    "testimoniesCopy": "Healings, breakthroughs, answered prayers. Read what the Lord is doing in our midst, and share yours.",
-    "connectEyebrow": "NEW HERE? LET’S CONNECT",
-    "connectHeading": "We would love to|meet you.",
-    "connectCopy": "Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.",
-    "givingEyebrow": "PARTNER WITH THE MINISTRY",
-    "locationsEyebrow": "VISIT US",
-    "locationsHeading": "Our|locations",
-    "locationsCopy": "Find the branch nearest to you, with service times and directions.",
-    "contactEyebrow": "GET IN TOUCH",
-    "contactHeading": "Connect with|Prayer Army.",
-    "contactIntro": "Whether you have questions, desire counseling, want to visit, or wish to follow the prophetic ministry online, connect with us through any of our channels.",
-    "contactLocationTitle": "Headquarters",
-    "contactLocationNote": "Central Altar & Sanctuary",
-    "contactPhoneTitle": "Phone & WhatsApp",
-    "contactPhoneNote": "Lines open for prayer and inquiries",
-    "contactEmailTitle": "Official Email",
-    "contactEmailNote": "Official ministry correspondence",
-    "socialCardHeading": "Follow Us on Social Media",
-    "socialCardCopy": "Stay spiritually enriched daily. Watch full sermons, join prayer streams, and follow ministry updates across our official social channels.",
-    "footerExploreTitle": "Explore",
-    "footerConnectTitle": "Connect",
-    "footerHqTitle": "Headquarters",
-    "footerCredit": "Built for ministry, media & mission.",
-    "quick1Title": "Latest Sermons",
-    "quick1Copy": "Watch and listen to messages",
-    "quick2Title": "Live Services",
-    "quick2Copy": "Join services online",
-    "quick3Title": "Upcoming Events",
-    "quick3Copy": "Discover ministry programs",
-    "quick4Title": "Prayer Request",
-    "quick4Copy": "Let us pray with you",
-    "footerTagline": "Raising Generals, Transforming Generations.",
-    "aboutExploreLabel": "Explore our foundation",
-    "uiText": {
-      "navAbout":"About","navSermons":"Sermons","navLive":"Live","navEvents":"Events","navGallery":"Gallery","navPrayer":"Prayer","navContact":"Contact","navGive":"Give",
-      "eventKicker":"UPCOMING PROGRAM","eventButton":"View Event","eventStackBrand":"Prayer Army International","founderCta":"Meet the founder","sermonWatch":"Watch message","sermonMiniWatch":"Watch","livePreviewCaption":"Tap to preview",
-      "connectVisitorOption":"I'm new / visiting","connectVolunteerOption":"I want to volunteer (choir, ushers, media, children…)","connectCounselingOption":"I'd like counseling or a pastoral appointment","connectOtherOption":"Something else",
-      "sermonSearchPlaceholder":"Search sermons by title or topic…","podcastLead":"🎧 Prefer to listen on your phone?","podcastButton":"Copy our podcast feed link","podcastTail":"and paste it into Spotify, Apple Podcasts or any podcast app.",
-      "prayerNameLabel":"Name","prayerContactLabel":"Phone / Email","prayerRequestLabel":"Prayer request","prayerPrivateLabel":"Keep this request confidential","prayerSubmit":"Submit Prayer Request",
-      "wallSummary":"Add a request to the wall","wallNotice":"This will be visible to everyone once approved. Please don't include phone numbers, addresses or private details. For a private request, use the prayer form above.","wallNameLabel":"Your first name (optional)","wallRequestLabel":"Prayer request","wallSubmit":"Submit to the wall",
-      "testimonySummary":"Share your testimony","testimonyNameLabel":"Name","testimonyLocationLabel":"Town / Country","testimonyTextLabel":"Your testimony","testimonySubmit":"Submit testimony","testimonyReviewNote":"Testimonies are reviewed before they appear on the site.",
-      "connectKindLabel":"How can we help?","connectNameLabel":"Name","connectPhoneLabel":"Phone / WhatsApp","connectEmailLabel":"Email","connectNoteLabel":"Anything we should know?","connectSubmit":"Send",
-      "footerAbout":"About","footerSermons":"Sermons","footerEvents":"Events","footerGallery":"Gallery","footerLive":"Live Stream","footerPrayer":"Prayer Request","footerGive":"Give","footerContact":"Contact","footerPrivacy":"Privacy",
-      "yourNamePlaceholder":"Your name","optionalPlaceholder":"Optional","prayerRequestPlaceholder":"How can we pray with you?","anonymousPlaceholder":"Or leave blank to stay anonymous","testimonyPlaceholder":"Tell us what God has done…","phonePlaceholder":"e.g. 024 000 0000","emailOptionalPlaceholder":"Optional if you gave a phone number"
-    }
-},
   tracking: { metaPixelId: "" },
   verses: [
     { text: "The LORD is my shepherd; I shall not want.", ref: "Psalm 23:1" },
@@ -245,6 +147,20 @@ const failMessage = async (res, fallback) => {
   const t = await res.text().catch(() => '');
   return /rate_limited/.test(t) ? 'You have sent several messages in a short time. Please wait a little and try again.' : fallback;
 };
+// Spam protection: every public form submission carries a signed token the server hands out.
+// It must be at least ~2 seconds old, so scripts that post straight to the API are refused.
+let _formTok = null;
+const formToken = async () => {
+  if (!_formTok || Date.now() - _formTok.at > 3 * 3600e3) {
+    const r = await fetch(`${SUPABASE_URL}/form-token`, { cache: 'no-store' });
+    if (!r.ok) throw new Error('token');
+    _formTok = { v: (await r.json()).token, at: Date.now() };
+  }
+  const wait = 2300 - (Date.now() - _formTok.at);
+  if (wait > 0) await new Promise((res) => setTimeout(res, wait));
+  return _formTok.v;
+};
+setTimeout(() => { formToken().catch(() => {}); }, 400);   // warm it up so submissions are instant
 const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
@@ -432,7 +348,6 @@ $('#cookie-settings')?.addEventListener('click', () => { $('#consent-banner').hi
 
 // Privacy-light analytics: no cookies, no IP, no personal data. Respects Do Not Track.
 const track = (kind, label) => {
-  if (PREVIEW) return;
   if (kind === 'sermon_play') pixelEvent('ViewContent', { content_name: String(label || '').slice(0, 100), content_type: 'sermon' });
   else if (kind === 'share') pixelEvent('ShareClick', { content_name: String(label || '').slice(0, 100) }, true);
   try {
@@ -515,7 +430,7 @@ const buildEventList = (s) => {
   const fallbackPoster = $('#events-track .event-poster img')?.getAttribute('src') || '';
   const list = [];
   if (s.event?.title) list.push({ ...s.event, image: s.event.image || fallbackPoster, featured: true });
-  (Array.isArray(s.events) ? s.events : []).forEach(ev => { if (ev && ev.title) list.push(ev); });
+  (Array.isArray(s.events) ? s.events : []).forEach(ev => { if (ev && ev.title && ev.published !== false) list.push(ev); });
 
   // Drop events that have already finished (keep the featured one if nothing else is left)
   const upcoming = list.filter(ev => {
@@ -568,8 +483,8 @@ const renderEvents = (s) => {
   track.innerHTML = list.map((ev, i) => {
     const link = safeUrl(ev.link);
     const btn = link
-      ? `<a class="btn btn-dark" href="${escapeHtml(link)}" target="_blank" rel="noopener">View Event <span>→</span></a>`
-      : `<a class="btn btn-dark" href="#prayer">View Event <span>→</span></a>`;
+      ? `<a class="btn btn-dark" href="${escapeHtml(link)}" target="_blank" rel="noopener">Register / More Info <span>→</span></a>`
+      : `<a class="btn btn-dark" href="#connect">Ask About This Event <span>→</span></a>`;
     const canCal = !isNaN(new Date(ev.start || ''));
     const actions = `<div class="event-actions">${btn}
         ${canCal ? `<button type="button" class="chip-btn" data-ev-action="calendar" data-i="${i}">＋ Add to calendar</button>` : ''}
@@ -586,6 +501,7 @@ const renderEvents = (s) => {
           <span class="event-label">${i === 0 ? 'NEXT PROGRAM' : 'UPCOMING PROGRAM'}</span>
           <h3>${escapeHtml(ev.title)}</h3>
           ${ev.dates ? `<p>${escapeHtml(ev.dates)}</p>` : ''}
+          ${ev.venue ? `<p class="event-venue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>${escapeHtml(ev.venue)}</p>` : ''}
           ${hasDates ? `<div class="countdown" role="timer" aria-live="off" data-start="${escapeHtml(ev.start)}" data-end="${escapeHtml(ev.end || '')}"></div>` : ''}
           ${ev.description ? `<p class="muted">${escapeHtml(ev.description)}</p>` : ''}
           ${actions}
@@ -737,206 +653,9 @@ const renderWeekly = (s) => {
 /* =========================================================================
    APPLY SETTINGS TO THE ENTIRE WEBSITE DOM
    ========================================================================= */
-/* =========================================================================
-   PAGE LAYOUT: section order, visibility, publishing and custom sections.
-   Settings shape (all optional; with no `layout` the page looks exactly as before):
-   layout.items  = [{ id, visible, published }]   in display order
-   layout.custom = [{ id, title, eyebrow, body, imageUrl, bgImage, buttonLabel, buttonUrl,
-                      button2Label, button2Url, style, navLabel, showInMenu }]
-   Everything below is written with textContent / validated URLs, so editors can never inject HTML or scripts.
-   ========================================================================= */
-const BUILTIN_SECTIONS = ['hero-section', 'quick-links', 'verse', 'about', 'foundation', 'sermons', 'live', 'events',
-  'gallery', 'prayer', 'prayer-wall', 'testimonies', 'connect', 'give', 'locations', 'contact'];
-
-const cleanSectionId = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
-
-const buildCustomSection = (c, id) => {
-  const el = document.createElement('section');
-  const style = ['text', 'image-right', 'image-left', 'banner'].includes(c.style) ? c.style : 'text';
-  el.className = `section custom-section custom-${style}`;
-  el.id = id;
-  el.dataset.customSection = '1';
-  const bg = safeLinkUrl(c.bgImage);
-  if (bg) { el.classList.add('has-bg'); el.style.backgroundImage = `linear-gradient(rgba(9,14,24,.72),rgba(9,14,24,.72)), url(${JSON.stringify(bg)})`; }
-
-  const wrap = document.createElement('div');
-  wrap.className = 'container custom-grid';
-  const copy = document.createElement('div');
-  copy.className = 'custom-copy';
-
-  if (c.eyebrow) { const p = document.createElement('p'); p.className = 'eyebrow dark'; p.textContent = String(c.eyebrow).slice(0, 120); copy.append(p); }
-  if (c.title) {
-    const h = document.createElement('h2');
-    const parts = String(c.title).slice(0, 200).split('|');          // "Normal|gold part", same as the other headings
-    h.append(document.createTextNode(parts[0]));
-    if (parts.length > 1) { h.append(document.createTextNode(' ')); const sp = document.createElement('span'); sp.textContent = parts.slice(1).join('|'); h.append(sp); }
-    copy.append(h);
-  }
-  String(c.body || '').slice(0, 8000).split(/\n{2,}/).map((t) => t.trim()).filter(Boolean).forEach((t) => {
-    const p = document.createElement('p');
-    t.split('\n').forEach((line, i) => { if (i) p.append(document.createElement('br')); p.append(document.createTextNode(line)); });
-    copy.append(p);
-  });
-
-  const actions = document.createElement('div');
-  actions.className = 'custom-actions';
-  [[c.buttonLabel, c.buttonUrl, 'btn btn-gold'], [c.button2Label, c.button2Url, 'btn btn-dark']].forEach(([label, url, cls]) => {
-    const href = safeLinkUrl(url);
-    if (!label || !href) return;
-    const a = document.createElement('a');
-    a.className = cls; a.href = href; a.textContent = String(label).slice(0, 60);
-    try { if (/^https?:/i.test(href) && new URL(href).origin !== location.origin) { a.target = '_blank'; a.rel = 'noopener noreferrer'; } } catch { /* relative */ }
-    actions.append(a);
-  });
-  if (actions.children.length) copy.append(actions);
-  wrap.append(copy);
-
-  const img = safeLinkUrl(c.imageUrl);
-  if (img && style !== 'banner') {
-    const fig = document.createElement('figure');
-    fig.className = 'custom-media';
-    const im = document.createElement('img');
-    im.src = img; im.alt = String(c.title || '').replace(/\|/g, ' ').slice(0, 120); im.loading = 'lazy';
-    fig.append(im);
-    wrap.append(fig);
-  }
-  el.append(wrap);
-  return el;
-};
-
-const applyLayout = (s) => {
-  const main = $('#main');
-  const layout = (s && s.layout) || null;
-  const savedItems = layout && Array.isArray(layout.items) ? layout.items : [];
-  const customList = layout && Array.isArray(layout.custom) ? layout.custom.slice(0, 40) : [];
-  if (!main || (!savedItems.length && !customList.length)) return; // nothing configured: leave the page untouched
-
-  $$('[data-custom-section]', main).forEach((n) => n.remove());
-  $$('[data-custom-nav]').forEach((n) => n.remove());
-
-  const els = new Map();
-  BUILTIN_SECTIONS.forEach((id) => { const el = document.getElementById(id); if (el && el.parentElement === main) els.set(id, el); });
-  customList.forEach((c) => { const id = cleanSectionId(c && c.id); if (id && !els.has(id)) els.set(id, buildCustomSection(c, id)); });
-
-  const order = [], seen = new Set();
-  savedItems.forEach((it) => { const id = cleanSectionId(it && it.id); if (els.has(id) && !seen.has(id)) { seen.add(id); order.push({ id, visible: it.visible !== false, published: it.published !== false }); } });
-  els.forEach((el, id) => { if (!seen.has(id)) order.push({ id, visible: true, published: true }); });
-  const heroAt = order.findIndex((o) => o.id === 'hero-section');
-  if (heroAt > 0) order.unshift(order.splice(heroAt, 1)[0]);       // the hero always stays on top
-
-  order.forEach((o) => {
-    const el = els.get(o.id);
-    main.appendChild(el);
-    const pinned = o.id === 'hero-section';
-    const hidden = !pinned && o.visible === false;
-    const draft = !pinned && o.published === false;
-    el.classList.toggle('pai-off', hidden || (draft && !PREVIEW));
-    el.classList.toggle('pai-draft', draft && !hidden && PREVIEW);
-  });
-
-  // Menu links follow their section: hidden/unpublished sections disappear from menus and quick links.
-  $$('#primary-nav a[href^="#"], #footer a[href^="#"], .quick-grid a[href^="#"]').forEach((a) => {
-    const target = document.getElementById(a.getAttribute('href').slice(1));
-    const off = !!target && target.classList.contains('pai-off');
-    a.classList.toggle('pai-off', off);
-    const li = a.closest('li'); if (li) li.classList.toggle('pai-off', off);
-  });
-  const nav = $('#primary-nav');
-  if (nav) {
-    const giveLink = $('.nav-give', nav);
-    customList.forEach((c) => {
-      const id = cleanSectionId(c && c.id), el = els.get(id);
-      if (!c.showInMenu || !c.navLabel || !el || el.classList.contains('pai-off')) return;
-      const a = document.createElement('a');
-      a.href = `#${id}`; a.textContent = String(c.navLabel).slice(0, 30); a.dataset.customNav = '1';
-      nav.insertBefore(a, giveLink || null);
-    });
-  }
-};
-
-/* Preview: the admin panel opens /?preview=1 and sends its unsaved settings with postMessage.
-   Nothing is stored or published, and the page records no analytics while previewing. */
-const showPreviewBar = () => {
-  document.documentElement.classList.add('is-preview');
-  const bar = document.createElement('div');
-  bar.className = 'preview-bar';
-  bar.setAttribute('role', 'status');
-  const msg = document.createElement('span');
-  msg.textContent = 'Preview - these changes are not published yet. Unpublished sections are outlined in gold.';
-  const close = document.createElement('button');
-  close.type = 'button'; close.textContent = 'Close preview';
-  close.addEventListener('click', () => { try { window.close(); } catch { /* ignore */ } });
-  bar.append(msg, close);
-  document.body.prepend(bar);
-};
-
 const applySettings = (s) => {
   currentSettings = s;
-
-  // Editable editorial copy: all values are plain text from site-settings.json.
-  // Split headings use "main|accent" so the highlighted phrase remains semantic and safe.
-  const pageCopy = s.content || {};
-  const uiText = pageCopy.uiText || {};
-  document.querySelectorAll('[data-copy-key]').forEach((el) => {
-    const value = uiText[el.dataset.copyKey];
-    if (typeof value === 'string') el.textContent = value;
-  });
-  document.querySelectorAll('[data-placeholder-key]').forEach((el) => {
-    const value = uiText[el.dataset.placeholderKey];
-    if (typeof value === 'string') el.setAttribute('placeholder', value);
-  });
-  const copyTargets = {
-    foundationEyebrow:'foundation-eyebrow', foundationIntro:'foundation-intro', missionKicker:'mission-kicker',
-    visionKicker:'vision-kicker', valuesKicker:'values-kicker', faithEyebrow:'faith-eyebrow', faithHeading:'faith-heading',
-    storyEyebrow:'story-eyebrow', founderEyebrow:'founder-eyebrow', founderCardName:'founder-card-name',
-    sermonsEyebrow:'sermons-eyebrow', sermonsArchiveHeading:'sermons-archive-heading', sermonsArchiveCopy:'sermons-archive-copy',
-    eventsEyebrow:'events-eyebrow', eventsLinkLabel:'events-link-label', weeklyEyebrow:'weekly-eyebrow',
-    galleryEyebrow:'gallery-eyebrow', galleryLinkLabel:'gallery-link-label', wallEyebrow:'wall-eyebrow', wallCopy:'wall-copy',
-    testimoniesEyebrow:'testimonies-eyebrow', testimoniesCopy:'testimonies-copy', connectEyebrow:'connect-eyebrow',
-    connectCopy:'connect-copy', givingEyebrow:'giving-eyebrow', locationsEyebrow:'locations-eyebrow', locationsCopy:'locations-copy',
-    contactEyebrow:'contact-eyebrow', contactIntro:'contact-intro', contactLocationTitle:'contact-card-location-title',
-    contactLocationNote:'contact-card-location-note', contactPhoneTitle:'contact-card-phone-title', contactPhoneNote:'contact-card-phone-note',
-    contactEmailTitle:'contact-card-email-title', contactEmailNote:'contact-card-email-note', socialCardHeading:'social-card-heading',
-    socialCardCopy:'social-card-copy', footerExploreTitle:'footer-explore-title', footerConnectTitle:'footer-connect-title',
-    footerHqTitle:'footer-hq-title', footerCredit:'footer-credit', footerTagline:'footer-tagline'
-  };
-  Object.entries(copyTargets).forEach(([key, id]) => {
-    const el = document.getElementById(id);
-    if (el && typeof pageCopy[key] === 'string' && pageCopy[key]) el.textContent = pageCopy[key];
-  });
-  const setSplitHeading = (key, id) => {
-    const el = document.getElementById(id), value = pageCopy[key];
-    if (!el || typeof value !== 'string' || !value) return;
-    const parts = value.split('|');
-    el.textContent = '';
-    el.append(document.createTextNode(parts[0] || ''));
-    if (parts.length > 1) {
-      el.append(document.createTextNode(' '));
-      const accent = document.createElement('span'); accent.textContent = parts.slice(1).join('|'); el.append(accent);
-    }
-  };
-  if (pageCopy.aboutExploreLabel) { const el = document.getElementById('about-explore-link'); if (el) el.innerHTML = `${escapeHtml(pageCopy.aboutExploreLabel)} <span>↓</span>`; }
-  setSplitHeading('foundationHeading', 'foundation-heading');
-  setSplitHeading('eventsHeading', 'events-heading');
-  setSplitHeading('weeklyHeading', 'weekly-heading');
-  setSplitHeading('galleryHeading', 'gallery-heading');
-  setSplitHeading('wallHeading', 'wall-heading');
-  setSplitHeading('testimoniesHeading', 'testimonies-heading');
-  setSplitHeading('connectHeading', 'connect-heading');
-  setSplitHeading('locationsHeading', 'locations-heading');
-  setSplitHeading('contactHeading', 'contact-heading');
-  if (pageCopy.sermonsArchiveLabel) { const el = document.getElementById('sermons-archive-link'); if (el) el.innerHTML = `${escapeHtml(pageCopy.sermonsArchiveLabel)} <span>↓</span>`; }
-  for (let i = 1; i <= 4; i++) {
-    const title = document.getElementById(`quick${i}-title`), copy = document.getElementById(`quick${i}-copy`);
-    if (title && pageCopy[`quick${i}Title`]) title.textContent = pageCopy[`quick${i}Title`];
-    if (copy && pageCopy[`quick${i}Copy`]) copy.textContent = pageCopy[`quick${i}Copy`];
-  }
-  const faithCopy = document.querySelector('.faith-copy');
-  if (faithCopy && Array.isArray(pageCopy.faithStatements) && pageCopy.faithStatements.length) {
-    faithCopy.replaceChildren(...pageCopy.faithStatements.filter(x => typeof x === 'string' && x.trim()).map(statement => {
-      const paragraph = document.createElement('p'); paragraph.textContent = statement; return paragraph;
-    }));
-  }
+  queueMicrotask(() => document.dispatchEvent(new CustomEvent('pai:settings', { detail: s })));
 
   // Church Logo (header, footer, favicon)
   if (s.general?.logoUrl) {
@@ -969,6 +688,11 @@ const applySettings = (s) => {
   const hNote = $('#hero-note');
   const hBtnPrimary = $('#hero-btn-primary');
   const hBtnSecondary = $('#hero-btn-secondary');
+  const hBtnVisit = $('#hero-btn-visit');
+  if (hBtnVisit) {
+    hBtnVisit.textContent = s.hero?.btnVisitText || 'Plan a Visit';
+    hBtnVisit.href = safeHref(s.hero?.btnVisitLink) || '#connect';
+  }
 
   if (hEyebrow && s.hero?.eyebrow) hEyebrow.textContent = s.hero.eyebrow;
   if (hTitleMain && s.hero?.titleMain) hTitleMain.textContent = s.hero.titleMain;
@@ -1017,6 +741,8 @@ const applySettings = (s) => {
   const liveStatus = $('#live-status-text');
 
   if (liveDot) liveDot.hidden = !isLive;
+  const liveSr = $('#nav-live-sr'); if (liveSr) liveSr.hidden = !isLive;
+  $('.nav-live')?.classList.toggle('is-live', isLive);
 
   if (hBtnSecondary) {
     if (isLive) {
@@ -1144,8 +870,7 @@ const applySettings = (s) => {
   if (aHeading && s.about?.heading) {
     // Wrap **text** as a gold accent span. This used to silently discard the
     // accent styling entirely once settings loaded (innerHTML was set to the
-    // plain heading text with no way to mark which part gets the color) -
-    // now the admin's Heading field can mark the accented part with **stars**
+    // plain heading text with no way to mark which part gets the color) - // now the admin's Heading field can mark the accented part with **stars**
     // and it's escaped first, so no raw HTML can be injected through it.
     aHeading.innerHTML = escapeHtml(s.about.heading).replace(/\*\*(.+?)\*\*/g, '<span>$1</span>');
   }
@@ -1386,8 +1111,6 @@ const applySettings = (s) => {
 
   const yearEl = $('#year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-  applyLayout(s);
 };
 
 // Redirect to separate admin page if query param present
@@ -1397,12 +1120,6 @@ if (urlParams.has("manage") || urlParams.has("admin")) {
 }
 
 // Initial Settings loading
-const mergeSettings = (loaded) => ({
-  ...DEFAULT_SETTINGS, ...(loaded || {}),
-  content: { ...(DEFAULT_SETTINGS.content || {}), ...((loaded && loaded.content) || {}),
-    uiText: { ...((DEFAULT_SETTINGS.content || {}).uiText || {}), ...((loaded && loaded.content && loaded.content.uiText) || {}) } }
-});
-
 const loadInitialSettings = async () => {
   let loaded = null;
 
@@ -1431,13 +1148,11 @@ const loadInitialSettings = async () => {
     } catch {}
   }
 
-  if (previewLocked) return;        // the admin's unsaved preview wins over the saved copy
-  const finalSettings = mergeSettings(loaded);
+  const finalSettings = Object.assign({}, DEFAULT_SETTINGS, loaded || {});
   applySettings(finalSettings);
 };
 
-// Start after the whole script has loaded: applySettings() uses helpers (e.g. renderPayMethods) defined further down.
-Promise.resolve().then(loadInitialSettings);
+loadInitialSettings();
 
 // Gallery Lightbox (defensive: only wires up if both the dialog and at
 // least one gallery photo are present, so this never throws and never
@@ -1477,42 +1192,73 @@ if (lb && figs.length) {
 
 // Prayer Form
 const prayerForm = $('#prayer-form'), prayerNote = $('#prayer-note');
+// Shows one inline, accessible message per invalid field.
+const setFieldError = (input, msg) => {
+  const el = input.closest('label')?.querySelector('.field-error');
+  if (el) el.textContent = msg || '';
+  input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+};
+const validatePrayer = (form) => {
+  let ok = true, first = null;
+  const check = (name, test, msg) => {
+    const el = form.elements[name];
+    const bad = !test(String(el.value || '').trim());
+    setFieldError(el, bad ? msg : '');
+    if (bad && !first) first = el;
+    ok = ok && !bad;
+  };
+  check('name', (v) => v.length >= 2, 'Please enter your name.');
+  check('request', (v) => v.length >= 10, 'Please tell us a little more (at least 10 characters).');
+  if (first) first.focus();
+  return ok;
+};
+const prayerCounter = $('[data-count-for="request"]', prayerForm || document);
+prayerForm?.elements.request?.addEventListener('input', (e) => {
+  if (prayerCounter) prayerCounter.textContent = `${e.target.value.length} / 4000`;
+  if (e.target.value.trim().length >= 10) setFieldError(e.target, '');
+});
+prayerForm?.elements.name?.addEventListener('input', (e) => { if (e.target.value.trim().length >= 2) setFieldError(e.target, ''); });
 prayerForm?.addEventListener('submit', async e => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(prayerForm));
+  if (data.website) { prayerForm.reset(); return; } // honeypot: bots fill this, people never see it
+  prayerNote.textContent = '';
+  if (!validatePrayer(prayerForm)) return;
   const btn = $('button[type=submit]', prayerForm);
-  const done = m => {
-    prayerNote.textContent = m;
-    prayerNote.className = 'form-note ok';
-    prayerForm.reset();
-  };
+  const label = btn.innerHTML;
   try {
     btn.disabled = true;
     btn.classList.add('loading');
+    btn.textContent = 'Sending…';
+    const tok = await formToken();
     const r = await fetch(`${SUPABASE_URL}/rest/v1/prayer_requests`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        Prefer: 'return=minimal'
-      },
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
       body: JSON.stringify({
-        name: data.name,
-        contact: data.contact || null,
-        request: data.request,
-        is_private: Boolean(data.private)
+        name: data.name.trim(),
+        contact: (data.contact || '').trim() || null,
+        request: data.request.trim(),
+        is_private: data.visibility === 'private',
+        _ft: tok
       })
     });
     if (!r.ok) throw new Error(await failMessage(r, 'Sorry, something went wrong. Please try again in a moment.'));
     pixelEvent('Contact', { content_name: 'prayer request' });
-    done('Thank you - your request has been received and we are standing with you in prayer.');
+    prayerForm.reset();
+    if (prayerCounter) prayerCounter.textContent = '';
+    _formTok = null; formToken().catch(() => {});
+    prayerNote.textContent = 'Thank you - your request has been received and we are standing with you in prayer.';
+    prayerNote.className = 'form-note ok';
   } catch (err) {
-    prayerNote.textContent = err instanceof Error ? err.message : 'Sorry, something went wrong. Please try again in a moment.';
+    prayerNote.textContent = !navigator.onLine
+      ? 'You appear to be offline. Please check your connection and try again.'
+      : (err instanceof Error && err.message && err.message !== 'token' ? err.message : 'Sorry, something went wrong. Please try again in a moment.');
     prayerNote.className = 'form-note err';
+    _formTok = null;
   }
   btn.disabled = false;
   btn.classList.remove('loading');
+  btn.innerHTML = label;
 });
 
 /* =========================================================================
@@ -1711,22 +1457,27 @@ const buildMessageCard = (msg) => {
   const card = document.createElement('article');
   card.className = 'message-card';
   card.dataset.id = msg.id;
+  if (msg.is_featured) card.classList.add('is-featured-card');
 
   const mediaTag = msg.media_url
     ? `<${msg.media_type === 'video' ? 'video' : 'audio'} controls preload="none" src="${escapeHtml(msg.media_url)}"></${msg.media_type === 'video' ? 'video' : 'audio'}>`
     : '';
   const playable = !msg.media_url ? getPlayable(msg.link) : null;
-  const thumb = playable?.kind === 'youtube' ? `https://img.youtube.com/vi/${playable.id}/hqdefault.jpg` : '';
+  const customThumb = safeUrl(msg.thumbnail_url);
+  const thumb = customThumb || (playable?.kind === 'youtube' ? `https://img.youtube.com/vi/${playable.id}/hqdefault.jpg` : '');
   const linkTag = playable
-    ? `<button type="button" class="message-play" aria-label="Play ${escapeHtml(msg.title)}"${thumb ? ` style="background-image:url('${thumb}')"` : ''}><span class="message-play-icon">▶</span></button>`
+    ? `<button type="button" class="message-play" aria-label="Play ${escapeHtml(msg.title)}"${thumb ? ` style="background-image:${escapeHtml(cssUrl(thumb))}"` : ''}><span class="message-play-icon">▶</span></button>`
     : (!msg.media_url ? `<div class="message-pending"><span>◉</span><p>Recording will be available here soon.</p></div>` : '');
 
   card.innerHTML = `
     <div class="message-card-head">
       <span class="message-badge${msg.source === 'live' ? ' is-live' : ''}">${msg.source === 'live' ? 'LIVE RECORDING' : 'SERMON'}</span>
-      <time datetime="${msg.created_at}">${formatMessageDate(msg.created_at)}</time>
+      ${msg.is_featured ? '<span class="message-badge is-featured">FEATURED</span>' : ''}
+      ${msg.category ? `<span class="message-cat">${escapeHtml(msg.category)}</span>` : ''}
+      <time datetime="${escapeHtml(msg.created_at)}">${formatMessageDate(msg.created_at)}</time>
     </div>
     <h4>${escapeHtml(msg.title)}</h4>
+    ${msg.speaker ? `<p class="message-speaker">${escapeHtml(msg.speaker)}</p>` : ''}
     ${msg.description ? `<p>${escapeHtml(msg.description)}</p>` : ''}
     ${linkTag}
     ${mediaTag}
@@ -1782,15 +1533,11 @@ const buildMessageCard = (msg) => {
     if (!name || !comment) return;
     submitBtn.disabled = true;
     try {
+      const _ft = await formToken();
       const res = await fetch(`${SUPABASE_URL}/rest/v1/message_comments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Prefer: 'return=representation'
-        },
-        body: JSON.stringify({ message_id: msg.id, name, comment })
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ message_id: msg.id, name, comment, _ft })
       });
       if (!res.ok) throw new Error(await failMessage(res, 'Could not post your comment. Please try again.'));
       const [saved] = await res.json();
@@ -1798,6 +1545,7 @@ const buildMessageCard = (msg) => {
       renderComments(commentList, msg.comments);
       $('.comment-count', card).textContent = msg.comments.length;
       form.reset();
+      _formTok = null; formToken().catch(() => {});
       note.textContent = 'Comment posted - thank you!';
       note.className = 'form-note ok';
     } catch (err) {
@@ -1834,6 +1582,8 @@ const loadMessages = async () => {
       messagesList.innerHTML = '<p class="messages-empty">No archived sermons yet - they appear here after each live service.</p>';
       return;
     }
+    // Featured sermons lead the list (newest first inside each group)
+    messages.sort((a, b) => (Number(!!b.is_featured) - Number(!!a.is_featured)) || (new Date(b.created_at) - new Date(a.created_at)));
     archiveItems = messages.filter((m) => m.media_url || getPlayable(m.link));
     const PAGE = 6;
     let revealUpTo = () => {};
@@ -1858,15 +1608,31 @@ const loadMessages = async () => {
       renderMore();
       revealUpTo = (idx) => { while (shown <= idx && shown < list.length) renderMore(); };
     };
-    renderList(messages);
-
+    // Category filter chips (built from the categories the ministry actually uses)
+    const chipBox = $('#archive-filters');
+    const cats = [...new Set(messages.map((m) => (m.category || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    let activeCat = '';
     const searchInput = $('#messages-search');
+    const applyFilters = () => {
+      const q = (searchInput?.value || '').trim().toLowerCase();
+      renderList(messages.filter((m) => (!activeCat || m.category === activeCat)
+        && (!q || `${m.title} ${m.description || ''} ${m.speaker || ''} ${m.category || ''}`.toLowerCase().includes(q))));
+    };
+    if (chipBox) {
+      chipBox.hidden = cats.length === 0;
+      chipBox.innerHTML = cats.length ? ['', ...cats].map((c) =>
+        `<button type="button" class="filter-chip${c === '' ? ' active' : ''}" data-cat="${escapeHtml(c)}" aria-pressed="${c === '' ? 'true' : 'false'}">${c ? escapeHtml(c) : 'All'}</button>`).join('') : '';
+      chipBox.onclick = (e) => {
+        const b = e.target.closest('.filter-chip'); if (!b) return;
+        activeCat = b.dataset.cat;
+        $$('.filter-chip', chipBox).forEach((x) => { const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); });
+        applyFilters();
+      };
+    }
+    renderList(messages);
     if (searchInput && !searchInput.dataset.bound) {
       searchInput.dataset.bound = '1';
-      searchInput.addEventListener('input', () => {
-        const q = searchInput.value.trim().toLowerCase();
-        renderList(q ? messages.filter((m) => `${m.title} ${m.description || ''}`.toLowerCase().includes(q)) : messages);
-      });
+      searchInput.addEventListener('input', applyFilters);
     }
 
     // Shared link: /?m=<id>#sermons opens straight to that sermon
@@ -1928,17 +1694,20 @@ const wirePublicForm = (formSel, noteSel, table, toRow, okMessage, after) => {
     try {
       const row = toRow(data);
       if (!row) throw new Error('missing');
+      row._ft = await formToken();
       const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: 'return=minimal' },
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
         body: JSON.stringify(row)
       });
       if (!res.ok) throw new Error('S:' + await failMessage(res, 'Sorry, that did not go through. Please try again in a moment.'));
       form.reset();
+      _formTok = null; formToken().catch(() => {});
       note.textContent = okMessage;
       note.className = 'form-note ok';
       if (after) after();
     } catch (err) {
+      _formTok = null;
       note.textContent = err.message === 'missing'
         ? 'Please add a phone number or an email so we can reach you.'
         : (String(err.message).startsWith('S:') ? err.message.slice(2) : 'Sorry, that did not go through. Please try again in a moment.');
@@ -1949,7 +1718,7 @@ const wirePublicForm = (formSel, noteSel, table, toRow, okMessage, after) => {
 };
 
 wirePublicForm('#testimony-form', '#testimony-note', 'testimonies',
-  (d) => ({ name: (d.name || '').trim().slice(0, 80), location: (d.location || '').trim().slice(0, 80) || null, testimony: (d.testimony || '').trim().slice(0, 1500) }),
+  (d) => ({ name: (d.name || '').trim().slice(0, 80), location: (d.location || '').trim().slice(0, 80) || null, testimony: (d.testimony || '').trim().slice(0, 1500), show_name: Boolean(d.show_name) }),
   'Thank you for sharing! Your testimony will appear once it has been reviewed.');
 
 wirePublicForm('#connect-form', '#connect-note', 'connect_requests',
@@ -1957,7 +1726,7 @@ wirePublicForm('#connect-form', '#connect-note', 'connect_requests',
     const phone = (d.phone || '').trim(), email = (d.email || '').trim();
     if (!phone && !email) return null;
     return { name: (d.name || '').trim().slice(0, 120), phone: phone.slice(0, 40) || null, email: email.slice(0, 160) || null,
-      kind: ['visitor', 'volunteer', 'counseling', 'other'].includes(d.kind) ? d.kind : 'visitor', note: (d.note || '').trim().slice(0, 2000) || null };
+      kind: ['visitor', 'callback', 'question', 'volunteer', 'counseling', 'other'].includes(d.kind) ? d.kind : 'visitor', note: (d.note || '').trim().slice(0, 2000) || null };
   },
   'Thank you! Someone from the ministry will be in touch with you soon.',
   () => pixelEvent('Lead', { content_name: 'connect form' }));
@@ -1974,6 +1743,14 @@ $('#copy-podcast-feed')?.addEventListener('click', async () => {
    PRAYER WALL (approved requests are public; "I prayed" is a +1 counter)
    ========================================================================= */
 const wallList = $('#wall-list');
+// A random, anonymous id kept on this device so one person counts once per request (no personal data).
+const prayerVoterId = (() => {
+  try {
+    let v = localStorage.getItem('pai_voter');
+    if (!v) { v = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/[^A-Za-z0-9_-]/g, ''); localStorage.setItem('pai_voter', v); }
+    return v.length >= 16 ? v : v.padEnd(16, '0');
+  } catch { return 'anon' + String(Math.random()).slice(2, 20).padEnd(16, '0'); }
+})();
 const prayedIds = (() => { try { return new Set(JSON.parse(localStorage.getItem('pai_prayed') || '[]')); } catch { return new Set(); } })();
 const loadWall = async () => {
   if (!wallList) return;
@@ -2008,9 +1785,11 @@ wallList?.addEventListener('click', async (e) => {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_prayed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ p_id: id })
+      body: JSON.stringify({ p_id: id, p_voter: prayerVoterId })
     });
     if (!res.ok) throw 0;
+    const out = await res.json().catch(() => null);
+    if (out && typeof out.prayed_count === 'number') countEl.textContent = out.prayed_count;   // the server's number is the truth
     prayedIds.add(id);
     try { localStorage.setItem('pai_prayed', JSON.stringify([...prayedIds])); } catch {}
   } catch {
@@ -2022,6 +1801,8 @@ loadWall();
 wirePublicForm('#wall-form', '#wall-note', 'wall_prayers',
   (d) => ({ name: (d.name || '').trim().slice(0, 60) || null, request: (d.request || '').trim().slice(0, 400) }),
   'Thank you. Your request will appear on the wall once it has been reviewed. We are praying with you.');
+
+// Giving: count clicks on the payment buttons (event name only, no amounts or details)
 
 /* =========================================================================
    FRONTEND REDESIGN BEHAVIOR
@@ -2086,18 +1867,3 @@ if (redesignStage) {
 document.addEventListener('click', (e) => {
   if (e.target.closest('#give-link-btn, .pay-link')) pixelEvent('GiveClick', {}, true);
 });
-
-// Preview mode: receive unsaved settings from the admin panel that opened this tab.
-if (PREVIEW) {
-  const start = () => showPreviewBar();
-  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
-  window.addEventListener('message', (e) => {
-    if (e.origin !== location.origin || e.source !== window.opener) return;
-    const d = e.data;
-    if (d && d.type === 'pai-preview' && d.settings && typeof d.settings === 'object' && !Array.isArray(d.settings)) {
-      previewLocked = true;
-      applySettings(mergeSettings(d.settings));
-    }
-  });
-  try { window.opener.postMessage({ type: 'pai-preview-ready' }, location.origin); } catch { /* opener closed */ }
-}

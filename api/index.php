@@ -19,6 +19,9 @@ try {
     }
     elseif (preg_match('#^auth/v1/(token|logout|user)$#', $path, $m)) auth_route($m[1], $method);
     elseif ($path === 'storage/v1/object/list/media') storage_list();
+    elseif ($path === 'form-token' && $method === 'GET') out(['token' => form_token()]);
+    elseif ($path === 'search' && $method === 'GET') public_search();
+    elseif ($path === 'sitemap.xml') sitemap_xml();
     elseif ($path === 'podcast-feed' || $path === 'podcast.xml' || $path === 'functions/v1/podcast-feed') podcast_feed();
     elseif (preg_match('#^functions/v1/([a-z-]+)$#', $path, $m)) {
         if ($method !== 'POST') fail('Method not allowed', 405);
@@ -55,15 +58,18 @@ function rest_get(string $table): void {
     switch ($table) {
         case 'site_settings':
             $r = q('SELECT data FROM site_settings WHERE id = 1')->fetch();
-            out($r ? [['data' => json_decode($r['data'], true) ?: new stdClass()]] : []);
+            if (!$r) out([]);
+            $data = json_decode($r['data'], true) ?: [];
+            unset($data['notifications'], $data['passkey']);   // never published
+            out([['data' => $data ?: new stdClass()]]);
         case 'messages':
-            out(fmt_all(q("SELECT id, title, description, link, media_url, media_type, notes_url, source, created_at
+            out(fmt_all(q("SELECT id, title, description, link, media_url, media_type, notes_url, source, speaker, category, thumbnail_url, is_featured, created_at
                            FROM messages ORDER BY created_at $dir LIMIT " . qs_limit(200, 500))->fetchAll()));
         case 'message_comments':
             out(fmt_all(q("SELECT id, message_id, name, comment, created_at FROM message_comments
                            ORDER BY created_at $dir LIMIT 5000")->fetchAll()));
         case 'testimonies':
-            out(fmt_all(q("SELECT id, name, location, testimony, created_at FROM testimonies
+            out(fmt_all(q("SELECT id, IF(show_name = 1, name, 'Anonymous') AS name, location, testimony, created_at FROM testimonies
                            WHERE is_approved = 1 ORDER BY created_at $dir LIMIT " . qs_limit(12, 50))->fetchAll()));
         case 'wall_prayers':
             out(fmt_all(q("SELECT id, name, request, prayed_count FROM wall_prayers
@@ -82,6 +88,11 @@ function respond_created(string $table, string $id): void {
 function rest_post(string $table): void {
     $b = body();
     $id = uuid();
+    if ($table !== 'site_events') {
+        // Bots: a filled hidden field is answered with a fake success and nothing is stored.
+        if (!empty($b['website'])) { http_response_code(201); exit; }
+        if (!form_token_ok($b['_ft'] ?? null)) fail('Please refresh the page and try again.', 400);
+    }
     switch ($table) {
         case 'site_events':
             rate_guard('ev', 400);
@@ -97,6 +108,7 @@ function rest_post(string $table): void {
             q('INSERT INTO prayer_requests (id, name, contact, request, is_private, created_at) VALUES (?,?,?,?,?,?)',
               [$id, need($b['name'] ?? '', 120, 'Name'), opt($b['contact'] ?? '', 200), need($b['request'] ?? '', 4000, 'Request'),
                !empty($b['is_private']) ? 1 : 0, now()]);
+            notify('onPrayer', 'New prayer request received', 'A new prayer request has been submitted on the website.');
             break;
 
         case 'message_comments':
@@ -109,8 +121,10 @@ function rest_post(string $table): void {
 
         case 'testimonies':
             rate_guard('testimony', 10);
-            q('INSERT INTO testimonies (id, name, location, testimony, created_at) VALUES (?,?,?,?,?)',
-              [$id, need($b['name'] ?? '', 80, 'Name'), opt($b['location'] ?? '', 80), need($b['testimony'] ?? '', 1500, 'Testimony'), now()]);
+            q('INSERT INTO testimonies (id, name, location, testimony, show_name, created_at) VALUES (?,?,?,?,?,?)',
+              [$id, need($b['name'] ?? '', 80, 'Name'), opt($b['location'] ?? '', 80), need($b['testimony'] ?? '', 1500, 'Testimony'),
+               (($b['show_name'] ?? true) === false) ? 0 : 1, now()]);
+            notify('onTestimony', 'New testimony awaiting approval', 'A new testimony was submitted and is waiting for approval.');
             break;
 
         case 'connect_requests':
@@ -118,15 +132,17 @@ function rest_post(string $table): void {
             $phone = opt($b['phone'] ?? '', 40); $email = opt($b['email'] ?? '', 160);
             if (!$phone && !$email) fail('Phone or email required', 400);
             if ($email && !filter_var($email, FILTER_VALIDATE_EMAIL)) fail('Email looks wrong', 400);
-            $kind = in_array($b['kind'] ?? '', ['visitor', 'volunteer', 'counseling', 'other'], true) ? $b['kind'] : 'visitor';
+            $kind = in_array($b['kind'] ?? '', ['visitor', 'callback', 'question', 'volunteer', 'counseling', 'other'], true) ? $b['kind'] : 'visitor';
             q('INSERT INTO connect_requests (id, name, phone, email, kind, note, created_at) VALUES (?,?,?,?,?,?,?)',
               [$id, need($b['name'] ?? '', 120, 'Name'), $phone, $email, $kind, opt($b['note'] ?? '', 2000), now()]);
+            notify('onConnect', 'New visitor enquiry', 'Someone asked the ministry to get in touch through the website.');
             break;
 
         case 'wall_prayers':
             rate_guard('wall', 20);
             q('INSERT INTO wall_prayers (id, name, request, created_at) VALUES (?,?,?,?)',
               [$id, opt($b['name'] ?? '', 60), need($b['request'] ?? '', 400, 'Request'), now()]);
+            notify('onWall', 'New prayer wall post awaiting approval', 'A new prayer wall request is waiting for approval.');
             break;
 
         default:
@@ -137,9 +153,23 @@ function rest_post(string $table): void {
 
 function rpc_increment_prayed(): void {
     rate_guard('pray', 120);
-    $id = clean(body()['p_id'] ?? '', 36);
-    q('UPDATE wall_prayers SET prayed_count = prayed_count + 1 WHERE id = ? AND is_approved = 1', [$id]);
-    out(null);
+    $b = body();
+    $id = clean($b['p_id'] ?? '', 36);
+    $voter = preg_match('/^[A-Za-z0-9_-]{16,64}$/', (string)($b['p_voter'] ?? '')) ? substr(hash_hmac('sha256', (string)$b['p_voter'], secret()), 0, 32) : '';
+    $ip = ip_key();
+    $row = q('SELECT prayed_count FROM wall_prayers WHERE id = ? AND is_approved = 1', [$id])->fetch();
+    if (!$row) out(null);
+    // One "I prayed" per person per request. People on one shared network can still all pray, but
+    // a single address cannot push the number up more than 5 times a day on the same request.
+    $counted = false;
+    if ($voter !== '' && !q('SELECT 1 FROM wall_votes WHERE prayer_id = ? AND voter = ?', [$id, $voter])->fetch()
+        && (int)q('SELECT COUNT(*) c FROM wall_votes WHERE prayer_id = ? AND ip = ? AND created_at > ?', [$id, $ip, gmdate('Y-m-d H:i:s', time() - 86400)])->fetch()['c'] < 5) {
+        q('INSERT IGNORE INTO wall_votes (prayer_id, voter, ip, created_at) VALUES (?,?,?,?)', [$id, $voter, $ip, now()]);
+        q('UPDATE wall_prayers SET prayed_count = prayed_count + 1 WHERE id = ?', [$id]);
+        $counted = true;
+    }
+    $n = (int)q('SELECT prayed_count FROM wall_prayers WHERE id = ?', [$id])->fetch()['prayed_count'];
+    out(['counted' => $counted, 'prayed_count' => $n]);
 }
 
 /* =====================================================================
@@ -312,26 +342,32 @@ function fn_manage_content(): void {
         in_array($action, ['create_message', 'update_message', 'delete_message', 'delete_comment'], true) => 'messages',
         in_array($action, ['hide_asset', 'unhide_asset'], true) => 'media',
         $action === 'get_analytics' => 'analytics',
+        $action === 'get_dashboard' => 'any',
+        in_array($action, ['get_notify_prefs', 'save_notify_prefs'], true) => 'settings',
         in_array($action, ['list_prayer_requests', 'mark_prayer_request_read', 'delete_prayer_request', 'list_connect_requests',
             'mark_connect_contacted', 'delete_connect_request', 'list_testimonies', 'set_testimony_approved', 'delete_testimony',
-            'list_wall_prayers', 'set_wall_approved', 'delete_wall_prayer'], true) => 'care',
+            'list_wall_prayers', 'set_wall_approved', 'delete_wall_prayer', 'update_testimony', 'update_wall_prayer',
+            'set_prayer_followup'], true) => 'care',
         default => null,
     };
     if ($perm === null) fail("Unknown action: $action", 400);
-    require_perm($perm);
+    if ($perm === 'any') { $me = current_user(); if (!$me) fail('Not signed in or session expired', 401); }
+    else require_perm($perm);
 
     switch ($action) {
         case 'create_message':
             $mt = in_array($p['media_type'] ?? '', ['audio', 'video'], true) ? $p['media_type'] : null;
             $id = uuid();
-            q('INSERT INTO messages (id, title, description, link, media_url, media_type, notes_url, source, created_at) VALUES (?,?,?,?,?,?,?,?,?)',
+            q('INSERT INTO messages (id, title, description, link, media_url, media_type, notes_url, source, speaker, category, thumbnail_url, is_featured, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
               [$id, need($p['title'] ?? '', 200, 'title'), opt($p['description'] ?? '', 4000), opt($p['link'] ?? '', 2000),
-               opt($p['media_url'] ?? '', 2000), $mt, opt($p['notes_url'] ?? '', 2000), ($p['source'] ?? '') === 'live' ? 'live' : 'manual', now()]);
+               opt($p['media_url'] ?? '', 2000), $mt, opt($p['notes_url'] ?? '', 2000), ($p['source'] ?? '') === 'live' ? 'live' : 'manual',
+               opt($p['speaker'] ?? '', 120), opt($p['category'] ?? '', 60), opt($p['thumbnail_url'] ?? '', 2000), !empty($p['is_featured']) ? 1 : 0, now()]);
             out(['message' => fmt(q('SELECT * FROM messages WHERE id = ?', [$id])->fetch())]);
         case 'update_message':
             $id = clean($p['id'] ?? '', 36);
             $sets = []; $args = [];
-            foreach (['title' => 200, 'description' => 4000, 'link' => 2000, 'media_url' => 2000, 'notes_url' => 2000] as $col => $max) {
+            foreach (['title' => 200, 'description' => 4000, 'link' => 2000, 'media_url' => 2000, 'notes_url' => 2000,
+                      'speaker' => 120, 'category' => 60, 'thumbnail_url' => 2000] as $col => $max) {
                 if (array_key_exists($col, $p)) {
                     $v = opt($p[$col], $max);
                     if ($col === 'title' && $v === null) fail('title is required', 400);
@@ -339,6 +375,7 @@ function fn_manage_content(): void {
                 }
             }
             if (array_key_exists('media_type', $p)) { $sets[] = 'media_type = ?'; $args[] = in_array($p['media_type'], ['audio', 'video'], true) ? $p['media_type'] : null; }
+            if (array_key_exists('is_featured', $p)) { $sets[] = 'is_featured = ?'; $args[] = !empty($p['is_featured']) ? 1 : 0; }
             if ($id === '' || !$sets) fail('Nothing to update', 400);
             $args[] = $id;
             q('UPDATE messages SET ' . implode(', ', $sets) . ' WHERE id = ?', $args);
@@ -349,6 +386,23 @@ function fn_manage_content(): void {
         case 'list_prayer_requests':
             out(['requests' => fmt_all(q('SELECT * FROM prayer_requests ORDER BY created_at DESC LIMIT 500')->fetchAll())]);
         case 'mark_prayer_request_read': toggle('prayer_requests', 'is_read', $p, 'is_read');
+        case 'set_prayer_followup':
+            $id = clean($p['id'] ?? '', 36);
+            $st = in_array($p['follow_up'] ?? '', ['new', 'in_progress', 'done'], true) ? $p['follow_up'] : 'new';
+            if ($id === '') fail('id is required', 400);
+            q('UPDATE prayer_requests SET follow_up = ?, admin_note = ?, is_read = 1 WHERE id = ?', [$st, opt($p['admin_note'] ?? '', 1000), $id]);
+            out(['ok' => true]);
+        case 'update_testimony':
+            $id = clean($p['id'] ?? '', 36);
+            if ($id === '') fail('id is required', 400);
+            q('UPDATE testimonies SET name = ?, location = ?, testimony = ?, show_name = ? WHERE id = ?',
+              [need($p['name'] ?? '', 80, 'Name'), opt($p['location'] ?? '', 80), need($p['testimony'] ?? '', 1500, 'Testimony'), (($p['show_name'] ?? true) === false) ? 0 : 1, $id]);
+            out(['ok' => true]);
+        case 'update_wall_prayer':
+            $id = clean($p['id'] ?? '', 36);
+            if ($id === '') fail('id is required', 400);
+            q('UPDATE wall_prayers SET name = ?, request = ? WHERE id = ?', [opt($p['name'] ?? '', 60), need($p['request'] ?? '', 400, 'Request'), $id]);
+            out(['ok' => true]);
         case 'delete_prayer_request': remove('prayer_requests', $p);
 
         case 'list_connect_requests':
@@ -374,14 +428,67 @@ function fn_manage_content(): void {
             else q('DELETE FROM hidden_assets WHERE filename = ?', [$f]);
             out(['ok' => true]);
 
+        case 'get_notify_prefs':
+            out(['prefs' => notify_prefs() + ['email' => '', 'onPrayer' => false, 'onConnect' => false, 'onTestimony' => false, 'onWall' => false]]);
+        case 'save_notify_prefs':
+            $em = trim((string)($p['email'] ?? ''));
+            if ($em !== '' && !filter_var($em, FILTER_VALIDATE_EMAIL)) fail('Enter a valid email address', 400);
+            $prefs = ['email' => mb_substr($em, 0, 190)];
+            foreach (['onPrayer', 'onConnect', 'onTestimony', 'onWall'] as $k) $prefs[$k] = !empty($p[$k]);
+            q('INSERT INTO admin_config (id, legacy_enabled, notify_json) VALUES (1, 0, ?) ON DUPLICATE KEY UPDATE notify_json = VALUES(notify_json)', [json_encode($prefs)]);
+            out(['ok' => true]);
+
+        case 'get_dashboard':
+            $perms = $me['permissions'];
+            $n = fn(string $sql, array $a = []) => (int)q($sql, $a)->fetch()['c'];
+            $d = ['role' => $me['role'], 'permissions' => $perms];
+            if (in_array('messages', $perms, true) || in_array('media', $perms, true)) {
+                $d['sermons'] = ['total' => $n('SELECT COUNT(*) c FROM messages'), 'featured' => $n('SELECT COUNT(*) c FROM messages WHERE is_featured = 1'),
+                                 'comments' => $n('SELECT COUNT(*) c FROM message_comments')];
+                $files = 0;
+                foreach (scandir(uploads_dir()) ?: [] as $f) if ($f[0] !== '.' && in_array(strtolower(pathinfo($f, PATHINFO_EXTENSION)), MEDIA_EXT, true)) $files++;
+                $d['media'] = ['uploads' => $files];
+            }
+            if (in_array('care', $perms, true)) {
+                $d['prayer'] = ['total' => $n('SELECT COUNT(*) c FROM prayer_requests'), 'unread' => $n('SELECT COUNT(*) c FROM prayer_requests WHERE is_read = 0'),
+                                'private' => $n('SELECT COUNT(*) c FROM prayer_requests WHERE is_private = 1'), 'followup' => $n("SELECT COUNT(*) c FROM prayer_requests WHERE follow_up = 'in_progress'")];
+                $d['testimonies'] = ['total' => $n('SELECT COUNT(*) c FROM testimonies'), 'pending' => $n('SELECT COUNT(*) c FROM testimonies WHERE is_approved = 0')];
+                $d['wall'] = ['total' => $n('SELECT COUNT(*) c FROM wall_prayers'), 'pending' => $n('SELECT COUNT(*) c FROM wall_prayers WHERE is_approved = 0'),
+                              'prayed' => $n('SELECT COALESCE(SUM(prayed_count),0) c FROM wall_prayers WHERE is_approved = 1')];
+                $d['enquiries'] = ['total' => $n('SELECT COUNT(*) c FROM connect_requests'), 'waiting' => $n('SELECT COUNT(*) c FROM connect_requests WHERE is_contacted = 0')];
+                // recent activity shows names and types only; private request text is never included
+                $act = [];
+                foreach (q("SELECT 'prayer' t, IF(is_private = 1, 'Private request', name) who, created_at FROM prayer_requests ORDER BY created_at DESC LIMIT 6")->fetchAll() as $r) $act[] = $r;
+                foreach (q("SELECT 'testimony' t, name who, created_at FROM testimonies ORDER BY created_at DESC LIMIT 6")->fetchAll() as $r) $act[] = $r;
+                foreach (q("SELECT 'enquiry' t, name who, created_at FROM connect_requests ORDER BY created_at DESC LIMIT 6")->fetchAll() as $r) $act[] = $r;
+                foreach (q("SELECT 'wall' t, COALESCE(name, 'Anonymous') who, created_at FROM wall_prayers ORDER BY created_at DESC LIMIT 6")->fetchAll() as $r) $act[] = $r;
+                usort($act, fn($a, $b) => strcmp($b['created_at'], $a['created_at']));
+                $d['activity'] = array_map(fn($r) => ['type' => $r['t'], 'who' => $r['who'], 'at' => iso($r['created_at'])], array_slice($act, 0, 8));
+            }
+            if (in_array('analytics', $perms, true)) {
+                $d['traffic'] = ['views7' => $n("SELECT COUNT(*) c FROM site_events WHERE kind = 'view' AND created_at >= ?", [gmdate('Y-m-d H:i:s', time() - 7 * 86400)]),
+                                 'views30' => $n("SELECT COUNT(*) c FROM site_events WHERE kind = 'view' AND created_at >= ?", [gmdate('Y-m-d H:i:s', time() - 30 * 86400)]),
+                                 'plays30' => $n("SELECT COUNT(*) c FROM site_events WHERE kind = 'sermon_play' AND created_at >= ?", [gmdate('Y-m-d H:i:s', time() - 30 * 86400)])];
+            }
+            if (in_array('settings', $perms, true)) {
+                $st = site_settings(); $now = time(); $up = 0;
+                $evs = array_merge(is_array($st['events'] ?? null) ? $st['events'] : [], !empty($st['event']['title']) ? [$st['event']] : []);
+                foreach ($evs as $e) { $end = strtotime((string)($e['end'] ?? $e['start'] ?? '')); if (!$end || $end >= $now) $up++; }
+                $d['events'] = ['upcoming' => $up];
+                $d['live'] = ['isLive' => !empty($st['live']['isLiveNow']), 'title' => (string)($st['live']['title'] ?? '')];
+                $d['announcements'] = ['active' => count(array_filter(is_array($st['announcements'] ?? null) ? $st['announcements'] : [], fn($a) => !empty($a['published'])))];
+            }
+            out(['dashboard' => $d]);
+
         case 'get_analytics':
             q('DELETE FROM site_events WHERE created_at < ?', [gmdate('Y-m-d H:i:s', time() - 400 * 86400)]);
-            $since = gmdate('Y-m-d 00:00:00', time() - 29 * 86400);
+            $span = in_array((int)($p['days'] ?? 30), [7, 30, 90], true) ? (int)$p['days'] : 30;
+            $since = gmdate('Y-m-d 00:00:00', time() - ($span - 1) * 86400);
             $byDay = [];
             foreach (q("SELECT DATE(created_at) d, SUM(kind = 'view') v, SUM(kind = 'sermon_play') p FROM site_events
                         WHERE created_at >= ? GROUP BY d", [$since])->fetchAll() as $r) $byDay[$r['d']] = [(int)$r['v'], (int)$r['p']];
             $days = [];
-            for ($i = 29; $i >= 0; $i--) {
+            for ($i = $span - 1; $i >= 0; $i--) {
                 $d = gmdate('Y-m-d', time() - $i * 86400);
                 $days[] = ['day' => $d, 'views' => $byDay[$d][0] ?? 0, 'plays' => $byDay[$d][1] ?? 0];
             }
@@ -389,8 +496,10 @@ function fn_manage_content(): void {
             $devices = [];
             foreach (q("SELECT device n, COUNT(*) c FROM site_events WHERE kind = 'view' AND device IS NOT NULL AND created_at >= ? GROUP BY device", [$since])->fetchAll() as $r) $devices[$r['n']] = (int)$r['c'];
             out(['analytics' => [
+                'span' => $span,
                 'days' => $days,
                 'shares' => (int)q("SELECT COUNT(*) c FROM site_events WHERE kind = 'share' AND created_at >= ?", [$since])->fetch()['c'],
+                'topPages' => $rank("SELECT path n, COUNT(*) c FROM site_events WHERE kind = 'view' AND path IS NOT NULL AND created_at >= ? GROUP BY path ORDER BY c DESC LIMIT 8"),
                 'topSermons' => $rank("SELECT label n, COUNT(*) c FROM site_events WHERE kind = 'sermon_play' AND label IS NOT NULL AND created_at >= ? GROUP BY label ORDER BY c DESC LIMIT 8"),
                 'referrers' => $rank("SELECT referrer n, COUNT(*) c FROM site_events WHERE kind = 'view' AND referrer IS NOT NULL AND created_at >= ? GROUP BY referrer ORDER BY c DESC LIMIT 8"),
                 'devices' => (object)$devices,
@@ -403,6 +512,7 @@ function fn_save_settings(): void {
     require_perm('settings');
     $s = body()['settings'] ?? null;
     if (!is_array($s)) fail('settings must be an object', 400);
+    unset($s['notifications'], $s['passkey']);
     $json = json_encode($s, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if ($json === false || strlen($json) > 2 * 1024 * 1024) fail('Settings are too large', 413);
     q('INSERT INTO site_settings (id, data, updated_at) VALUES (1, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = VALUES(updated_at)', [$json, now()]);
@@ -463,6 +573,70 @@ function fn_delete_media(): void {
     }
     if (!$deleted) fail('File not found (already deleted?)', 404);
     out(['success' => true, 'deleted' => $deleted]);
+}
+
+/* =====================================================================
+   PUBLIC SEARCH + SITEMAP
+   ===================================================================== */
+function public_search(): void {
+    rate_guard('search', 120, 600);
+    $qstr = clean($_GET['q'] ?? '', 80);
+    if (mb_strlen($qstr) < 2) out(['query' => $qstr, 'results' => []]);
+    $like = '%' . addcslashes($qstr, '\\%_') . '%';
+    $needle = mb_strtolower($qstr);
+    $hit = fn($t) => $t !== null && $t !== '' && mb_stripos((string)$t, $needle) !== false;
+    $res = [];
+    foreach (q('SELECT id, title, description, speaker, category, created_at FROM messages
+                WHERE title LIKE ? OR description LIKE ? OR speaker LIKE ? OR category LIKE ? ORDER BY created_at DESC LIMIT 8', [$like, $like, $like, $like])->fetchAll() as $r) {
+        $res[] = ['type' => 'sermon', 'title' => $r['title'], 'text' => mb_substr((string)($r['description'] ?? ''), 0, 140), 'url' => '/?m=' . $r['id'] . '#sermons', 'meta' => $r['speaker'] ?: $r['category']];
+    }
+    $st = site_settings();
+    $now = time();
+    $evs = array_merge(!empty($st['event']['title']) ? [$st['event']] : [], is_array($st['events'] ?? null) ? $st['events'] : []);
+    foreach ($evs as $e) {
+        if (isset($e['published']) && $e['published'] === false) continue;
+        if ($hit($e['title'] ?? '') || $hit($e['description'] ?? '') || $hit($e['venue'] ?? '')) {
+            $res[] = ['type' => 'event', 'title' => (string)$e['title'], 'text' => mb_substr((string)($e['description'] ?? ''), 0, 140), 'url' => '/#events', 'meta' => (string)($e['dates'] ?? '')];
+        }
+    }
+    foreach (is_array($st['announcements'] ?? null) ? $st['announcements'] : [] as $a) {
+        if (empty($a['published'])) continue;
+        if (!empty($a['expires']) && strtotime((string)$a['expires']) && strtotime((string)$a['expires']) < $now) continue;
+        if ($hit($a['title'] ?? '') || $hit($a['body'] ?? '')) {
+            $res[] = ['type' => 'announcement', 'title' => (string)$a['title'], 'text' => mb_substr((string)($a['body'] ?? ''), 0, 140), 'url' => '/#announcements', 'meta' => ''];
+        }
+    }
+    $info = [
+        ['Our mission', $st['foundation']['missionTitle'] ?? '', $st['foundation']['missionText'] ?? '', '/#foundation'],
+        ['Our vision', $st['foundation']['visionTitle'] ?? '', $st['foundation']['visionText'] ?? '', '/#foundation'],
+        ['Our values', $st['foundation']['valuesTitle'] ?? '', $st['foundation']['valuesText'] ?? '', '/#foundation'],
+        ['Our story', $st['foundation']['storyTitle'] ?? '', $st['foundation']['storyText'] ?? '', '/#foundation'],
+        ['About the founder', $st['about']['founderName'] ?? '', $st['foundation']['founderBio'] ?? '', '/#about'],
+        ['Statement of faith', 'What we believe', 'We believe in one God Father Son Holy Spirit Bible salvation prayer worship Great Commission', '/#foundation'],
+        ['Giving', 'Support the work', 'Give giving donation partner mobile money bank transfer offering tithe', '/#give'],
+        ['Prayer requests', 'Send a prayer request', 'Prayer request pray testimony prayer wall', '/#prayer'],
+        ['Contact', 'Contact the ministry', 'Contact phone email address visit location', '/#contact'],
+    ];
+    foreach ($info as [$label, $title, $text, $url]) {
+        if ($hit($label) || $hit($title) || $hit($text)) $res[] = ['type' => 'ministry', 'title' => $label, 'text' => mb_substr(trim($title . ' ' . $text), 0, 140), 'url' => $url, 'meta' => ''];
+    }
+    out(['query' => $qstr, 'results' => array_slice($res, 0, 20)]);
+}
+
+function sitemap_xml(): void {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' ? 'https' : 'http';
+    $origin = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $x = fn($s) => htmlspecialchars((string)$s, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    $urls = [[$origin . '/', gmdate('Y-m-d'), '1.0'], [$origin . '/privacy', null, '0.3'], [$origin . '/terms', null, '0.3']];
+    foreach (q('SELECT id, created_at FROM messages ORDER BY created_at DESC LIMIT 500')->fetchAll() as $r) {
+        $urls[] = [$origin . '/?m=' . $r['id'], substr($r['created_at'], 0, 10), '0.6'];
+    }
+    header('Content-Type: application/xml; charset=utf-8');
+    header('Cache-Control: public, max-age=3600');
+    echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+    foreach ($urls as [$loc, $mod, $pri]) echo '<url><loc>' . $x($loc) . '</loc>' . ($mod ? '<lastmod>' . $x($mod) . '</lastmod>' : '') . '<priority>' . $pri . '</priority></url>';
+    echo '</urlset>';
+    exit;
 }
 
 /* =====================================================================
