@@ -5,6 +5,19 @@
 const SUPABASE_URL = `${location.origin}/api`;   // kept name for compatibility: this is now your own Hostinger PHP/MySQL API
 const SUPABASE_ANON_KEY = "";                      // not used any more
 
+// Preview mode (opened from the admin panel as /?preview=1): nothing is saved and no analytics are sent.
+const PREVIEW = new URLSearchParams(location.search).get('preview') === '1' && !!window.opener;
+let previewLocked = false;
+
+// Only http(s), mailto, tel and same-site paths are allowed in editable links and images.
+const safeLinkUrl = (u) => {
+  const v = String(u || '').trim().replace(/[\u0000-\u001f\u007f]/g, '');
+  if (!v) return '';
+  const m = v.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (m) return /^(https?|mailto|tel)$/i.test(m[1]) ? v : '';
+  return v.startsWith('//') ? '' : v;
+};
+
 const DEFAULT_SETTINGS = {
   general: {
     churchName: "Prayer Army International",
@@ -419,6 +432,7 @@ $('#cookie-settings')?.addEventListener('click', () => { $('#consent-banner').hi
 
 // Privacy-light analytics: no cookies, no IP, no personal data. Respects Do Not Track.
 const track = (kind, label) => {
+  if (PREVIEW) return;
   if (kind === 'sermon_play') pixelEvent('ViewContent', { content_name: String(label || '').slice(0, 100), content_type: 'sermon' });
   else if (kind === 'share') pixelEvent('ShareClick', { content_name: String(label || '').slice(0, 100) }, true);
   try {
@@ -723,6 +737,139 @@ const renderWeekly = (s) => {
 /* =========================================================================
    APPLY SETTINGS TO THE ENTIRE WEBSITE DOM
    ========================================================================= */
+/* =========================================================================
+   PAGE LAYOUT: section order, visibility, publishing and custom sections.
+   Settings shape (all optional; with no `layout` the page looks exactly as before):
+   layout.items  = [{ id, visible, published }]   in display order
+   layout.custom = [{ id, title, eyebrow, body, imageUrl, bgImage, buttonLabel, buttonUrl,
+                      button2Label, button2Url, style, navLabel, showInMenu }]
+   Everything below is written with textContent / validated URLs, so editors can never inject HTML or scripts.
+   ========================================================================= */
+const BUILTIN_SECTIONS = ['hero-section', 'quick-links', 'verse', 'about', 'foundation', 'sermons', 'live', 'events',
+  'gallery', 'prayer', 'prayer-wall', 'testimonies', 'connect', 'give', 'locations', 'contact'];
+
+const cleanSectionId = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+
+const buildCustomSection = (c, id) => {
+  const el = document.createElement('section');
+  const style = ['text', 'image-right', 'image-left', 'banner'].includes(c.style) ? c.style : 'text';
+  el.className = `section custom-section custom-${style}`;
+  el.id = id;
+  el.dataset.customSection = '1';
+  const bg = safeLinkUrl(c.bgImage);
+  if (bg) { el.classList.add('has-bg'); el.style.backgroundImage = `linear-gradient(rgba(9,14,24,.72),rgba(9,14,24,.72)), url(${JSON.stringify(bg)})`; }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'container custom-grid';
+  const copy = document.createElement('div');
+  copy.className = 'custom-copy';
+
+  if (c.eyebrow) { const p = document.createElement('p'); p.className = 'eyebrow dark'; p.textContent = String(c.eyebrow).slice(0, 120); copy.append(p); }
+  if (c.title) {
+    const h = document.createElement('h2');
+    const parts = String(c.title).slice(0, 200).split('|');          // "Normal|gold part", same as the other headings
+    h.append(document.createTextNode(parts[0]));
+    if (parts.length > 1) { h.append(document.createTextNode(' ')); const sp = document.createElement('span'); sp.textContent = parts.slice(1).join('|'); h.append(sp); }
+    copy.append(h);
+  }
+  String(c.body || '').slice(0, 8000).split(/\n{2,}/).map((t) => t.trim()).filter(Boolean).forEach((t) => {
+    const p = document.createElement('p');
+    t.split('\n').forEach((line, i) => { if (i) p.append(document.createElement('br')); p.append(document.createTextNode(line)); });
+    copy.append(p);
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'custom-actions';
+  [[c.buttonLabel, c.buttonUrl, 'btn btn-gold'], [c.button2Label, c.button2Url, 'btn btn-dark']].forEach(([label, url, cls]) => {
+    const href = safeLinkUrl(url);
+    if (!label || !href) return;
+    const a = document.createElement('a');
+    a.className = cls; a.href = href; a.textContent = String(label).slice(0, 60);
+    try { if (/^https?:/i.test(href) && new URL(href).origin !== location.origin) { a.target = '_blank'; a.rel = 'noopener noreferrer'; } } catch { /* relative */ }
+    actions.append(a);
+  });
+  if (actions.children.length) copy.append(actions);
+  wrap.append(copy);
+
+  const img = safeLinkUrl(c.imageUrl);
+  if (img && style !== 'banner') {
+    const fig = document.createElement('figure');
+    fig.className = 'custom-media';
+    const im = document.createElement('img');
+    im.src = img; im.alt = String(c.title || '').replace(/\|/g, ' ').slice(0, 120); im.loading = 'lazy';
+    fig.append(im);
+    wrap.append(fig);
+  }
+  el.append(wrap);
+  return el;
+};
+
+const applyLayout = (s) => {
+  const main = $('#main');
+  const layout = (s && s.layout) || null;
+  const savedItems = layout && Array.isArray(layout.items) ? layout.items : [];
+  const customList = layout && Array.isArray(layout.custom) ? layout.custom.slice(0, 40) : [];
+  if (!main || (!savedItems.length && !customList.length)) return; // nothing configured: leave the page untouched
+
+  $$('[data-custom-section]', main).forEach((n) => n.remove());
+  $$('[data-custom-nav]').forEach((n) => n.remove());
+
+  const els = new Map();
+  BUILTIN_SECTIONS.forEach((id) => { const el = document.getElementById(id); if (el && el.parentElement === main) els.set(id, el); });
+  customList.forEach((c) => { const id = cleanSectionId(c && c.id); if (id && !els.has(id)) els.set(id, buildCustomSection(c, id)); });
+
+  const order = [], seen = new Set();
+  savedItems.forEach((it) => { const id = cleanSectionId(it && it.id); if (els.has(id) && !seen.has(id)) { seen.add(id); order.push({ id, visible: it.visible !== false, published: it.published !== false }); } });
+  els.forEach((el, id) => { if (!seen.has(id)) order.push({ id, visible: true, published: true }); });
+  const heroAt = order.findIndex((o) => o.id === 'hero-section');
+  if (heroAt > 0) order.unshift(order.splice(heroAt, 1)[0]);       // the hero always stays on top
+
+  order.forEach((o) => {
+    const el = els.get(o.id);
+    main.appendChild(el);
+    const pinned = o.id === 'hero-section';
+    const hidden = !pinned && o.visible === false;
+    const draft = !pinned && o.published === false;
+    el.classList.toggle('pai-off', hidden || (draft && !PREVIEW));
+    el.classList.toggle('pai-draft', draft && !hidden && PREVIEW);
+  });
+
+  // Menu links follow their section: hidden/unpublished sections disappear from menus and quick links.
+  $$('#primary-nav a[href^="#"], #footer a[href^="#"], .quick-grid a[href^="#"]').forEach((a) => {
+    const target = document.getElementById(a.getAttribute('href').slice(1));
+    const off = !!target && target.classList.contains('pai-off');
+    a.classList.toggle('pai-off', off);
+    const li = a.closest('li'); if (li) li.classList.toggle('pai-off', off);
+  });
+  const nav = $('#primary-nav');
+  if (nav) {
+    const giveLink = $('.nav-give', nav);
+    customList.forEach((c) => {
+      const id = cleanSectionId(c && c.id), el = els.get(id);
+      if (!c.showInMenu || !c.navLabel || !el || el.classList.contains('pai-off')) return;
+      const a = document.createElement('a');
+      a.href = `#${id}`; a.textContent = String(c.navLabel).slice(0, 30); a.dataset.customNav = '1';
+      nav.insertBefore(a, giveLink || null);
+    });
+  }
+};
+
+/* Preview: the admin panel opens /?preview=1 and sends its unsaved settings with postMessage.
+   Nothing is stored or published, and the page records no analytics while previewing. */
+const showPreviewBar = () => {
+  document.documentElement.classList.add('is-preview');
+  const bar = document.createElement('div');
+  bar.className = 'preview-bar';
+  bar.setAttribute('role', 'status');
+  const msg = document.createElement('span');
+  msg.textContent = 'Preview - these changes are not published yet. Unpublished sections are outlined in gold.';
+  const close = document.createElement('button');
+  close.type = 'button'; close.textContent = 'Close preview';
+  close.addEventListener('click', () => { try { window.close(); } catch { /* ignore */ } });
+  bar.append(msg, close);
+  document.body.prepend(bar);
+};
+
 const applySettings = (s) => {
   currentSettings = s;
 
@@ -997,7 +1144,8 @@ const applySettings = (s) => {
   if (aHeading && s.about?.heading) {
     // Wrap **text** as a gold accent span. This used to silently discard the
     // accent styling entirely once settings loaded (innerHTML was set to the
-    // plain heading text with no way to mark which part gets the color) - // now the admin's Heading field can mark the accented part with **stars**
+    // plain heading text with no way to mark which part gets the color) -
+    // now the admin's Heading field can mark the accented part with **stars**
     // and it's escaped first, so no raw HTML can be injected through it.
     aHeading.innerHTML = escapeHtml(s.about.heading).replace(/\*\*(.+?)\*\*/g, '<span>$1</span>');
   }
@@ -1238,6 +1386,8 @@ const applySettings = (s) => {
 
   const yearEl = $('#year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  applyLayout(s);
 };
 
 // Redirect to separate admin page if query param present
@@ -1247,6 +1397,12 @@ if (urlParams.has("manage") || urlParams.has("admin")) {
 }
 
 // Initial Settings loading
+const mergeSettings = (loaded) => ({
+  ...DEFAULT_SETTINGS, ...(loaded || {}),
+  content: { ...(DEFAULT_SETTINGS.content || {}), ...((loaded && loaded.content) || {}),
+    uiText: { ...((DEFAULT_SETTINGS.content || {}).uiText || {}), ...((loaded && loaded.content && loaded.content.uiText) || {}) } }
+});
+
 const loadInitialSettings = async () => {
   let loaded = null;
 
@@ -1275,11 +1431,13 @@ const loadInitialSettings = async () => {
     } catch {}
   }
 
-  const finalSettings = { ...DEFAULT_SETTINGS, ...(loaded || {}), content: { ...(DEFAULT_SETTINGS.content || {}), ...((loaded && loaded.content) || {}), uiText: { ...((DEFAULT_SETTINGS.content || {}).uiText || {}), ...((loaded && loaded.content && loaded.content.uiText) || {}) } } };
+  if (previewLocked) return;        // the admin's unsaved preview wins over the saved copy
+  const finalSettings = mergeSettings(loaded);
   applySettings(finalSettings);
 };
 
-loadInitialSettings();
+// Start after the whole script has loaded: applySettings() uses helpers (e.g. renderPayMethods) defined further down.
+Promise.resolve().then(loadInitialSettings);
 
 // Gallery Lightbox (defensive: only wires up if both the dialog and at
 // least one gallery photo are present, so this never throws and never
@@ -1865,8 +2023,6 @@ wirePublicForm('#wall-form', '#wall-note', 'wall_prayers',
   (d) => ({ name: (d.name || '').trim().slice(0, 60) || null, request: (d.request || '').trim().slice(0, 400) }),
   'Thank you. Your request will appear on the wall once it has been reviewed. We are praying with you.');
 
-// Giving: count clicks on the payment buttons (event name only, no amounts or details)
-
 /* =========================================================================
    FRONTEND REDESIGN BEHAVIOR
    Progressive enhancement: existing forms, API calls, sermon playback,
@@ -1930,3 +2086,18 @@ if (redesignStage) {
 document.addEventListener('click', (e) => {
   if (e.target.closest('#give-link-btn, .pay-link')) pixelEvent('GiveClick', {}, true);
 });
+
+// Preview mode: receive unsaved settings from the admin panel that opened this tab.
+if (PREVIEW) {
+  const start = () => showPreviewBar();
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || e.source !== window.opener) return;
+    const d = e.data;
+    if (d && d.type === 'pai-preview' && d.settings && typeof d.settings === 'object' && !Array.isArray(d.settings)) {
+      previewLocked = true;
+      applySettings(mergeSettings(d.settings));
+    }
+  });
+  try { window.opener.postMessage({ type: 'pai-preview-ready' }, location.origin); } catch { /* opener closed */ }
+}

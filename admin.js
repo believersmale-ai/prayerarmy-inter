@@ -282,6 +282,7 @@ const applyRoleUI = () => {
   });
   if (activeHidden && first) first.click();
   $('#btn-save-all') && ($('#btn-save-all').style.display = can('settings') ? '' : 'none');
+  $('#btn-preview') && ($('#btn-preview').style.display = can('settings') ? '' : 'none');
   $('#live-broadcast-pill') && ($('#live-broadcast-pill').style.display = can('settings') ? '' : 'none');
   $('#legacy-card') && ($('#legacy-card').hidden = !can('security'));
   $('#tracking-card') && ($('#tracking-card').hidden = !can('security'));
@@ -584,6 +585,245 @@ $('#btn-copy-feed')?.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(v); showToast('Podcast feed link copied', 'success'); } catch { $('#podcast-feed-url')?.select(); }
 });
 
+/* =========================================================================
+   PAGE BUILDER: section order / visibility / publishing / custom sections,
+   friendly page-text editor, and preview (nothing is published until Save).
+   ========================================================================= */
+const SECTION_CATALOG = [
+  { id: 'hero-section', label: 'Hero banner', pinned: true },
+  { id: 'quick-links', label: 'Quick links strip' },
+  { id: 'verse', label: 'Verse of the day' },
+  { id: 'about', label: 'About / welcome' },
+  { id: 'foundation', label: 'Mission, vision & statement of faith' },
+  { id: 'sermons', label: 'Sermons' },
+  { id: 'live', label: 'Livestream' },
+  { id: 'events', label: 'Events & weekly activities' },
+  { id: 'gallery', label: 'Gallery' },
+  { id: 'prayer', label: 'Prayer request form' },
+  { id: 'prayer-wall', label: 'Prayer wall' },
+  { id: 'testimonies', label: 'Testimonies' },
+  { id: 'connect', label: 'Connect / new visitors' },
+  { id: 'give', label: 'Giving' },
+  { id: 'locations', label: 'Locations' },
+  { id: 'contact', label: 'Contact' }
+];
+let layoutState = { items: [], custom: [] };
+let openSectionId = null;
+
+const loadLayoutState = (s) => {
+  const lay = (s && s.layout) || {};
+  const custom = (Array.isArray(lay.custom) ? lay.custom : []).filter((c) => c && c.id).map((c) => ({ ...c }));
+  const known = new Set([...SECTION_CATALOG.map((b) => b.id), ...custom.map((c) => c.id)]);
+  const items = [], seen = new Set();
+  (Array.isArray(lay.items) ? lay.items : []).forEach((it) => {
+    if (it && known.has(it.id) && !seen.has(it.id)) { seen.add(it.id); items.push({ id: it.id, visible: it.visible !== false, published: it.published !== false }); }
+  });
+  SECTION_CATALOG.forEach((b) => { if (!seen.has(b.id)) { seen.add(b.id); items.push({ id: b.id, visible: true, published: true }); } });
+  custom.forEach((c) => { if (!seen.has(c.id)) { seen.add(c.id); items.push({ id: c.id, visible: true, published: true }); } });
+  const h = items.findIndex((x) => x.id === 'hero-section');
+  if (h > 0) items.unshift(items.splice(h, 1)[0]);
+  layoutState = { items, custom };
+};
+
+const collectLayout = () => ({
+  items: layoutState.items.map((x) => ({ id: x.id, visible: x.visible !== false, published: x.published !== false })),
+  custom: layoutState.custom.map((c) => ({ ...c }))
+});
+
+const sectionTitle = (id) => {
+  const b = SECTION_CATALOG.find((x) => x.id === id);
+  if (b) return b.label;
+  const c = layoutState.custom.find((x) => x.id === id);
+  return String((c && c.title) || 'Untitled section').replace(/\|/g, ' ');
+};
+
+const customEditorHtml = (c) => `
+  <div class="lay-edit">
+    <div class="form-grid-2">
+      <div class="form-group"><label>Heading <small>(use | for a highlighted ending)</small></label><input type="text" data-f="title" value="${escAttr(c.title)}" maxlength="200" placeholder="Join our|prayer meeting"></div>
+      <div class="form-group"><label>Small label above heading</label><input type="text" data-f="eyebrow" value="${escAttr(c.eyebrow)}" maxlength="120" placeholder="EVERY FRIDAY"></div>
+    </div>
+    <div class="form-group"><label>Text <small>(blank line = new paragraph)</small></label><textarea data-f="body" rows="5" maxlength="8000">${escAttr(c.body)}</textarea></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Layout</label>
+        <select data-f="style">${[['text', 'Text only'], ['image-right', 'Text + picture on the right'], ['image-left', 'Text + picture on the left'], ['banner', 'Banner (centred, background picture)']].map(([v, l]) => `<option value="${v}" ${(c.style || 'text') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Picture (pick from library or paste a link)</label><input type="text" data-f="imageUrl" list="event-image-options" value="${escAttr(c.imageUrl)}" placeholder="assets/images/..."></div>
+    </div>
+    <div class="form-group"><label>Background picture (optional)</label><input type="text" data-f="bgImage" list="event-image-options" value="${escAttr(c.bgImage)}" placeholder="assets/images/..."></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Button 1 label</label><input type="text" data-f="buttonLabel" value="${escAttr(c.buttonLabel)}" maxlength="60"></div>
+      <div class="form-group"><label>Button 1 link</label><input type="text" data-f="buttonUrl" value="${escAttr(c.buttonUrl)}" placeholder="https://... or #contact"></div>
+      <div class="form-group"><label>Button 2 label</label><input type="text" data-f="button2Label" value="${escAttr(c.button2Label)}" maxlength="60"></div>
+      <div class="form-group"><label>Button 2 link</label><input type="text" data-f="button2Url" value="${escAttr(c.button2Url)}" placeholder="https://... or #contact"></div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-f="showInMenu" ${c.showInMenu ? 'checked' : ''}> Show in the top menu</label></div>
+      <div class="form-group"><label>Menu label</label><input type="text" data-f="navLabel" value="${escAttr(c.navLabel)}" maxlength="30" placeholder="Fellowship"></div>
+    </div>
+  </div>`;
+
+const renderLayoutEditor = () => {
+  const box = $('#layout-list');
+  if (!box) return;
+  box.innerHTML = layoutState.items.map((it, i) => {
+    const builtin = SECTION_CATALOG.find((b) => b.id === it.id);
+    const pinned = !!(builtin && builtin.pinned);
+    const c = builtin ? null : layoutState.custom.find((x) => x.id === it.id);
+    const off = !pinned && it.visible === false;
+    const upOff = pinned || i <= 1;
+    const downOff = pinned || i === layoutState.items.length - 1;
+    return `<div class="lay-row ${off ? 'is-off' : ''}" data-id="${escAttr(it.id)}">
+      <div class="lay-main">
+        <div class="lay-move"><button type="button" data-act="up" ${upOff ? 'disabled' : ''} aria-label="Move up">▲</button><button type="button" data-act="down" ${downOff ? 'disabled' : ''} aria-label="Move down">▼</button></div>
+        <div class="lay-name"><span data-role="name">${escAttr(sectionTitle(it.id))}</span>${pinned ? '<span class="lay-badge">ALWAYS FIRST</span>' : ''}${c ? '<span class="lay-badge">CUSTOM</span>' : ''}${!pinned && it.published === false ? '<span class="lay-badge draft">DRAFT</span>' : ''}<small>#${escAttr(it.id)}</small></div>
+        <div class="lay-flags">
+          <label><input type="checkbox" data-flag="visible" ${it.visible !== false ? 'checked' : ''} ${pinned ? 'disabled' : ''}> Visible</label>
+          <label><input type="checkbox" data-flag="published" ${it.published !== false ? 'checked' : ''} ${pinned ? 'disabled' : ''}> Published</label>
+          ${c ? `<button type="button" class="btn-mini" data-act="edit">${openSectionId === it.id ? 'Close' : 'Edit'}</button><button type="button" class="btn-mini danger" data-act="delete">Delete</button>` : ''}
+        </div>
+      </div>
+      ${c && openSectionId === it.id ? customEditorHtml(c) : ''}
+    </div>`;
+  }).join('');
+};
+
+const layoutBoxEvents = () => {
+  const box = $('#layout-list');
+  if (!box || box.dataset.wired) return;
+  box.dataset.wired = '1';
+  const rowOf = (el) => el.closest('.lay-row');
+  box.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const row = rowOf(btn); const id = row.dataset.id;
+    const i = layoutState.items.findIndex((x) => x.id === id);
+    const act = btn.dataset.act;
+    if (act === 'up' && i > 1) [layoutState.items[i - 1], layoutState.items[i]] = [layoutState.items[i], layoutState.items[i - 1]];
+    else if (act === 'down' && i < layoutState.items.length - 1) [layoutState.items[i + 1], layoutState.items[i]] = [layoutState.items[i], layoutState.items[i + 1]];
+    else if (act === 'edit') openSectionId = openSectionId === id ? null : id;
+    else if (act === 'delete') {
+      if (!confirm('Delete this section? This cannot be undone after you save.')) return;
+      layoutState.items.splice(i, 1);
+      layoutState.custom = layoutState.custom.filter((x) => x.id !== id);
+      if (openSectionId === id) openSectionId = null;
+    } else return;
+    renderLayoutEditor(); sendPreviewSoon();
+  });
+  box.addEventListener('change', (e) => {
+    const row = rowOf(e.target); if (!row) return;
+    const id = row.dataset.id;
+    if (e.target.dataset.flag) {
+      const it = layoutState.items.find((x) => x.id === id);
+      if (it) it[e.target.dataset.flag] = e.target.checked;
+      renderLayoutEditor();
+    } else if (e.target.dataset.f) {
+      const c = layoutState.custom.find((x) => x.id === id);
+      if (c) c[e.target.dataset.f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    }
+  });
+  box.addEventListener('input', (e) => {
+    const f = e.target.dataset && e.target.dataset.f;
+    if (!f) return;
+    const row = rowOf(e.target); const c = layoutState.custom.find((x) => x.id === row.dataset.id);
+    if (!c) return;
+    c[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    if (f === 'title') { const n = $('[data-role="name"]', row); if (n) n.textContent = sectionTitle(c.id); }
+  });
+};
+
+const addCustomSection = () => {
+  if (layoutState.custom.length >= 40) { showToast('You can add up to 40 custom sections.', 'error'); return; }
+  const id = 'c-' + Math.random().toString(36).slice(2, 8);
+  layoutState.custom.push({ id, title: 'New section', eyebrow: '', body: '', imageUrl: '', bgImage: '', buttonLabel: '', buttonUrl: '', button2Label: '', button2Url: '', style: 'text', navLabel: '', showInMenu: false });
+  layoutState.items.push({ id, visible: true, published: false });   // new sections start as drafts
+  openSectionId = id;
+  renderLayoutEditor(); sendPreviewSoon();
+  showToast('Section added as a draft. Fill it in, tick Published, then Save Changes.', 'success');
+};
+
+/* ---- friendly page-text editor (reads and writes the same JSON as the Advanced box) ---- */
+const humanizeKey = (k) => String(k).replace(/([A-Z])/g, ' $1').replace(/(\d+)/g, ' $1').replace(/^./, (ch) => ch.toUpperCase()).trim();
+const PT_GROUPS = [
+  ['Menu & buttons', null],
+  ['Quick links', /^quick/], ['Foundation, mission & faith', /^(foundation|mission|vision|values|faith(?!Statements)|story|founder|aboutExplore)/],
+  ['Sermons', /^sermons/], ['Events & weekly', /^(events|weekly)/], ['Gallery', /^gallery/],
+  ['Prayer wall & testimonies', /^(wall|testimonies)/], ['Connect', /^connect/], ['Giving & locations', /^(giving|locations)/],
+  ['Contact & social', /^(contact|social)/], ['Footer', /^footer/]
+];
+const getContentObj = () => {
+  try { const o = JSON.parse($('#field-page-content')?.value || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : null; } catch { return null; }
+};
+const writeContentObj = (o) => { const ta = $('#field-page-content'); if (ta) ta.value = JSON.stringify(o, null, 2); sendPreviewSoon(); };
+const ptField = (attr, key, val) => {
+  const long = String(val).length > 80 || String(val).includes('\n');
+  return `<div class="${long ? 'wide' : ''}"><label>${escAttr(humanizeKey(key))}</label>${long
+    ? `<textarea ${attr}="${escAttr(key)}" rows="${Math.min(6, Math.ceil(String(val).length / 90) + 1)}">${escAttr(val)}</textarea>`
+    : `<input type="text" ${attr}="${escAttr(key)}" value="${escAttr(val)}">`}</div>`;
+};
+const renderPageText = () => {
+  const box = $('#page-text-editor');
+  if (!box) return;
+  const obj = getContentObj();
+  if (obj === null) { box.innerHTML = '<p class="form-help">The Advanced JSON box in About &amp; Foundation has a mistake. Fix it there and this editor will come back.</p>'; return; }
+  const uiText = obj.uiText && typeof obj.uiText === 'object' ? obj.uiText : {};
+  const keys = Object.keys(obj).filter((k) => typeof obj[k] === 'string');
+  const claimed = new Set();
+  let html = '';
+  PT_GROUPS.slice(1).forEach(([title, re]) => {
+    const ks = keys.filter((k) => !claimed.has(k) && re.test(k));
+    ks.forEach((k) => claimed.add(k));
+    if (ks.length) html += `<div class="pt-group"><h4>${title}</h4><div class="pt-grid">${ks.map((k) => ptField('data-k', k, obj[k])).join('')}</div></div>`;
+  });
+  const rest = keys.filter((k) => !claimed.has(k));
+  if (rest.length) html += `<div class="pt-group"><h4>Other text</h4><div class="pt-grid">${rest.map((k) => ptField('data-k', k, obj[k])).join('')}</div></div>`;
+  const uk = Object.keys(uiText).filter((k) => typeof uiText[k] === 'string');
+  if (uk.length) html += `<div class="pt-group"><h4>Menu, buttons &amp; form labels</h4><div class="pt-grid">${uk.map((k) => ptField('data-ui', k, uiText[k])).join('')}</div></div>`;
+  const faith = Array.isArray(obj.faithStatements) ? obj.faithStatements : [];
+  html += `<div class="pt-group"><h4>Statement of faith</h4><div id="pt-faith">${faith.map((t, i) => `<div class="pt-faith-row"><textarea data-faith="${i}" rows="2">${escAttr(t)}</textarea><button type="button" class="btn-mini danger" data-faith-del="${i}">Remove</button></div>`).join('')}</div><button type="button" class="btn-mini" id="pt-faith-add">+ Add a statement</button></div>`;
+  box.innerHTML = html;
+};
+const wirePageText = () => {
+  const box = $('#page-text-editor');
+  if (!box || box.dataset.wired) return;
+  box.dataset.wired = '1';
+  box.addEventListener('input', (e) => {
+    const t = e.target; const obj = getContentObj(); if (!obj) return;
+    if (t.dataset.k) obj[t.dataset.k] = t.value;
+    else if (t.dataset.ui) { obj.uiText = obj.uiText && typeof obj.uiText === 'object' ? obj.uiText : {}; obj.uiText[t.dataset.ui] = t.value; }
+    else if (t.dataset.faith !== undefined) { if (!Array.isArray(obj.faithStatements)) obj.faithStatements = []; obj.faithStatements[Number(t.dataset.faith)] = t.value; }
+    else return;
+    writeContentObj(obj);
+  });
+  box.addEventListener('click', (e) => {
+    const obj = getContentObj(); if (!obj) return;
+    const del = e.target.closest('[data-faith-del]');
+    if (del) { obj.faithStatements = (obj.faithStatements || []).filter((_, i) => i !== Number(del.dataset.faithDel)); writeContentObj(obj); renderPageText(); }
+    else if (e.target.closest('#pt-faith-add')) { obj.faithStatements = [...(obj.faithStatements || []), '']; writeContentObj(obj); renderPageText(); }
+  });
+  $('#field-page-content')?.addEventListener('change', renderPageText);
+};
+
+/* ---- preview ---- */
+let previewWin = null, previewTimer = null;
+const sendPreview = () => {
+  if (!previewWin || previewWin.closed || getContentObj() === null) return;
+  try { previewWin.postMessage({ type: 'pai-preview', settings: collectFormData() }, location.origin); } catch { /* window gone */ }
+};
+function sendPreviewSoon() { clearTimeout(previewTimer); previewTimer = setTimeout(sendPreview, 500); }
+const openPreview = () => {
+  previewWin = window.open('/?preview=1', 'pai-preview');
+  if (!previewWin) showToast('Your browser blocked the preview window. Please allow pop-ups for this site.', 'error');
+};
+window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin || !previewWin || e.source !== previewWin) return;
+  if (e.data && e.data.type === 'pai-preview-ready') sendPreview();
+});
+$('#btn-preview')?.addEventListener('click', openPreview);
+$('#btn-layout-preview')?.addEventListener('click', openPreview);
+$('#btn-add-section')?.addEventListener('click', addCustomSection);
+document.addEventListener('input', sendPreviewSoon);
+document.addEventListener('change', sendPreviewSoon);
+
 const populateForm = (s) => {
   // Live Broadcast
   const isLive = Boolean(s.live?.isLiveNow);
@@ -702,6 +942,9 @@ const populateForm = (s) => {
   // This field is write-only: fill it in to set a NEW passkey.)
   $('#field-manager-passkey').value = '';
   $('#field-manager-passkey').placeholder = 'Leave blank to keep current passkey';
+
+  // Page Builder
+  loadLayoutState(s); layoutBoxEvents(); renderLayoutEditor(); wirePageText(); renderPageText();
 };
 
 // Collect Form Fields into JSON (site content only -- the passkey lives in
@@ -753,6 +996,7 @@ const collectFormData = () => {
       founderBio: $('#field-founder-bio').value.trim(),
       faithImage: $('#field-faith-image').value.trim()
     },
+    layout: collectLayout(),
     content: (() => {
       try {
         const parsed = JSON.parse($('#field-page-content')?.value || '{}');
