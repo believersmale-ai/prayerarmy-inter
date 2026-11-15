@@ -689,3 +689,62 @@ body.manager-mode-active .section-edit-trigger{display:inline-flex}
 .consent-actions .btn{width:auto;padding:12px 18px}
 .consent-actions .btn-ghost{color:#fff;border-color:rgba(255,255,255,.4)}
 @media(max-width:560px){.consent-banner{left:10px;right:10px;bottom:10px;padding:16px}.consent-actions{width:100%}.consent-actions .btn{flex:1}}
+
+/* ===== Final frontend redesign polish ===== */
+.frontend-redesign .sermon-feature,
+.frontend-redesign .mini-sermon,
+.frontend-redesign .message-card,
+.frontend-redesign .foundation-card,
+.frontend-redesign .contact-card,
+.frontend-redesign .location-card,
+.frontend-redesign .weekly-card,
+.frontend-redesign .pay-card{transition:transform .24s var(--ease),box-shadow .24s var(--ease),border-color .24s var(--ease)}
+.frontend-redesign .sermon-feature:hover,
+.frontend-redesign .mini-sermon:hover,
+.frontend-redesign .message-card:hover,
+.frontend-redesign .foundation-card:hover,
+.frontend-redesign .contact-card:hover,
+.frontend-redesign .location-card:hover,
+.frontend-redesign .weekly-card:hover,
+.frontend-redesign .pay-card:hover{transform:translateY(-4px);box-shadow:0 24px 54px -28px rgba(0,0,0,.48)}
+.frontend-redesign .sermon-feature:focus-within,
+.frontend-redesign .mini-sermon:focus-within,
+.frontend-redesign .message-card:focus-within{border-color:var(--gold2);box-shadow:0 0 0 3px rgba(220,188,116,.16)}
+.frontend-redesign .message-card.is-active{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(220,188,116,.28),0 18px 42px rgba(0,0,0,.26)}
+.frontend-redesign .message-card .message-play{min-height:190px}
+.frontend-redesign .message-card .message-play:focus-visible{outline:3px solid var(--gold2);outline-offset:-3px}
+.frontend-redesign .live-video-frame{min-height:0;aspect-ratio:16/9}
+.frontend-redesign .live-video-frame iframe,
+.frontend-redesign .live-video-frame video{border-radius:4px}
+.frontend-redesign .sermon-player{width:min(960px,calc(100% - 24px));border-radius:12px}
+.frontend-redesign .sp-stage{min-height:0;aspect-ratio:16/9}
+.frontend-redesign .sp-stage.sp-audio{aspect-ratio:auto;min-height:160px}
+.frontend-redesign .sp-title{max-width:calc(100% - 54px)}
+.frontend-redesign .archive-search input{min-height:50px;border-radius:999px}
+.frontend-redesign .messages-list{align-items:stretch}
+.frontend-redesign .messages-empty{display:grid;place-items:center;min-height:150px;border:1px dashed rgba(255,255,255,.2);background:rgba(255,255,255,.03);padding:24px}
+.frontend-redesign .live-status-pill{gap:8px}
+.frontend-redesign .live-status-pill::before{content:"";width:8px;height:8px;border-radius:50%;background:#d44b41;box-shadow:0 0 0 5px rgba(212,75,65,.12)}
+.frontend-redesign .section-head{row-gap:18px}
+.frontend-redesign .section-head .text-link{white-space:nowrap}
+.frontend-redesign button,
+.frontend-redesign input,
+.frontend-redesign select,
+.frontend-redesign textarea{font-family:inherit}
+@media(max-width:800px){
+  .frontend-redesign .sermon-feature{grid-template-columns:1fr}
+  .frontend-redesign .sermon-image{height:300px}
+  .frontend-redesign .messages-list{grid-template-columns:1fr}
+  .frontend-redesign .message-card .message-play{min-height:0}
+  .frontend-redesign .sp-stage{aspect-ratio:16/10}
+}
+@media(prefers-reduced-motion:reduce){
+  .frontend-redesign .sermon-feature,
+  .frontend-redesign .mini-sermon,
+  .frontend-redesign .message-card,
+  .frontend-redesign .foundation-card,
+  .frontend-redesign .contact-card,
+  .frontend-redesign .location-card,
+  .frontend-redesign .weekly-card,
+  .frontend-redesign .pay-card{transition:none}
+}
