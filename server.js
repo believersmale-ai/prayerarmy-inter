@@ -2,7 +2,10 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
+import { promisify } from 'util';
+
+const scrypt = promisify(scryptCallback);
 import multer from 'multer';
 import db from './database.js';
 
@@ -66,6 +69,29 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const derivedKey = await scrypt(password, salt, 64);
+  return `${salt}:${Buffer.from(derivedKey).toString('hex')}`;
+}
+
+async function verifyPassword(password, storedHash) {
+  const [salt, keyHex] = String(storedHash || '').split(':');
+  if (!salt || !keyHex) return false;
+  const derivedKey = await scrypt(password, salt, 64);
+  const storedKey = Buffer.from(keyHex, 'hex');
+  return storedKey.length === derivedKey.length && timingSafeEqual(storedKey, derivedKey);
+}
+
+function setAdminSession(res) {
+  const token = randomUUID();
+  ADMIN_SESSIONS.set(token, Date.now() + 8 * 60 * 60 * 1000);
+  res.setHeader(
+    'Set-Cookie',
+    `admin_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800`
+  );
+}
+
 function getSubmissionTable(type) {
   if (type === 'prayer') return 'prayer_requests';
   if (type === 'contact') return 'connect_requests';
@@ -104,6 +130,19 @@ async function ensureTables() {
     )
   `);
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      role VARCHAR(50) NOT NULL DEFAULT 'admin',
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      last_login_at TIMESTAMP NULL DEFAULT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
   // Repair older tables created with a different schema.
   const repairs = [
     "ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL",
@@ -132,6 +171,31 @@ async function ensureTables() {
       }
     }
   }
+}
+
+async function provisionInitialAdmin() {
+  const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const password = String(process.env.ADMIN_INITIAL_PASSWORD || '');
+
+  if (!email || !password) return;
+  if (password.length < 12) {
+    throw new Error('ADMIN_INITIAL_PASSWORD must be at least 12 characters');
+  }
+
+  const [existing] = await db.execute(
+    'SELECT id FROM admin_users WHERE email = ? LIMIT 1',
+    [email]
+  );
+
+  if (existing.length > 0) return;
+
+  const passwordHash = await hashPassword(password);
+  await db.execute(
+    'INSERT INTO admin_users (email, password_hash, role) VALUES (?, ?, ?)',
+    [email, passwordHash, 'admin']
+  );
+
+  console.log(`Initial admin account created for ${email}`);
 }
 
 // Serve the admin portal.
@@ -177,16 +241,53 @@ app.post('/api/verify-passkey', (req, res) => {
       return res.status(401).json({ success: false, error: 'Incorrect passkey' });
     }
 
-    const token = randomUUID();
-    ADMIN_SESSIONS.set(token, Date.now() + 8 * 60 * 60 * 1000);
-    res.setHeader(
-      'Set-Cookie',
-      `admin_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800`
-    );
+    setAdminSession(res);
     return res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Verification failed' });
   }
+});
+
+// Email/password login.
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const [rows] = await db.execute(
+      'SELECT id, email, password_hash, role FROM admin_users WHERE email = ? AND is_active = 1 LIMIT 1',
+      [email]
+    );
+
+    if (rows.length === 0 || !(await verifyPassword(password, rows[0].password_hash))) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    await db.execute(
+      'UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [rows[0].id]
+    );
+
+    setAdminSession(res);
+    res.json({
+      success: true,
+      user: { email: rows[0].email, role: rows[0].role }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error.message);
+    res.status(500).json({ error: 'Unable to sign in' });
+  }
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  const cookies = parseCookies(req);
+  if (cookies.admin_session) ADMIN_SESSIONS.delete(cookies.admin_session);
+  res.setHeader('Set-Cookie', 'admin_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+  res.json({ success: true });
 });
 
 // Database health check.
@@ -463,7 +564,8 @@ app.get('/{*splat}', (req, res) => {
 async function startServer() {
   try {
     await ensureTables();
-    console.log('Database tables are ready');
+    await provisionInitialAdmin();
+    console.log('Database tables and admin setup are ready');
 
     app.listen(PORT, HOST, () => {
       console.log(`Server running at http://${HOST}:${PORT}`);
