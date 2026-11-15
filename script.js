@@ -63,7 +63,7 @@ const DEFAULT_SETTINGS = {
     libraryUrl: "https://www.youtube.com/@prophetsugloprosper/videos",
     featuredKicker: "PROPHETIC MESSAGE",
     featuredTitle: "Experience the ministry of the Word",
-    featuredDesc: "Prophetic preaching, prayer and teaching from Prophet Suglo Prosper — messages to strengthen your faith and stir your spirit.",
+    featuredDesc: "Prophetic preaching, prayer and teaching from Prophet Suglo Prosper - messages to strengthen your faith and stir your spirit.",
     featuredUrl: "https://www.youtube.com/@prophetsugloprosper/videos",
     mini1Kicker: "PRAYER",
     mini1Title: "Moments of prayer and ministry",
@@ -519,7 +519,7 @@ const renderVerse = (s) => {
   $('#verse-ref').textContent = v.ref || '';
   band.hidden = false;
   const btn = $('#verse-share');
-  if (btn) btn.onclick = () => shareContent('Verse of the day', `“${v.text}” — ${v.ref || ''}`, SITE_ORIGIN + '/');
+  if (btn) btn.onclick = () => shareContent('Verse of the day', `“${v.text}” - ${v.ref || ''}`, SITE_ORIGIN + '/');
 };
 
 const renderLocations = (s) => {
@@ -554,7 +554,7 @@ const wireEventsUI = () => {
     const ev = eventsState.list[Number(b.dataset.i)];
     if (!ev) return;
     if (b.dataset.evAction === 'share') {
-      shareContent(ev.title, `${ev.title}${ev.dates ? ' — ' + ev.dates : ''} | Prayer Army International`, `${SITE_ORIGIN}/#events`);
+      shareContent(ev.title, `${ev.title}${ev.dates ? ' - ' + ev.dates : ''} | Prayer Army International`, `${SITE_ORIGIN}/#events`);
     } else {
       const start = new Date(ev.start);
       let end = new Date(ev.end || '');
@@ -771,7 +771,7 @@ const applySettings = (s) => {
 
   if (liveStatus) {
     liveStatus.innerHTML = isLive
-      ? '<span class="pulse" style="background:#e53e3e"></span> Service is currently live — tune in now!'
+      ? '<span class="pulse" style="background:#e53e3e"></span> Service is currently live - tune in now!'
       : `<span class="pulse"></span> ${escapeHtml(s.live?.statusNote || 'Regular Sunday and Prophetic Services streamed live')}`;
   }
 
@@ -825,7 +825,7 @@ const applySettings = (s) => {
     livePlayBtn.hidden = !canPlayInline;
     liveThumb.style.cursor = canPlayInline ? 'pointer' : 'default';
     liveCaption.textContent = isLive
-      ? (canPlayInline ? '🔴 LIVE — tap to watch' : 'Live now — link not yet configured for on-site playback')
+      ? (canPlayInline ? '🔴 LIVE - tap to watch' : 'Live now - link not yet configured for on-site playback')
       : (canPlayInline ? 'Tap to preview' : 'Live preview will appear here once a stream link is set');
 
     livePlayBtn.onclick = startPlayback;
@@ -847,8 +847,7 @@ const applySettings = (s) => {
   if (aHeading && s.about?.heading) {
     // Wrap **text** as a gold accent span. This used to silently discard the
     // accent styling entirely once settings loaded (innerHTML was set to the
-    // plain heading text with no way to mark which part gets the color) —
-    // now the admin's Heading field can mark the accented part with **stars**
+    // plain heading text with no way to mark which part gets the color) - // now the admin's Heading field can mark the accented part with **stars**
     // and it's escaped first, so no raw HTML can be injected through it.
     aHeading.innerHTML = escapeHtml(s.about.heading).replace(/\*\*(.+?)\*\*/g, '<span>$1</span>');
   }
@@ -1199,7 +1198,7 @@ prayerForm?.addEventListener('submit', async e => {
     });
     if (!r.ok) throw new Error(await failMessage(r, 'Sorry, something went wrong. Please try again in a moment.'));
     pixelEvent('Contact', { content_name: 'prayer request' });
-    done('Thank you — your request has been received and we are standing with you in prayer.');
+    done('Thank you - your request has been received and we are standing with you in prayer.');
   } catch (err) {
     prayerNote.textContent = err instanceof Error ? err.message : 'Sorry, something went wrong. Please try again in a moment.';
     prayerNote.className = 'form-note err';
@@ -1209,13 +1208,13 @@ prayerForm?.addEventListener('submit', async e => {
 });
 
 /* =========================================================================
-   MESSAGES ARCHIVE — past broadcasts saved after each live service.
+   MESSAGES ARCHIVE - past broadcasts saved after each live service.
    Text + optional link + optional uploaded audio/video only, never a
    picture. Visitors can comment and the form never leaves the page.
    ========================================================================= */
 
 /* =========================================================================
-   ON-SITE SERMON PLAYER — every sermon plays here, never on another site.
+   ON-SITE SERMON PLAYER - every sermon plays here, never on another site.
    Supports YouTube (video / playlist), Facebook, Vimeo, direct MP4/WebM
    and MP3/M4A files.
    ========================================================================= */
@@ -1397,7 +1396,7 @@ const renderComments = (listEl, comments) => {
           <div class="comment-meta"><span class="comment-name">${escapeHtml(c.name)}</span><span>${formatMessageDate(c.created_at)}</span></div>
           <p class="comment-text">${escapeHtml(c.comment)}</p>
         </li>`).join('')
-    : '<p class="comment-empty">No comments yet — be the first to respond.</p>';
+    : '<p class="comment-empty">No comments yet - be the first to respond.</p>';
 };
 
 const buildMessageCard = (msg) => {
@@ -1491,7 +1490,7 @@ const buildMessageCard = (msg) => {
       renderComments(commentList, msg.comments);
       $('.comment-count', card).textContent = msg.comments.length;
       form.reset();
-      note.textContent = 'Comment posted — thank you!';
+      note.textContent = 'Comment posted - thank you!';
       note.className = 'form-note ok';
     } catch (err) {
       note.textContent = err instanceof Error && err.message ? err.message : 'Could not post your comment. Please try again.';
@@ -1524,7 +1523,7 @@ const loadMessages = async () => {
 
     messagesList.innerHTML = '';
     if (!messages.length) {
-      messagesList.innerHTML = '<p class="messages-empty">No archived sermons yet — they appear here after each live service.</p>';
+      messagesList.innerHTML = '<p class="messages-empty">No archived sermons yet - they appear here after each live service.</p>';
       return;
     }
     archiveItems = messages.filter((m) => m.media_url || getPlayable(m.link));
@@ -1715,6 +1714,67 @@ loadWall();
 wirePublicForm('#wall-form', '#wall-note', 'wall_prayers',
   (d) => ({ name: (d.name || '').trim().slice(0, 60) || null, request: (d.request || '').trim().slice(0, 400) }),
   'Thank you. Your request will appear on the wall once it has been reviewed. We are praying with you.');
+
+// Giving: count clicks on the payment buttons (event name only, no amounts or details)
+
+/* =========================================================================
+   FRONTEND REDESIGN BEHAVIOR
+   Progressive enhancement: existing forms, API calls, sermon playback,
+   live stream handling, and admin redirects remain unchanged.
+   ========================================================================= */
+document.documentElement.classList.add('frontend-redesign');
+
+const redesignPlayer = $('#sermon-player');
+const redesignStage = $('#sp-stage');
+const redesignTitle = $('#sp-title');
+const redesignArchive = $('#messages-list');
+
+const clearRedesignSermonState = () => {
+  $$('[data-sermon].is-active, .message-card.is-active').forEach((item) => {
+    item.classList.remove('is-active');
+    item.removeAttribute('aria-current');
+  });
+};
+
+const markRedesignSermon = (item) => {
+  clearRedesignSermonState();
+  if (!item) return;
+  const card = item.closest('.message-card, .sermon-card, .sermon-feature, .mini-sermon') || item;
+  card.classList.add('is-active');
+  if (item.matches('[data-sermon]')) item.setAttribute('aria-current', 'true');
+};
+
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('[data-sermon], .message-play');
+  if (trigger) markRedesignSermon(trigger);
+});
+
+if (redesignArchive) {
+  const redesignObserver = new MutationObserver(() => {
+    $$('.message-card, .sermon-card', redesignArchive).forEach((card) => {
+      card.classList.add('redesign-sermon-card');
+      const play = $('.message-play', card);
+      if (play) play.setAttribute('aria-label', play.getAttribute('aria-label') || 'Play sermon');
+    });
+  });
+  redesignObserver.observe(redesignArchive, { childList: true, subtree: true });
+}
+
+if (redesignTitle) redesignTitle.setAttribute('aria-live', 'polite');
+if (redesignPlayer) {
+  redesignPlayer.addEventListener('close', clearRedesignSermonState);
+  redesignPlayer.addEventListener('cancel', clearRedesignSermonState);
+}
+
+const syncRedesignPlayerAspect = () => {
+  if (!redesignStage) return;
+  const media = redesignStage.querySelector('iframe, video');
+  redesignStage.classList.toggle('has-media', Boolean(media));
+};
+if (redesignStage) {
+  new MutationObserver(syncRedesignPlayerAspect).observe(redesignStage, { childList: true, subtree: true });
+  syncRedesignPlayerAspect();
+}
 
 // Giving: count clicks on the payment buttons (event name only, no amounts or details)
 document.addEventListener('click', (e) => {
