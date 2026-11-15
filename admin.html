@@ -1124,6 +1124,24 @@
       .app-body { flex-direction: column; }
     }
   </style>
+<style id="pai-premium-admin-overrides">
+  :root { --admin-accent:#d2ad62; --admin-radius:14px; --admin-line:rgba(210,173,98,.2); }
+  body { background:#080d17; }
+  .sidebar { background:#0b1220 !important; border-right:1px solid rgba(210,173,98,.15); }
+  .sidebar-btn { transition:background .2s ease, color .2s ease, transform .2s ease; }
+  .sidebar-btn:hover { background:rgba(210,173,98,.09); transform:translateX(2px); }
+  .sidebar-btn.active { background:rgba(210,173,98,.13) !important; color:#f2d89f !important; }
+  .view-header { margin-bottom:26px; }
+  .view-header h2 { letter-spacing:-.035em; }
+  .card, .panel, .admin-card, .stat-card, .settings-card, .admin-item { border:1px solid rgba(210,173,98,.16) !important; border-radius:14px !important; background:#111a2b !important; box-shadow:0 16px 40px rgba(0,0,0,.18) !important; }
+  .card { padding:clamp(18px,2.4vw,28px); }
+  input, textarea, select { border-radius:8px !important; border-color:#344057 !important; background:#0b1322 !important; }
+  input:focus, textarea:focus, select:focus { border-color:#d2ad62 !important; box-shadow:0 0 0 3px rgba(210,173,98,.12) !important; outline:none; }
+  button, .btn-mini { transition:filter .2s ease, transform .2s ease; }
+  button:hover, .btn-mini:hover { filter:brightness(1.08); }
+  #field-page-content { min-height:460px; tab-size:2; }
+  @media(max-width:760px){ .card{padding:18px !important;} }
+</style>
 </head>
 <body>
 
@@ -1806,6 +1824,16 @@
                 <label for="field-founder-bio">Founder Story / Bio</label>
                 <textarea id="field-founder-bio" rows="3"></textarea>
               </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Website Page Content</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px;">Edit the remaining public page headings, labels and explanatory copy here. Keep the JSON structure and edit only the text between quotation marks. For split headings, use the vertical bar | to separate the gold-highlighted phrase. Statement of faith entries are one item per line.</p>
+              <div class="form-group">
+                <label for="field-page-content">Additional page content (JSON)</label>
+                <textarea id="field-page-content" rows="28" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.55;"></textarea>
+              </div>
+              <p class="form-help">This editor controls section headings, section introductions, contact-card labels, footer labels and the full Statement of Faith. Existing forms, media, events and other features remain separate.</p>
             </div>
 
             <div class="card">

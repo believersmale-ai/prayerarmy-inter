@@ -414,6 +414,11 @@ sidebarButtons.forEach(btn => {
    3. SETTINGS DATA & DOM POPULATION
    ========================================================================= */
 const loadSettings = async () => {
+  let defaults = {};
+  try {
+    const defaultsRes = await fetch('/site-settings.json', { cache: 'no-store' });
+    if (defaultsRes.ok) defaults = await defaultsRes.json();
+  } catch {}
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/site_settings?select=data&id=eq.1`,
@@ -421,11 +426,18 @@ const loadSettings = async () => {
     );
     if (res.ok) {
       const rows = await res.json();
-      currentSettings = rows?.[0]?.data || {};
+      const stored = rows?.[0]?.data || {};
+      currentSettings = { ...defaults, ...stored, content: { ...(defaults.content || {}), ...(stored.content || {}) } };
+      populateForm(currentSettings);
+    } else if (Object.keys(defaults).length) {
+      currentSettings = defaults;
       populateForm(currentSettings);
     }
   } catch (err) {
-    showToast('Failed to load settings from server', 'error');
+    if (Object.keys(defaults).length) {
+      currentSettings = defaults;
+      populateForm(currentSettings);
+    } else showToast('Failed to load settings from server', 'error');
   }
 };
 
@@ -650,6 +662,7 @@ const populateForm = (s) => {
   $('#field-values-text').value = s.foundation?.valuesText || '';
   $('#field-founder-bio').value = s.foundation?.founderBio || '';
   $('#field-faith-image').value = s.foundation?.faithImage || '';
+  if ($('#field-page-content')) $('#field-page-content').value = JSON.stringify(s.content || {}, null, 2);
 
   // Giving
   $('#field-give-heading').value = s.giving?.heading || '';
@@ -740,6 +753,16 @@ const collectFormData = () => {
       founderBio: $('#field-founder-bio').value.trim(),
       faithImage: $('#field-faith-image').value.trim()
     },
+    content: (() => {
+      try {
+        const parsed = JSON.parse($('#field-page-content')?.value || '{}');
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Content must be a JSON object');
+        return parsed;
+      } catch (error) {
+        showToast('Page Content JSON is invalid. Please correct it before saving.', 'error');
+        return currentSettings.content || {};
+      }
+    })(),
     live: {
       isLiveNow: $('#field-is-live').checked,
       title: $('#field-live-title').value.trim(),
@@ -1434,6 +1457,15 @@ const renderMediaGrid = () => {
 const btnSaveAll = $('#btn-save-all');
 
 const saveSettings = async (showNotification = true) => {
+  try {
+    const rawPageContent = $('#field-page-content')?.value || '{}';
+    const parsedPageContent = JSON.parse(rawPageContent);
+    if (!parsedPageContent || typeof parsedPageContent !== 'object' || Array.isArray(parsedPageContent)) throw new Error('Page content must be a JSON object');
+  } catch {
+    showToast('Page Content JSON is invalid. Correct it before saving.', 'error');
+    $('#field-page-content')?.focus();
+    return;
+  }
   const data = collectFormData();
   const newPasskey = $('#field-manager-passkey')?.value.trim();
   btnSaveAll.disabled = true;

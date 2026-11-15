@@ -111,6 +111,91 @@ const DEFAULT_SETTINGS = {
     whatsapp: "https://wa.me/233241234567",
     telegram: ""
   },
+  content: {
+    "foundationEyebrow": "OUR FOUNDATION",
+    "foundationHeading": "Built on|prayer, truth and faith.",
+    "foundationIntro": "Who we are, where we are headed, and the convictions that hold us together.",
+    "missionKicker": "OUR MISSION",
+    "visionKicker": "OUR VISION",
+    "valuesKicker": "OUR VALUES",
+    "faithEyebrow": "STATEMENT OF FAITH",
+    "faithHeading": "What we believe",
+    "faithStatements": [
+        "We believe in one God, eternally existing as Father, Son and Holy Spirit, the Creator of heaven and earth and the source of all life.",
+        "We believe in Jesus Christ, the Son of God, who came in the flesh, died for our sins, rose again, and is Lord and Saviour of all who believe in Him.",
+        "We believe in the Holy Spirit, who convicts, regenerates, indwells, guides and empowers believers to live holy lives and serve God’s purposes.",
+        "We believe the Bible is God’s Word, trustworthy and authoritative for faith, doctrine, character and Christian living.",
+        "We believe in salvation by grace through faith in Jesus Christ, repentance from sin, the new birth and a life that reflects the character of Christ.",
+        "We believe in prayer, worship and the spiritual gifts, and that God still works through the Holy Spirit to strengthen, comfort, equip and build His Church.",
+        "We believe in the Great Commission: that every believer is called to share the gospel, make disciples and demonstrate God’s love through service.",
+        "We believe in the return of Jesus Christ, the resurrection of the dead, the final judgment and the eternal hope promised by God to His people."
+    ],
+    "storyEyebrow": "OUR STORY",
+    "founderEyebrow": "FOUNDER",
+    "founderCardName": "Prophet Suglo Prosper",
+    "sermonsEyebrow": "WATCH & LISTEN",
+    "sermonsArchiveLabel": "Sermon archive",
+    "sermonsArchiveHeading": "Sermon archive",
+    "sermonsArchiveCopy": "Every past message and live service is kept here. Press play to watch or listen without leaving the site.",
+    "eventsEyebrow": "PROGRAMS & EVENTS",
+    "eventsHeading": "Gather. Pray.|Transform.",
+    "eventsLinkLabel": "All events",
+    "weeklyEyebrow": "EVERY WEEK",
+    "weeklyHeading": "Weekly|activities",
+    "galleryEyebrow": "LIFE AT PRAYER ARMY",
+    "galleryHeading": "Moments from the|ministry.",
+    "galleryLinkLabel": "View gallery",
+    "wallEyebrow": "STAND WITH US",
+    "wallHeading": "The|prayer wall",
+    "wallCopy": "Requests shared by our church family. Tap “I prayed” to let them know someone stood with them.",
+    "testimoniesEyebrow": "WHAT GOD HAS DONE",
+    "testimoniesHeading": "Testimonies of|God’s faithfulness",
+    "testimoniesCopy": "Healings, breakthroughs, answered prayers. Read what the Lord is doing in our midst, and share yours.",
+    "connectEyebrow": "NEW HERE? LET’S CONNECT",
+    "connectHeading": "We would love to|meet you.",
+    "connectCopy": "Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.",
+    "givingEyebrow": "PARTNER WITH THE MINISTRY",
+    "locationsEyebrow": "VISIT US",
+    "locationsHeading": "Our|locations",
+    "locationsCopy": "Find the branch nearest to you, with service times and directions.",
+    "contactEyebrow": "GET IN TOUCH",
+    "contactHeading": "Connect with|Prayer Army.",
+    "contactIntro": "Whether you have questions, desire counseling, want to visit, or wish to follow the prophetic ministry online, connect with us through any of our channels.",
+    "contactLocationTitle": "Headquarters",
+    "contactLocationNote": "Central Altar & Sanctuary",
+    "contactPhoneTitle": "Phone & WhatsApp",
+    "contactPhoneNote": "Lines open for prayer and inquiries",
+    "contactEmailTitle": "Official Email",
+    "contactEmailNote": "Official ministry correspondence",
+    "socialCardHeading": "Follow Us on Social Media",
+    "socialCardCopy": "Stay spiritually enriched daily. Watch full sermons, join prayer streams, and follow ministry updates across our official social channels.",
+    "footerExploreTitle": "Explore",
+    "footerConnectTitle": "Connect",
+    "footerHqTitle": "Headquarters",
+    "footerCredit": "Built for ministry, media & mission.",
+    "quick1Title": "Latest Sermons",
+    "quick1Copy": "Watch and listen to messages",
+    "quick2Title": "Live Services",
+    "quick2Copy": "Join services online",
+    "quick3Title": "Upcoming Events",
+    "quick3Copy": "Discover ministry programs",
+    "quick4Title": "Prayer Request",
+    "quick4Copy": "Let us pray with you",
+    "footerTagline": "Raising Generals, Transforming Generations.",
+    "aboutExploreLabel": "Explore our foundation",
+    "uiText": {
+      "navAbout":"About","navSermons":"Sermons","navLive":"Live","navEvents":"Events","navGallery":"Gallery","navPrayer":"Prayer","navContact":"Contact","navGive":"Give",
+      "eventKicker":"UPCOMING PROGRAM","eventButton":"View Event","eventStackBrand":"Prayer Army International","founderCta":"Meet the founder","sermonWatch":"Watch message","sermonMiniWatch":"Watch","livePreviewCaption":"Tap to preview",
+      "connectVisitorOption":"I'm new / visiting","connectVolunteerOption":"I want to volunteer (choir, ushers, media, children…)","connectCounselingOption":"I'd like counseling or a pastoral appointment","connectOtherOption":"Something else",
+      "sermonSearchPlaceholder":"Search sermons by title or topic…","podcastLead":"🎧 Prefer to listen on your phone?","podcastButton":"Copy our podcast feed link","podcastTail":"and paste it into Spotify, Apple Podcasts or any podcast app.",
+      "prayerNameLabel":"Name","prayerContactLabel":"Phone / Email","prayerRequestLabel":"Prayer request","prayerPrivateLabel":"Keep this request confidential","prayerSubmit":"Submit Prayer Request",
+      "wallSummary":"Add a request to the wall","wallNotice":"This will be visible to everyone once approved. Please don't include phone numbers, addresses or private details. For a private request, use the prayer form above.","wallNameLabel":"Your first name (optional)","wallRequestLabel":"Prayer request","wallSubmit":"Submit to the wall",
+      "testimonySummary":"Share your testimony","testimonyNameLabel":"Name","testimonyLocationLabel":"Town / Country","testimonyTextLabel":"Your testimony","testimonySubmit":"Submit testimony","testimonyReviewNote":"Testimonies are reviewed before they appear on the site.",
+      "connectKindLabel":"How can we help?","connectNameLabel":"Name","connectPhoneLabel":"Phone / WhatsApp","connectEmailLabel":"Email","connectNoteLabel":"Anything we should know?","connectSubmit":"Send",
+      "footerAbout":"About","footerSermons":"Sermons","footerEvents":"Events","footerGallery":"Gallery","footerLive":"Live Stream","footerPrayer":"Prayer Request","footerGive":"Give","footerContact":"Contact","footerPrivacy":"Privacy",
+      "yourNamePlaceholder":"Your name","optionalPlaceholder":"Optional","prayerRequestPlaceholder":"How can we pray with you?","anonymousPlaceholder":"Or leave blank to stay anonymous","testimonyPlaceholder":"Tell us what God has done…","phonePlaceholder":"e.g. 024 000 0000","emailOptionalPlaceholder":"Optional if you gave a phone number"
+    }
+},
   tracking: { metaPixelId: "" },
   verses: [
     { text: "The LORD is my shepherd; I shall not want.", ref: "Psalm 23:1" },
@@ -641,6 +726,71 @@ const renderWeekly = (s) => {
 const applySettings = (s) => {
   currentSettings = s;
 
+  // Editable editorial copy: all values are plain text from site-settings.json.
+  // Split headings use "main|accent" so the highlighted phrase remains semantic and safe.
+  const pageCopy = s.content || {};
+  const uiText = pageCopy.uiText || {};
+  document.querySelectorAll('[data-copy-key]').forEach((el) => {
+    const value = uiText[el.dataset.copyKey];
+    if (typeof value === 'string') el.textContent = value;
+  });
+  document.querySelectorAll('[data-placeholder-key]').forEach((el) => {
+    const value = uiText[el.dataset.placeholderKey];
+    if (typeof value === 'string') el.setAttribute('placeholder', value);
+  });
+  const copyTargets = {
+    foundationEyebrow:'foundation-eyebrow', foundationIntro:'foundation-intro', missionKicker:'mission-kicker',
+    visionKicker:'vision-kicker', valuesKicker:'values-kicker', faithEyebrow:'faith-eyebrow', faithHeading:'faith-heading',
+    storyEyebrow:'story-eyebrow', founderEyebrow:'founder-eyebrow', founderCardName:'founder-card-name',
+    sermonsEyebrow:'sermons-eyebrow', sermonsArchiveHeading:'sermons-archive-heading', sermonsArchiveCopy:'sermons-archive-copy',
+    eventsEyebrow:'events-eyebrow', eventsLinkLabel:'events-link-label', weeklyEyebrow:'weekly-eyebrow',
+    galleryEyebrow:'gallery-eyebrow', galleryLinkLabel:'gallery-link-label', wallEyebrow:'wall-eyebrow', wallCopy:'wall-copy',
+    testimoniesEyebrow:'testimonies-eyebrow', testimoniesCopy:'testimonies-copy', connectEyebrow:'connect-eyebrow',
+    connectCopy:'connect-copy', givingEyebrow:'giving-eyebrow', locationsEyebrow:'locations-eyebrow', locationsCopy:'locations-copy',
+    contactEyebrow:'contact-eyebrow', contactIntro:'contact-intro', contactLocationTitle:'contact-card-location-title',
+    contactLocationNote:'contact-card-location-note', contactPhoneTitle:'contact-card-phone-title', contactPhoneNote:'contact-card-phone-note',
+    contactEmailTitle:'contact-card-email-title', contactEmailNote:'contact-card-email-note', socialCardHeading:'social-card-heading',
+    socialCardCopy:'social-card-copy', footerExploreTitle:'footer-explore-title', footerConnectTitle:'footer-connect-title',
+    footerHqTitle:'footer-hq-title', footerCredit:'footer-credit', footerTagline:'footer-tagline'
+  };
+  Object.entries(copyTargets).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el && typeof pageCopy[key] === 'string' && pageCopy[key]) el.textContent = pageCopy[key];
+  });
+  const setSplitHeading = (key, id) => {
+    const el = document.getElementById(id), value = pageCopy[key];
+    if (!el || typeof value !== 'string' || !value) return;
+    const parts = value.split('|');
+    el.textContent = '';
+    el.append(document.createTextNode(parts[0] || ''));
+    if (parts.length > 1) {
+      el.append(document.createTextNode(' '));
+      const accent = document.createElement('span'); accent.textContent = parts.slice(1).join('|'); el.append(accent);
+    }
+  };
+  if (pageCopy.aboutExploreLabel) { const el = document.getElementById('about-explore-link'); if (el) el.innerHTML = `${escapeHtml(pageCopy.aboutExploreLabel)} <span>↓</span>`; }
+  setSplitHeading('foundationHeading', 'foundation-heading');
+  setSplitHeading('eventsHeading', 'events-heading');
+  setSplitHeading('weeklyHeading', 'weekly-heading');
+  setSplitHeading('galleryHeading', 'gallery-heading');
+  setSplitHeading('wallHeading', 'wall-heading');
+  setSplitHeading('testimoniesHeading', 'testimonies-heading');
+  setSplitHeading('connectHeading', 'connect-heading');
+  setSplitHeading('locationsHeading', 'locations-heading');
+  setSplitHeading('contactHeading', 'contact-heading');
+  if (pageCopy.sermonsArchiveLabel) { const el = document.getElementById('sermons-archive-link'); if (el) el.innerHTML = `${escapeHtml(pageCopy.sermonsArchiveLabel)} <span>↓</span>`; }
+  for (let i = 1; i <= 4; i++) {
+    const title = document.getElementById(`quick${i}-title`), copy = document.getElementById(`quick${i}-copy`);
+    if (title && pageCopy[`quick${i}Title`]) title.textContent = pageCopy[`quick${i}Title`];
+    if (copy && pageCopy[`quick${i}Copy`]) copy.textContent = pageCopy[`quick${i}Copy`];
+  }
+  const faithCopy = document.querySelector('.faith-copy');
+  if (faithCopy && Array.isArray(pageCopy.faithStatements) && pageCopy.faithStatements.length) {
+    faithCopy.replaceChildren(...pageCopy.faithStatements.filter(x => typeof x === 'string' && x.trim()).map(statement => {
+      const paragraph = document.createElement('p'); paragraph.textContent = statement; return paragraph;
+    }));
+  }
+
   // Church Logo (header, footer, favicon)
   if (s.general?.logoUrl) {
     const logoHeader = $('#site-logo-header'), logoFooter = $('#site-logo-footer'), favicon = $('#site-favicon');
@@ -1125,7 +1275,7 @@ const loadInitialSettings = async () => {
     } catch {}
   }
 
-  const finalSettings = Object.assign({}, DEFAULT_SETTINGS, loaded || {});
+  const finalSettings = { ...DEFAULT_SETTINGS, ...(loaded || {}), content: { ...(DEFAULT_SETTINGS.content || {}), ...((loaded && loaded.content) || {}), uiText: { ...((DEFAULT_SETTINGS.content || {}).uiText || {}), ...((loaded && loaded.content && loaded.content.uiText) || {}) } } };
   applySettings(finalSettings);
 };
 

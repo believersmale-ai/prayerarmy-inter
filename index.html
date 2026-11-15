@@ -23,6 +23,7 @@
   <meta name="twitter:image" content="https://YOUR-DOMAIN.com/assets/images/FB_IMG_1790281482379.jpg">
   <link rel="preload" as="image" href="assets/images/FB_IMG_1790281482379.jpg">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="template.css">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Church","name":"Prayer Army International","founder":{"@type":"Person","name":"Prophet Suglo Prosper"},"address":{"@type":"PostalAddress","addressRegion":"Upper West Region","addressCountry":"GH"},"slogan":"Raising Generals, Transforming Generations"}</script>
 </head>
 <body>
@@ -44,14 +45,14 @@
       </a>
       <button class="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="primary-nav"><span></span><span></span><span></span></button>
       <nav class="nav" id="primary-nav" aria-label="Primary navigation">
-        <a href="#about">About</a>
-        <a href="#sermons">Sermons</a>
-        <a href="#live">Live <span class="nav-live-indicator" id="nav-live-dot" hidden>●</span></a>
-        <a href="#events">Events</a>
-        <a href="#gallery">Gallery</a>
-        <a href="#prayer">Prayer</a>
-        <a href="#contact">Contact</a>
-        <a class="nav-give" href="#give">Give</a>
+        <a href="#about" data-copy-key="navAbout">About</a>
+        <a href="#sermons" data-copy-key="navSermons">Sermons</a>
+        <a href="#live"><span data-copy-key="navLive">Live</span> <span class="nav-live-indicator" id="nav-live-dot" hidden>●</span></a>
+        <a href="#events" data-copy-key="navEvents">Events</a>
+        <a href="#gallery" data-copy-key="navGallery">Gallery</a>
+        <a href="#prayer" data-copy-key="navPrayer">Prayer</a>
+        <a href="#contact" data-copy-key="navContact">Contact</a>
+        <a class="nav-give" href="#give" data-copy-key="navGive">Give</a>
       </nav>
     </div>
   </header>
@@ -75,10 +76,10 @@
 
     <section class="quick-links">
       <div class="container quick-grid reveal">
-        <a href="#sermons"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span><div><b>Latest Sermons</b><small>Watch and listen to messages</small></div></a>
-        <a href="#live"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg></span><div><b>Live Services</b><small>Join services online</small></div></a>
-        <a href="#events"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><div><b>Upcoming Events</b><small>Discover ministry programs</small></div></a>
-        <a href="#prayer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg></span><div><b>Prayer Request</b><small>Let us pray with you</small></div></a>
+        <a href="#sermons"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span><div><b id="quick1-title">Latest Sermons</b><small id="quick1-copy">Watch and listen to messages</small></div></a>
+        <a href="#live"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg></span><div><b id="quick2-title">Live Services</b><small id="quick2-copy">Join services online</small></div></a>
+        <a href="#events"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><div><b id="quick3-title">Upcoming Events</b><small id="quick3-copy">Discover ministry programs</small></div></a>
+        <a href="#prayer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg></span><div><b id="quick4-title">Prayer Request</b><small id="quick4-copy">Let us pray with you</small></div></a>
       </div>
     </section>
 
@@ -107,7 +108,7 @@
             <div><strong id="about-stat2-title">Ghana</strong><small id="about-stat2-desc">Headquartered in the Upper West Region</small></div>
             <div><strong id="about-stat3-title">Prophetic</strong><small id="about-stat3-desc">Ministry expression</small></div>
           </div>
-          <a class="text-link" href="#foundation">Explore our foundation <span>↓</span></a>
+          <a class="text-link" id="about-explore-link" href="#foundation">Explore our foundation <span>↓</span></a>
         </div>
       </div>
     </section>
@@ -115,23 +116,23 @@
     <section class="section foundation" id="foundation">
       <div class="container">
         <div class="section-head">
-          <div><p class="eyebrow dark">OUR FOUNDATION</p><h2>Built on <span>prayer, truth and faith.</span></h2></div>
-          <p class="foundation-intro">Who we are, where we are headed, and the convictions that hold us together.</p>
+          <div><p class="eyebrow dark" id="foundation-eyebrow">OUR FOUNDATION</p><h2 id="foundation-heading">Built on <span>prayer, truth and faith.</span></h2></div>
+          <p class="foundation-intro" id="foundation-intro">Who we are, where we are headed, and the convictions that hold us together.</p>
         </div>
 
         <div class="foundation-grid reveal">
           <article class="foundation-card featured">
-            <p class="kicker dark-kicker">OUR MISSION</p>
+            <p class="kicker dark-kicker" id="mission-kicker">OUR MISSION</p>
             <h3 id="foundation-mission-title">To raise people of prayer, faith and spiritual purpose.</h3>
             <p id="foundation-mission-text">Prayer Army International exists to proclaim Jesus Christ, cultivate a life of prayer, teach God's Word, develop believers for purposeful Christian living, and equip people to serve their generation with faith, courage and love.</p>
           </article>
           <article class="foundation-card">
-            <p class="kicker dark-kicker">OUR VISION</p>
+            <p class="kicker dark-kicker" id="vision-kicker">OUR VISION</p>
             <h3 id="foundation-vision-title">To raise generals who transform generations.</h3>
             <p id="foundation-vision-text">We envision a growing community of Spirit-filled believers who know God, walk in truth, pray with confidence, live with integrity and become a positive spiritual influence in their families, communities and nations.</p>
           </article>
           <article class="foundation-card">
-            <p class="kicker dark-kicker">OUR VALUES</p>
+            <p class="kicker dark-kicker" id="values-kicker">OUR VALUES</p>
             <h3 id="foundation-values-title">Prayer. Word. Faith. Love. Service.</h3>
             <p id="foundation-values-text">We value a life of prayer, biblical truth, faith in God, Christlike love, integrity, excellence, discipleship, evangelism and practical service to people.</p>
           </article>
@@ -139,8 +140,8 @@
 
         <div class="faith-block reveal">
           <div class="faith-heading">
-            <p class="eyebrow dark">STATEMENT OF FAITH</p>
-            <h3>What we believe</h3>
+            <p class="eyebrow dark" id="faith-eyebrow">STATEMENT OF FAITH</p>
+            <h3 id="faith-heading">What we believe</h3>
             <div class="faith-media" id="faith-media">
               <img id="foundation-faith-image" width="1200" height="900" loading="lazy" decoding="async" src="assets/images/statement-of-faith.jpg" alt="Prayer Army International — Statement of Faith">
             </div>
@@ -159,15 +160,15 @@
 
         <div class="story-grid reveal">
           <article class="story-card">
-            <p class="eyebrow dark">OUR STORY</p>
+            <p class="eyebrow dark" id="story-eyebrow">OUR STORY</p>
             <h3 id="foundation-story-title">A prophetic ministry with a heart for people.</h3>
             <p id="foundation-story-text">Prayer Army International is a prophetic church headquartered in the Upper West Region of Ghana and founded by Prophet Suglo Prosper. The ministry's public expression brings together prayer, prophetic ministry, worship, teaching and the call to transformed Christian living.</p>
           </article>
           <article class="story-card founder-card">
-            <p class="eyebrow dark">FOUNDER</p>
-            <h3>Prophet Suglo Prosper</h3>
+            <p class="eyebrow dark" id="founder-eyebrow">FOUNDER</p>
+            <h3 id="founder-card-name">Prophet Suglo Prosper</h3>
             <p id="foundation-founder-bio">Founder of Prayer Army International and a minister whose public ministry is expressed through preaching, prayer, prophetic ministry and the raising of believers for purposeful Christian service.</p>
-            <a class="text-link" href="#about">Meet the founder <span>↑</span></a>
+            <a class="text-link" href="#about"><span data-copy-key="founderCta">Meet the founder</span> <span>↑</span></a>
           </article>
         </div>
       </div>
@@ -176,8 +177,8 @@
     <section class="section dark-section" id="sermons">
       <div class="container">
         <div class="section-head light">
-          <div><p class="eyebrow">WATCH & LISTEN</p><h2 id="sermons-heading">Messages that <span>build faith.</span></h2></div>
-          <a class="text-link light-link" data-sermon="library" href="#messages-archive">Sermon archive <span>↓</span></a>
+          <div><p class="eyebrow" id="sermons-eyebrow">WATCH & LISTEN</p><h2 id="sermons-heading">Messages that <span>build faith.</span></h2></div>
+          <a class="text-link light-link" id="sermons-archive-link" data-sermon="library" href="#messages-archive">Sermon archive <span>↓</span></a>
         </div>
         <div class="sermon-grid reveal">
           <article class="sermon-feature">
@@ -186,20 +187,20 @@
               <a class="play" data-sermon="featured" href="#sermons" aria-label="Play latest sermon">▶</a>
               <span class="badge">LATEST MESSAGE</span>
             </div>
-            <div class="sermon-info"><p class="kicker" id="sermons-feat-kicker">PROPHETIC MESSAGE</p><h3 id="sermons-feat-title">Experience the ministry of the Word</h3><p id="sermons-feat-desc">Prophetic preaching, prayer and teaching from Prophet Suglo Prosper — messages to strengthen your faith and stir your spirit.</p><a href="#sermons" data-sermon="featured" class="text-link light-link">Watch message <span>→</span></a></div>
+            <div class="sermon-info"><p class="kicker" id="sermons-feat-kicker">PROPHETIC MESSAGE</p><h3 id="sermons-feat-title">Experience the ministry of the Word</h3><p id="sermons-feat-desc">Prophetic preaching, prayer and teaching from Prophet Suglo Prosper — messages to strengthen your faith and stir your spirit.</p><a href="#sermons" data-sermon="featured" class="text-link light-link"><span data-copy-key="sermonWatch">Watch message</span> <span>→</span></a></div>
           </article>
           <div class="sermon-side">
-            <article class="mini-sermon"><div class="mini-thumb"><img width="2048" height="1914" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790281517479.jpg" alt="Prophet preaching with one hand raised"><a class="mini-play" data-sermon="mini1" href="#sermons" aria-label="Watch this message">▶</a></div><div><p class="kicker" id="mini1-kicker">PRAYER</p><h3 id="mini1-title">Moments of prayer and ministry</h3><a href="#sermons" data-sermon="mini1">Watch →</a></div></article>
-            <article class="mini-sermon"><div class="mini-thumb"><img width="1280" height="853" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790280315271.jpg" alt="Prayer ministry with church members"><a class="mini-play" data-sermon="mini2" href="#sermons" aria-label="Watch this message">▶</a></div><div><p class="kicker" id="mini2-kicker">MINISTRY</p><h3 id="mini2-title">Prayer and prophetic ministry</h3><a href="#sermons" data-sermon="mini2">Watch →</a></div></article>
+            <article class="mini-sermon"><div class="mini-thumb"><img width="2048" height="1914" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790281517479.jpg" alt="Prophet preaching with one hand raised"><a class="mini-play" data-sermon="mini1" href="#sermons" aria-label="Watch this message">▶</a></div><div><p class="kicker" id="mini1-kicker">PRAYER</p><h3 id="mini1-title">Moments of prayer and ministry</h3><a href="#sermons" data-sermon="mini1"><span data-copy-key="sermonMiniWatch">Watch</span> →</a></div></article>
+            <article class="mini-sermon"><div class="mini-thumb"><img width="1280" height="853" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790280315271.jpg" alt="Prayer ministry with church members"><a class="mini-play" data-sermon="mini2" href="#sermons" aria-label="Watch this message">▶</a></div><div><p class="kicker" id="mini2-kicker">MINISTRY</p><h3 id="mini2-title">Prayer and prophetic ministry</h3><a href="#sermons" data-sermon="mini2"><span data-copy-key="sermonMiniWatch">Watch</span> →</a></div></article>
           </div>
         </div>
 
         <div class="messages-archive" id="messages-archive">
           <div class="messages-archive-head">
-            <h3>Sermon archive</h3>
-            <p>Every past message and live service is kept here. Press play to watch or listen without leaving the site.</p>
-            <label class="archive-search"><span class="sr-only">Search sermons</span><input type="search" id="messages-search" placeholder="Search sermons by title or topic…" autocomplete="off"></label>
-            <p class="podcast-line">🎧 Prefer to listen on your phone? <button type="button" class="link-btn" id="copy-podcast-feed">Copy our podcast feed link</button> and paste it into Spotify, Apple Podcasts or any podcast app.</p>
+            <h3 id="sermons-archive-heading">Sermon archive</h3>
+            <p id="sermons-archive-copy">Every past message and live service is kept here. Press play to watch or listen without leaving the site.</p>
+            <label class="archive-search"><span class="sr-only">Search sermons</span><input type="search" id="messages-search" data-placeholder-key="sermonSearchPlaceholder" placeholder="Search sermons by title or topic…" autocomplete="off"></label>
+            <p class="podcast-line"><span data-copy-key="podcastLead">🎧 Prefer to listen on your phone?</span> <button type="button" class="link-btn" id="copy-podcast-feed" data-copy-key="podcastButton">Copy our podcast feed link</button> <span data-copy-key="podcastTail">and paste it into Spotify, Apple Podcasts or any podcast app.</span></p>
           </div>
           <div class="messages-list" id="messages-list">
             <p class="messages-empty">Loading sermons…</p>
@@ -227,7 +228,7 @@
           <div class="live-video-frame" id="live-video-frame">
             <div class="live-video-thumb" id="live-video-thumb"></div>
             <button type="button" class="live-play-btn" id="live-play-btn" aria-label="Play live stream on this page"><span class="live-play-icon">▶</span></button>
-            <div class="live-video-caption" id="live-video-caption">Tap to preview</div>
+            <div class="live-video-caption" id="live-video-caption" data-copy-key="livePreviewCaption">Tap to preview</div>
           </div>
         </div>
       </div>
@@ -236,8 +237,8 @@
     <section class="section events" id="events">
       <div class="container">
         <div class="section-head">
-          <div><p class="eyebrow dark">PROGRAMS & EVENTS</p><h2>Gather. Pray. <span>Transform.</span></h2></div>
-          <a class="text-link" href="#events">All events <span>→</span></a>
+          <div><p class="eyebrow dark" id="events-eyebrow">PROGRAMS & EVENTS</p><h2 id="events-heading">Gather. Pray. <span>Transform.</span></h2></div>
+          <a class="text-link" id="events-link-label" href="#events">All events <span>→</span></a>
         </div>
         <div class="events-grid reveal">
           <div class="events-rolling" id="events-rolling">
@@ -245,7 +246,7 @@
               <div class="events-track" id="events-track">
                 <article class="event-card featured-event event-slide">
             <div class="event-poster"><img width="1067" height="1280" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790280306826.jpg" alt="Prayer Army International Manifests Conference 2026 poster"></div>
-            <div class="event-body"><span class="event-label">UPCOMING PROGRAM</span><h3 id="event-title">Manifests Conference 2026</h3><p id="event-dates">23–27 November 2026</p><div class="countdown" id="countdown" role="timer" aria-live="off"></div><p class="muted" id="event-desc">Five days of prayer, worship and ministry. Follow our channels for the venue, programme and registration details.</p><a class="btn btn-dark" id="event-btn" href="#prayer">View Event <span>→</span></a></div>
+            <div class="event-body"><span class="event-label" data-copy-key="eventKicker">UPCOMING PROGRAM</span><h3 id="event-title">Manifests Conference 2026</h3><p id="event-dates">23–27 November 2026</p><div class="countdown" id="countdown" role="timer" aria-live="off"></div><p class="muted" id="event-desc">Five days of prayer, worship and ministry. Follow our channels for the venue, programme and registration details.</p><a class="btn btn-dark" id="event-btn" href="#prayer"><span data-copy-key="eventButton">View Event</span> <span>→</span></a></div>
           </article>
               </div>
             </div>
@@ -257,14 +258,14 @@
           </div>
           <div class="event-photo-stack">
             <img width="2048" height="1365" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790281482379.jpg" alt="Congregation during a Prayer Army International service">
-            <div class="stack-caption"><span>Prayer Army International</span><strong id="event-stack-caption">Every gathering is an opportunity to seek God together.</strong></div>
+            <div class="stack-caption"><span data-copy-key="eventStackBrand">Prayer Army International</span><strong id="event-stack-caption">Every gathering is an opportunity to seek God together.</strong></div>
           </div>
         </div>
 
         <div class="weekly" id="weekly" hidden>
           <div class="weekly-head">
-            <p class="eyebrow dark">EVERY WEEK</p>
-            <h3>Weekly <span>activities</span></h3>
+            <p class="eyebrow dark" id="weekly-eyebrow">EVERY WEEK</p>
+            <h3 id="weekly-heading">Weekly <span>activities</span></h3>
           </div>
           <div class="weekly-grid" id="weekly-grid"></div>
         </div>
@@ -273,7 +274,7 @@
 
     <section class="section gallery dark-section" id="gallery">
       <div class="container">
-        <div class="section-head light"><div><p class="eyebrow">LIFE AT PRAYER ARMY</p><h2>Moments from the <span>ministry.</span></h2></div><a class="text-link light-link" href="#gallery">View gallery <span>→</span></a></div>
+        <div class="section-head light"><div><p class="eyebrow" id="gallery-eyebrow">LIFE AT PRAYER ARMY</p><h2 id="gallery-heading">Moments from the <span>ministry.</span></h2></div><a class="text-link light-link" id="gallery-link-label" href="#gallery">View gallery <span>→</span></a></div>
         <div class="gallery-grid reveal">
           <figure class="g1"><img width="2048" height="1365" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790281547438.jpg" alt="Congregation worshipping with raised hands"></figure>
           <figure class="g2"><img width="1365" height="2048" loading="lazy" decoding="async" src="assets/images/FB_IMG_1790280284954.jpg" alt="Prophet Suglo Prosper preaching at a service"></figure>
@@ -289,10 +290,10 @@
       <div class="container prayer-grid reveal">
         <div class="prayer-copy"><p class="eyebrow dark" id="prayer-eyebrow">WE WOULD LOVE TO PRAY WITH YOU</p><h2 id="prayer-heading">Bring your request.<br><span>Leave it in prayer.</span></h2><p id="prayer-copy">Whether you are seeking direction, strength, healing, provision or simply want someone to stand with you in prayer, submit your request to the ministry.</p></div>
         <form class="prayer-form" id="prayer-form">
-          <div class="form-row"><label>Name<input name="name" required autocomplete="name" placeholder="Your name"></label><label>Phone / Email<input name="contact" autocomplete="off" placeholder="Optional"></label></div>
-          <label>Prayer request<textarea name="request" required rows="6" placeholder="How can we pray with you?"></textarea></label>
-          <label class="check"><input type="checkbox" name="private"> Keep this request confidential</label>
-          <button class="btn btn-dark" type="submit">Submit Prayer Request <span>→</span></button>
+          <div class="form-row"><label><span data-copy-key="prayerNameLabel">Name</span><input name="name" required autocomplete="name" data-placeholder-key="yourNamePlaceholder" placeholder="Your name"></label><label><span data-copy-key="prayerContactLabel">Phone / Email</span><input name="contact" autocomplete="off" data-placeholder-key="optionalPlaceholder" placeholder="Optional"></label></div>
+          <label><span data-copy-key="prayerRequestLabel">Prayer request</span><textarea name="request" required rows="6" data-placeholder-key="prayerRequestPlaceholder" placeholder="How can we pray with you?"></textarea></label>
+          <label class="check"><input type="checkbox" name="private"> <span data-copy-key="prayerPrivateLabel">Keep this request confidential</span></label>
+          <button class="btn btn-dark" type="submit"><span data-copy-key="prayerSubmit">Submit Prayer Request</span> <span>→</span></button>
           <p class="form-note" id="prayer-note" role="status"></p>
         </form>
       </div>
@@ -301,18 +302,18 @@
     <section class="section prayer-wall" id="prayer-wall">
       <div class="container reveal">
         <div class="section-head">
-          <div><p class="eyebrow dark">STAND WITH US</p><h2>The <span>prayer wall</span></h2></div>
-          <p class="section-sub">Requests shared by our church family. Tap “I prayed” to let them know someone stood with them.</p>
+          <div><p class="eyebrow dark" id="wall-eyebrow">STAND WITH US</p><h2 id="wall-heading">The <span>prayer wall</span></h2></div>
+          <p class="section-sub" id="wall-copy">Requests shared by our church family. Tap “I prayed” to let them know someone stood with them.</p>
         </div>
         <div class="wall-grid" id="wall-list"><p class="messages-empty" style="color:var(--soft)">Loading prayer requests…</p></div>
         <details class="share-testimony" id="share-wall">
-          <summary class="btn btn-dark">Add a request to the wall <span>→</span></summary>
+          <summary class="btn btn-dark"><span data-copy-key="wallSummary">Add a request to the wall</span> <span>→</span></summary>
           <form class="prayer-form" id="wall-form">
-            <p class="form-note" style="margin:0 0 14px">This will be visible to everyone once approved. Please don't include phone numbers, addresses or private details. For a private request, use the prayer form above.</p>
-            <label>Your first name (optional)<input name="name" maxlength="60" placeholder="Or leave blank to stay anonymous"></label>
-            <label>Prayer request<textarea name="request" required minlength="5" maxlength="400" rows="4" placeholder="How can we pray with you?"></textarea></label>
+            <p class="form-note" style="margin:0 0 14px" data-copy-key="wallNotice">This will be visible to everyone once approved. Please don't include phone numbers, addresses or private details. For a private request, use the prayer form above.</p>
+            <label><span data-copy-key="wallNameLabel">Your first name (optional)</span><input name="name" maxlength="60" data-placeholder-key="anonymousPlaceholder" placeholder="Or leave blank to stay anonymous"></label>
+            <label><span data-copy-key="wallRequestLabel">Prayer request</span><textarea name="request" required minlength="5" maxlength="400" rows="4" data-placeholder-key="prayerRequestPlaceholder" placeholder="How can we pray with you?"></textarea></label>
             <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
-            <button class="btn btn-dark" type="submit">Submit to the wall <span>→</span></button>
+            <button class="btn btn-dark" type="submit"><span data-copy-key="wallSubmit">Submit to the wall</span> <span>→</span></button>
             <p class="form-note" id="wall-note" role="status"></p>
           </form>
         </details>
@@ -322,18 +323,18 @@
     <section class="section testimonies" id="testimonies">
       <div class="container reveal">
         <div class="section-head">
-          <div><p class="eyebrow dark">WHAT GOD HAS DONE</p><h2>Testimonies of <span>God's faithfulness</span></h2></div>
-          <p class="section-sub">Healings, breakthroughs, answered prayers. Read what the Lord is doing in our midst, and share yours.</p>
+          <div><p class="eyebrow dark" id="testimonies-eyebrow">WHAT GOD HAS DONE</p><h2 id="testimonies-heading">Testimonies of <span>God's faithfulness</span></h2></div>
+          <p class="section-sub" id="testimonies-copy">Healings, breakthroughs, answered prayers. Read what the Lord is doing in our midst, and share yours.</p>
         </div>
         <div class="testimonies-grid" id="testimonies-list"><p class="messages-empty" style="color:var(--soft)">Loading testimonies…</p></div>
         <details class="share-testimony" id="share-testimony">
-          <summary class="btn btn-dark">Share your testimony <span>→</span></summary>
+          <summary class="btn btn-dark"><span data-copy-key="testimonySummary">Share your testimony</span> <span>→</span></summary>
           <form class="prayer-form" id="testimony-form">
-            <div class="form-row"><label>Name<input name="name" required maxlength="80" autocomplete="name" placeholder="Your name"></label><label>Town / Country<input name="location" maxlength="80" placeholder="Optional"></label></div>
-            <label>Your testimony<textarea name="testimony" required minlength="10" maxlength="1500" rows="6" placeholder="Tell us what God has done…"></textarea></label>
+            <div class="form-row"><label><span data-copy-key="testimonyNameLabel">Name</span><input name="name" required maxlength="80" autocomplete="name" data-placeholder-key="yourNamePlaceholder" placeholder="Your name"></label><label><span data-copy-key="testimonyLocationLabel">Town / Country</span><input name="location" maxlength="80" data-placeholder-key="optionalPlaceholder" placeholder="Optional"></label></div>
+            <label><span data-copy-key="testimonyTextLabel">Your testimony</span><textarea name="testimony" required minlength="10" maxlength="1500" rows="6" data-placeholder-key="testimonyPlaceholder" placeholder="Tell us what God has done…"></textarea></label>
             <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
-            <button class="btn btn-dark" type="submit">Submit testimony <span>→</span></button>
-            <p class="form-note" id="testimony-note" role="status">Testimonies are reviewed before they appear on the site.</p>
+            <button class="btn btn-dark" type="submit"><span data-copy-key="testimonySubmit">Submit testimony</span> <span>→</span></button>
+            <p class="form-note" id="testimony-note" role="status" data-copy-key="testimonyReviewNote">Testimonies are reviewed before they appear on the site.</p>
           </form>
         </details>
       </div>
@@ -342,24 +343,24 @@
     <section class="section connect" id="connect">
       <div class="container prayer-grid reveal">
         <div class="prayer-copy">
-          <p class="eyebrow dark">NEW HERE? LET'S CONNECT</p>
-          <h2>We would love to <span>meet you.</span></h2>
-          <p>Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.</p>
+          <p class="eyebrow dark" id="connect-eyebrow">NEW HERE? LET'S CONNECT</p>
+          <h2 id="connect-heading">We would love to <span>meet you.</span></h2>
+          <p id="connect-copy">Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.</p>
         </div>
         <form class="prayer-form" id="connect-form">
-          <label>How can we help?
+          <label><span data-copy-key="connectKindLabel">How can we help?</span>
             <select name="kind" required>
-              <option value="visitor">I'm new / visiting</option>
-              <option value="volunteer">I want to volunteer (choir, ushers, media, children…)</option>
-              <option value="counseling">I'd like counseling or a pastoral appointment</option>
-              <option value="other">Something else</option>
+              <option value="visitor" data-copy-key="connectVisitorOption">I'm new / visiting</option>
+              <option value="volunteer" data-copy-key="connectVolunteerOption">I want to volunteer (choir, ushers, media, children…)</option>
+              <option value="counseling" data-copy-key="connectCounselingOption">I'd like counseling or a pastoral appointment</option>
+              <option value="other" data-copy-key="connectOtherOption">Something else</option>
             </select>
           </label>
-          <div class="form-row"><label>Name<input name="name" required maxlength="120" autocomplete="name" placeholder="Your name"></label><label>Phone / WhatsApp<input name="phone" maxlength="40" autocomplete="tel" placeholder="e.g. 024 000 0000"></label></div>
-          <label>Email<input name="email" type="email" maxlength="160" autocomplete="email" placeholder="Optional if you gave a phone number"></label>
-          <label>Anything we should know?<textarea name="note" rows="3" maxlength="2000" placeholder="Optional"></textarea></label>
+          <div class="form-row"><label><span data-copy-key="connectNameLabel">Name</span><input name="name" required maxlength="120" autocomplete="name" data-placeholder-key="yourNamePlaceholder" placeholder="Your name"></label><label><span data-copy-key="connectPhoneLabel">Phone / WhatsApp</span><input name="phone" maxlength="40" autocomplete="tel" data-placeholder-key="phonePlaceholder" placeholder="e.g. 024 000 0000"></label></div>
+          <label><span data-copy-key="connectEmailLabel">Email</span><input name="email" type="email" maxlength="160" autocomplete="email" data-placeholder-key="emailOptionalPlaceholder" placeholder="Optional if you gave a phone number"></label>
+          <label><span data-copy-key="connectNoteLabel">Anything we should know?</span><textarea name="note" rows="3" maxlength="2000" data-placeholder-key="optionalPlaceholder" placeholder="Optional"></textarea></label>
           <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <button class="btn btn-dark" type="submit">Send <span>→</span></button>
+          <button class="btn btn-dark" type="submit"><span data-copy-key="connectSubmit">Send</span> <span>→</span></button>
           <p class="form-note" id="connect-note" role="status"></p>
         </form>
       </div>
@@ -369,7 +370,7 @@
       <div class="container reveal">
         <div class="give-grid">
           <div>
-            <p class="eyebrow">PARTNER WITH THE MINISTRY</p>
+            <p class="eyebrow" id="giving-eyebrow">PARTNER WITH THE MINISTRY</p>
             <h2 id="give-heading">Support the work.</h2>
             <p id="give-info-text">Your giving and partnership help carry the message of Jesus Christ, sustain prayer ministry and reach more people across the Upper West Region and beyond.</p>
           </div>
@@ -388,8 +389,8 @@
     <section class="section locations" id="locations" hidden>
       <div class="container reveal">
         <div class="section-head">
-          <div><p class="eyebrow dark">VISIT US</p><h2>Our <span>locations</span></h2></div>
-          <p class="section-sub">Find the branch nearest to you, with service times and directions.</p>
+          <div><p class="eyebrow dark" id="locations-eyebrow">VISIT US</p><h2 id="locations-heading">Our <span>locations</span></h2></div>
+          <p class="section-sub" id="locations-copy">Find the branch nearest to you, with service times and directions.</p>
         </div>
         <div class="locations-grid" id="locations-grid"></div>
       </div>
@@ -399,40 +400,40 @@
       <div class="container contact-wrap">
         <div class="section-head light">
           <div>
-            <p class="eyebrow">GET IN TOUCH</p>
-            <h2>Connect with <span>Prayer Army.</span></h2>
+            <p class="eyebrow" id="contact-eyebrow">GET IN TOUCH</p>
+            <h2 id="contact-heading">Connect with <span>Prayer Army.</span></h2>
           </div>
-          <p class="contact-intro">Whether you have questions, desire counseling, want to visit, or wish to follow the prophetic ministry online, connect with us through any of our channels.</p>
+          <p class="contact-intro" id="contact-intro">Whether you have questions, desire counseling, want to visit, or wish to follow the prophetic ministry online, connect with us through any of our channels.</p>
         </div>
 
         <div class="contact-grid reveal">
           <div class="contact-card">
             <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div>
-            <h3>Headquarters</h3>
+            <h3 id="contact-card-location-title">Headquarters</h3>
             <p id="contact-address">Upper West Region, Ghana</p>
-            <span class="contact-sub">Central Altar & Sanctuary</span>
+            <span class="contact-sub" id="contact-card-location-note">Central Altar & Sanctuary</span>
           </div>
 
           <div class="contact-card">
             <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></div>
-            <h3>Phone & WhatsApp</h3>
+            <h3 id="contact-card-phone-title">Phone & WhatsApp</h3>
             <p id="contact-phone-display">Reach out directly</p>
             <div class="contact-actions" id="contact-action-btns"></div>
-            <span class="contact-sub">Lines open for prayer and inquiries</span>
+            <span class="contact-sub" id="contact-card-phone-note">Lines open for prayer and inquiries</span>
           </div>
 
           <div class="contact-card">
             <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg></div>
-            <h3>Official Email</h3>
+            <h3 id="contact-card-email-title">Official Email</h3>
             <p><a id="contact-email-link" href="mailto:prayerarmyinternational@gmail.com">prayerarmyinternational@gmail.com</a></p>
-            <span class="contact-sub">Official ministry correspondence</span>
+            <span class="contact-sub" id="contact-card-email-note">Official ministry correspondence</span>
           </div>
         </div>
 
         <div class="contact-social-card reveal">
           <div class="contact-social-info">
-            <h3>Follow Us on Social Media</h3>
-            <p>Stay spiritually enriched daily. Watch full sermons, join prayer streams, and follow ministry updates across our official social channels.</p>
+            <h3 id="social-card-heading">Follow Us on Social Media</h3>
+            <p id="social-card-copy">Stay spiritually enriched daily. Watch full sermons, join prayer streams, and follow ministry updates across our official social channels.</p>
           </div>
           <div class="social-icon-row" id="contact-socials"></div>
         </div>
@@ -443,16 +444,16 @@
   <footer id="footer">
     <div class="container footer-grid">
       <div><a class="brand footer-brand" aria-label="Prayer Army International" href="#top"><img width="191" height="115" loading="lazy" decoding="async" class="footer-logo" id="site-logo-footer" src="assets/images/prayer-army-logo.png" alt="Prayer Army International"></a><p id="footer-tagline">Raising Generals, Transforming Generations.</p></div>
-      <div><h4>Explore</h4><a href="#about">About</a><a href="#sermons">Sermons</a><a href="#events">Events</a><a href="#gallery">Gallery</a></div>
-      <div><h4>Connect</h4><a href="#live">Live Stream</a><a href="#prayer">Prayer Request</a><a href="#give">Give</a><a href="#contact">Contact</a></div>
-      <div><h4>Headquarters</h4><p id="footer-hq-address">Upper West Region<br>Ghana</p><p class="muted" id="contact-lines">Reach us through the prayer request form or follow our channels for updates.</p><div class="social-icon-row" id="footer-socials"></div><div class="socials" id="socials" style="display:none"></div></div>
+      <div><h4 id="footer-explore-title">Explore</h4><a href="#about" data-copy-key="footerAbout">About</a><a href="#sermons" data-copy-key="footerSermons">Sermons</a><a href="#events" data-copy-key="footerEvents">Events</a><a href="#gallery" data-copy-key="footerGallery">Gallery</a></div>
+      <div><h4 id="footer-connect-title">Connect</h4><a href="#live" data-copy-key="footerLive">Live Stream</a><a href="#prayer" data-copy-key="footerPrayer">Prayer Request</a><a href="#give" data-copy-key="footerGive">Give</a><a href="#contact" data-copy-key="footerContact">Contact</a></div>
+      <div><h4 id="footer-hq-title">Headquarters</h4><p id="footer-hq-address">Upper West Region<br>Ghana</p><p class="muted" id="contact-lines">Reach us through the prayer request form or follow our channels for updates.</p><div class="social-icon-row" id="footer-socials"></div><div class="socials" id="socials" style="display:none"></div></div>
     </div>
     <div class="container footer-bottom">
       <span>© <span id="year"></span> Prayer Army International. All rights reserved.</span>
       <div class="footer-legal">
-        <a href="/privacy">Privacy</a>
+        <a href="/privacy" data-copy-key="footerPrivacy">Privacy</a>
         <button type="button" class="link-btn" id="cookie-settings" hidden>Cookie settings</button>
-        <span>Built for ministry, media &amp; mission.</span>
+        <span id="footer-credit">Built for ministry, media &amp; mission.</span>
       </div>
     </div>
   </footer>
