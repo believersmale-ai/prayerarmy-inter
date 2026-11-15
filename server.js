@@ -77,10 +77,10 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS prayer_requests (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(150) NOT NULL,
-      email VARCHAR(255),
-      phone VARCHAR(50),
-      request TEXT NOT NULL,
-      status ENUM('new', 'handled') NOT NULL DEFAULT 'new',
+      email VARCHAR(255) NULL,
+      phone VARCHAR(50) NULL,
+      request TEXT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'new',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_prayer_status (status),
@@ -92,17 +92,46 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS connect_requests (
       id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(150) NOT NULL,
-      email VARCHAR(255),
-      phone VARCHAR(50),
-      subject VARCHAR(255),
-      message TEXT NOT NULL,
-      status ENUM('new', 'handled') NOT NULL DEFAULT 'new',
+      email VARCHAR(255) NULL,
+      phone VARCHAR(50) NULL,
+      subject VARCHAR(255) NULL,
+      message TEXT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'new',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_connect_status (status),
       INDEX idx_connect_created (created_at)
     )
   `);
+
+  // Repair older tables created with a different schema.
+  const repairs = [
+    "ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL",
+    "ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS phone VARCHAR(50) NULL",
+    "ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS request TEXT NULL",
+    "ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'new'",
+    "ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+    "ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP",
+    "ALTER TABLE connect_requests ADD COLUMN IF NOT EXISTS email VARCHAR(255) NULL",
+    "ALTER TABLE connect_requests ADD COLUMN IF NOT EXISTS phone VARCHAR(50) NULL",
+    "ALTER TABLE connect_requests ADD COLUMN IF NOT EXISTS subject VARCHAR(255) NULL",
+    "ALTER TABLE connect_requests ADD COLUMN IF NOT EXISTS message TEXT NULL",
+    "ALTER TABLE connect_requests ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'new'",
+    "ALTER TABLE connect_requests ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+    "ALTER TABLE connect_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP"
+  ];
+
+  for (const statement of repairs) {
+    try {
+      await db.query(statement);
+    } catch (error) {
+      // MySQL versions without IF NOT EXISTS support may report that the
+      // column already exists. Keep startup running in that case.
+      if (!String(error.message || '').toLowerCase().includes('exists')) {
+        throw error;
+      }
+    }
+  }
 }
 
 // Serve the admin portal.
@@ -431,9 +460,18 @@ app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Server running at http://${HOST}:${PORT}`);
-  ensureTables()
-    .then(() => console.log('Database tables are ready'))
-    .catch(error => console.error('Database table setup failed:', error.message));
-});
+async function startServer() {
+  try {
+    await ensureTables();
+    console.log('Database tables are ready');
+
+    app.listen(PORT, HOST, () => {
+      console.log(`Server running at http://${HOST}:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Database initialization failed:', error.message);
+    process.exit(1);
+  }
+}
+
+startServer();
