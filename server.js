@@ -176,10 +176,11 @@ async function ensureTables() {
 async function provisionInitialAdmin() {
   const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const password = String(process.env.ADMIN_INITIAL_PASSWORD || '');
+  const forceReset = String(process.env.ADMIN_FORCE_RESET || '').toLowerCase() === 'true';
 
   if (!email || !password) return;
-  if (password.length < 12) {
-    throw new Error('ADMIN_INITIAL_PASSWORD must be at least 12 characters');
+  if (password.length < 6) {
+    throw new Error('ADMIN_INITIAL_PASSWORD must be at least 6 characters');
   }
 
   const [existing] = await db.execute(
@@ -187,9 +188,22 @@ async function provisionInitialAdmin() {
     [email]
   );
 
-  if (existing.length > 0) return;
-
   const passwordHash = await hashPassword(password);
+
+  if (existing.length > 0) {
+    if (!forceReset) return;
+
+    await db.execute(
+      `UPDATE admin_users
+       SET password_hash = ?, is_active = 1, role = 'admin', updated_at = CURRENT_TIMESTAMP
+       WHERE email = ?`,
+      [passwordHash, email]
+    );
+
+    console.log(`Admin password reset for ${email}`);
+    return;
+  }
+
   await db.execute(
     'INSERT INTO admin_users (email, password_hash, role) VALUES (?, ?, ?)',
     [email, passwordHash, 'admin']
