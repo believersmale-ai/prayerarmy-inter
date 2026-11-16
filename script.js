@@ -1442,15 +1442,21 @@ const loadInitialSettings = async () => {
 
   // Try the server first
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/site_settings?select=data&id=eq.1`,
-      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
-    );
-    if (res.ok) {
-      const rows = await res.json();
-      const data = rows?.[0]?.data;
-      if (data && Object.keys(data).length > 0) {
-        loaded = data;
+    // Node deployments expose /api/settings; PHP deployments expose the legacy rest/v1 shape.
+    const nodeRes = await fetch(`${SUPABASE_URL}/settings`, { cache: 'no-store' });
+    if (nodeRes.ok) {
+      const data = await nodeRes.json();
+      if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length) loaded = data;
+    }
+    if (!loaded) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/site_settings?select=data&id=eq.1`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        const data = rows?.[0]?.data;
+        if (data && Object.keys(data).length > 0) loaded = data;
       }
     }
   } catch (e) {
