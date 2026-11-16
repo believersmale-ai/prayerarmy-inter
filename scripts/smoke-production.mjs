@@ -23,6 +23,7 @@ const checks = [
     assert.equal(typeof data, 'object');
     assert.ok(data && !Array.isArray(data));
     assert.equal(Object.hasOwn(data, 'passkey'), false, 'Passkey must never be public');
+    assert.equal(Object.hasOwn(data, 'notifications'), false, 'Internal notification settings must never be public');
   } },
   { path: '/api/admin/submissions', validate: async (r) => {
     assert.equal(r.status, 401, 'Anonymous users must not read private submissions');
