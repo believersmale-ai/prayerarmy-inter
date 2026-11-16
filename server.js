@@ -24,8 +24,12 @@ import db from './database.js';
 const scrypt = promisify(scryptCallback);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SETTINGS_FILE = path.join(__dirname, 'site-settings.json');
-const UPLOAD_DIR = path.join(__dirname, 'assets', 'uploads');
+// PAI_DATA_DIR is an optional, operator-managed directory OUTSIDE Hostinger's versioned builds.
+// When unset, retain legacy paths for backward compatibility; do not silently migrate data.
+const DATA_DIR = process.env.PAI_DATA_DIR ? path.resolve(process.env.PAI_DATA_DIR) : null;
+const BUNDLED_SETTINGS_FILE = path.join(__dirname, 'site-settings.json');
+const SETTINGS_FILE = DATA_DIR ? path.join(DATA_DIR, 'site-settings.json') : BUNDLED_SETTINGS_FILE;
+const UPLOAD_DIR = DATA_DIR ? path.join(DATA_DIR, 'uploads') : path.join(__dirname, 'assets', 'uploads');
 const IMAGES_DIR = path.join(__dirname, 'assets', 'images');
 const SESSION_MS = 8 * 60 * 60 * 1000;
 const ADMIN_SESSIONS = new Map(); // token -> expiry (ms)
@@ -40,7 +44,15 @@ const mediaTypeOf = (name) => {
   return Object.keys(MEDIA_EXT).find((k) => MEDIA_EXT[k].includes(ext)) || null;
 };
 
+if (DATA_DIR) {
+  if (!path.isAbsolute(process.env.PAI_DATA_DIR)) throw new Error('PAI_DATA_DIR must be an absolute path');
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Seed fresh installations only. Existing settings are never overwritten.
+if (DATA_DIR && !fs.existsSync(SETTINGS_FILE)) {
+  fs.copyFileSync(BUNDLED_SETTINGS_FILE, SETTINGS_FILE, fs.constants.COPYFILE_EXCL);
+}
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -87,6 +99,8 @@ app.get('/site-settings.json', (req, res) => { // never expose a legacy passkey 
     res.json(data);
   } catch { res.json({}); }
 });
+// Keep public upload URLs stable when media is stored outside the deployed build.
+if (DATA_DIR) app.use('/assets/uploads', express.static(UPLOAD_DIR, { index: false, dotfiles: 'ignore', maxAge: '7d' }));
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { index: false, dotfiles: 'ignore', maxAge: '7d' }));
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'terms.html')));
