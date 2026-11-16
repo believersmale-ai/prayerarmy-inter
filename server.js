@@ -95,6 +95,7 @@ app.get('/site-settings.json', (req, res) => { // never expose a legacy passkey 
   try {
     const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
     delete data.passkey;
+    delete data.notifications; // internal notification settings are not public
     res.setHeader('Cache-Control', 'no-store');
     res.json(data);
   } catch { res.json({}); }
@@ -250,6 +251,7 @@ app.get('/api/settings', (req, res) => {
   try {
     const data = fs.existsSync(SETTINGS_FILE) ? JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) : {};
     delete data.passkey;
+    delete data.notifications; // internal notification settings are not public
     res.setHeader('Cache-Control', 'no-store');
     res.json(data);
   } catch { res.status(500).json({ error: 'Failed to read settings' }); }
