@@ -71,7 +71,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Only the website itself is public. Never serve api/ (database password), server code,
 // package files, docs or migrations.
-const PUBLIC_FILES = ['index.html', 'admin.html', 'privacy.html', 'terms.html', 'styles.css',
+const PUBLIC_FILES = ['index.html', 'admin.html', 'privacy.html', 'terms.html', 'styles.css', 'template.css',
   'script.js', 'admin.js', 'robots.txt'];
 for (const f of PUBLIC_FILES) {
   app.get('/' + f, (req, res) => {

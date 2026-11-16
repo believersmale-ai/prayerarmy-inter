@@ -977,7 +977,6 @@ const populateForm = (s) => {
   $('#field-seo-title').value = s.seo?.title || '';
   $('#field-seo-desc').value = s.seo?.description || '';
   $('#field-seo-image').value = s.seo?.ogImage || '';
-  $('#field-seo-signals').value = s.seo?.contentSignals || 'search=yes, ai-input=yes, ai-train=no';
   renderAnnouncementEditor(s);
 
   // Hero Section
@@ -1199,11 +1198,9 @@ const collectFormData = () => {
     events: collectEventRows(),
     announcements: collectAnnouncementRows(),
     seo: {
-      ...(currentSettings.seo || {}),   // keeps countryCode / language set in site-settings.json
       title: $('#field-seo-title').value.trim(),
       description: $('#field-seo-desc').value.trim(),
-      ogImage: $('#field-seo-image').value.trim(),
-      contentSignals: $('#field-seo-signals').value
+      ogImage: $('#field-seo-image').value.trim()
     },
     weekly: collectWeeklyRows(),
     verses: collectVerseRows(),
@@ -2705,9 +2702,13 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
   } catch { showToast('Network error while changing the password', 'error'); }
 });
 
-// Run initialization
 
-/* ===== ADMIN EXTRAS (merged from admin-extras.js): dashboard, notifications, mobile drawer ===== */
+/* =========================================================================
+   PRAYER ARMY INTERNATIONAL - ADMIN EXTRAS
+   (Merged into admin.js; runs before sign-in is checked.) Dashboard overview, notification preferences, mobile menu drawer.
+   Every number on the dashboard is counted by the server from real records, and the server
+   only returns the sections the signed-in role is allowed to see.
+   ========================================================================= */
 (() => {
   'use strict';
 

@@ -38,8 +38,8 @@ Use **About & Foundation → Website Page Content** for additional section headi
 
 ## Files changed for the visual replacement
 
-- `index.html`: loads a single `styles.css` (the visual template now lives at the end of that file).
-- `styles.css`: structural/interactive rules first, followed by the merged visual template section (formerly `template.css`).
+- `index.html`: loads `template.css` instead of the previous `premium.css` layer.
+- `template.css`: new visual template, retaining the existing structural and interactive CSS compatibility layer in `styles.css`.
 - `admin.html`, `admin.js`, `script.js`, `site-settings.json`: retain the existing editable-content enhancement from the previous package.
 
 ## Deployment
@@ -47,7 +47,7 @@ Use **About & Foundation → Website Page Content** for additional section headi
 1. Back up the live site files and database.
 2. Upload the project files.
 3. Preserve the production `api/config.php` values and hosting-specific settings.
-4. Clear browser/CDN cache so the new `styles.css` is loaded.
+4. Clear browser/CDN cache so the new `template.css` is loaded.
 5. Test public forms, admin login, content saves, sermons, events, live stream, prayer wall, testimonies and media in the production environment.
 
 No database schema changes are introduced by this visual template replacement.
