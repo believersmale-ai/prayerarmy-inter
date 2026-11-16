@@ -11,6 +11,8 @@
   <meta name="theme-color" content="#0b101b">
   <link rel="canonical" href="https://YOUR-DOMAIN.com/" id="canonical-link">
   <link rel="sitemap" type="application/xml" href="/sitemap.xml">
+  <link rel="alternate" type="text/markdown" href="/index.md">
+  <link rel="describedby" type="text/plain" href="/llms.txt">
   <link rel="icon" type="image/png" href="assets/images/prayer-army-logo.png" id="site-favicon">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Prayer Army International">
@@ -25,7 +27,6 @@
   <meta name="twitter:image" content="https://YOUR-DOMAIN.com/assets/images/FB_IMG_1790281482379.jpg">
   <link rel="preload" as="image" href="assets/images/FB_IMG_1790281482379.jpg" fetchpriority="high">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="template.css">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Church","name":"Prayer Army International","founder":{"@type":"Person","name":"Prophet Suglo Prosper"},"address":{"@type":"PostalAddress","addressRegion":"Upper West Region","addressCountry":"GH"},"slogan":"Raising Generals, Transforming Generations"}</script>
 </head>
 <body>
@@ -315,7 +316,7 @@
     <section class="section prayer" id="prayer">
       <div class="container prayer-grid reveal">
         <div class="prayer-copy"><p class="eyebrow dark" id="prayer-eyebrow">WE WOULD LOVE TO PRAY WITH YOU</p><h2 id="prayer-heading">Bring your request.<br><span>Leave it in prayer.</span></h2><p id="prayer-copy">Whether you are seeking direction, strength, healing, provision or simply want someone to stand with you in prayer, submit your request to the ministry.</p></div>
-        <form class="prayer-form" id="prayer-form" novalidate>
+        <form class="prayer-form" id="prayer-form" novalidate toolname="submit_prayer_request" tooldescription="Send a prayer request to the ministry's pastoral team. Confidential option available; nothing is published on the website.">
           <div class="form-row">
             <label><span data-copy-key="prayerNameLabel">Full name</span><input name="name" required minlength="2" maxlength="120" autocomplete="name" data-placeholder-key="yourNamePlaceholder" placeholder="Your name"><span class="field-error" aria-live="polite"></span></label>
             <label><span data-copy-key="prayerContactLabel">Phone / Email</span> <small>(optional)</small><input name="contact" maxlength="200" autocomplete="off" placeholder="So we can follow up"><span class="field-error" aria-live="polite"></span></label>
@@ -383,7 +384,7 @@
           <h2 id="connect-heading">We would love to <span>meet you.</span></h2>
           <p id="connect-copy">Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.</p>
         </div>
-        <form class="prayer-form" id="connect-form">
+        <form class="prayer-form" id="connect-form" toolname="request_contact_from_ministry" tooldescription="Ask someone from the ministry to get in touch (first-time visitor, volunteering or counselling). Needs a phone number or an email.">
           <label><span data-copy-key="connectKindLabel">How can we help?</span>
             <select name="kind" required>
               <option value="visitor" data-copy-key="connectVisitorOption">I'm a first-time visitor</option>
@@ -482,8 +483,8 @@
   <footer id="footer">
     <div class="container footer-grid">
       <div><a class="brand footer-brand" aria-label="Prayer Army International" href="#top"><img width="191" height="115" loading="lazy" decoding="async" class="footer-logo" id="site-logo-footer" src="assets/images/prayer-army-logo.png" alt="Prayer Army International"></a><p id="footer-tagline">Raising Generals, Transforming Generations.</p></div>
-      <div><h4 id="footer-explore-title">Explore</h4><a href="#about" data-copy-key="footerAbout">About</a><a href="#sermons" data-copy-key="footerSermons">Sermons</a><a href="#events" data-copy-key="footerEvents">Events</a><a href="#gallery" data-copy-key="footerGallery">Gallery</a></div>
-      <div><h4 id="footer-connect-title">Connect</h4><a href="#live" data-copy-key="footerLive">Live Stream</a><a href="#prayer" data-copy-key="footerPrayer">Prayer Request</a><a href="#give" data-copy-key="footerGive">Give</a><a href="#contact" data-copy-key="footerContact">Contact</a></div>
+      <div><h4 id="footer-explore-title">Explore</h4><a href="/about" data-copy-key="footerAbout">About</a><a href="#sermons" data-copy-key="footerSermons">Sermons</a><a href="#events" data-copy-key="footerEvents">Events</a><a href="#gallery" data-copy-key="footerGallery">Gallery</a></div>
+      <div><h4 id="footer-connect-title">Connect</h4><a href="#live" data-copy-key="footerLive">Live Stream</a><a href="#prayer" data-copy-key="footerPrayer">Prayer Request</a><a href="#give" data-copy-key="footerGive">Give</a><a href="/contact" data-copy-key="footerContact">Contact</a></div>
       <div><h4 id="footer-hq-title">Headquarters</h4><p id="footer-hq-address">Upper West Region<br>Ghana</p><p class="muted" id="contact-lines">Reach us through the prayer request form or follow our channels for updates.</p><div class="social-icon-row" id="footer-socials"></div><div class="socials" id="socials" style="display:none"></div></div>
     </div>
     <div class="container footer-bottom">
@@ -527,6 +528,6 @@
 
   <div id="toast-container"></div>
   <script src="script.js"></script>
-  <script src="site-extras.js"></script>
+  <script src="agent-tools.js" defer></script>
 </body>
 </html>

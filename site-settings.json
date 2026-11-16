@@ -246,5 +246,10 @@
       "connectCounselingOption": "I'd like counseling or a pastoral appointment",
       "connectOtherOption": "Something else"
     }
+  },
+  "seo": {
+    "contentSignals": "search=yes, ai-input=yes, ai-train=no",
+    "countryCode": "GH",
+    "language": "en"
   }
 }

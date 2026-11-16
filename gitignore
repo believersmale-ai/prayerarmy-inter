@@ -1,0 +1,6 @@
+node_modules/
+assets/uploads/
+.env
+# Media uploaded through the admin panel lives on the server, not in git
+uploads/*
+!uploads/.htaccess

@@ -4,11 +4,27 @@
 // auth/v1, storage/v1); this file answers them from MySQL and the uploads folder.
 define('PAI_API', true);
 require __DIR__ . '/lib.php';
+require __DIR__ . '/agent.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$path = trim((string)preg_replace('#^.*?/api/#', '', (string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), 1), '/');
+$uriPath = (string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$isApi = (bool)preg_match('#/api(/|$)#', $uriPath);
+$path = $isApi ? trim((string)preg_replace('#^.*?/api/#', '', $uriPath, 1), '/') : trim($uriPath, '/');
 
 try {
+    // ---- public pages and agent-facing resources (served through PHP so headers, JSON-LD and Markdown work)
+    if (!$isApi) {
+        if ($path === 'mcp') a_mcp();
+        if ($path === '' || $path === 'index.html') a_page('home', false);
+        elseif ($path === 'index.md') a_page('home', true);
+        elseif (preg_match('#^(about|contact|privacy|terms)(\.md)?$#', $path, $pm)) a_page($pm[1], !empty($pm[2]));
+        elseif ($path === 'robots.txt') a_robots();
+        elseif ($path === 'llms.txt') a_llms();
+        elseif ($path === '.well-known/mcp/server-card.json') a_server_card();
+            elseif ($path === 'sitemap.xml') sitemap_xml();
+        elseif ($path === 'podcast.xml') podcast_feed();
+        else a_not_found();
+    }
     if ($method === 'OPTIONS') { http_response_code(204); exit; }
 
     if ($path === 'rest/v1/rpc/increment_prayed' && $method === 'POST') rpc_increment_prayed();
@@ -21,7 +37,6 @@ try {
     elseif ($path === 'storage/v1/object/list/media') storage_list();
     elseif ($path === 'form-token' && $method === 'GET') out(['token' => form_token()]);
     elseif ($path === 'search' && $method === 'GET') public_search();
-    elseif ($path === 'sitemap.xml') sitemap_xml();
     elseif ($path === 'podcast-feed' || $path === 'podcast.xml' || $path === 'functions/v1/podcast-feed') podcast_feed();
     elseif (preg_match('#^functions/v1/([a-z-]+)$#', $path, $m)) {
         if ($method !== 'POST') fail('Method not allowed', 405);
@@ -617,7 +632,10 @@ function fn_delete_media(): void {
 function public_search(): void {
     rate_guard('search', 120, 600);
     $qstr = clean($_GET['q'] ?? '', 80);
-    if (mb_strlen($qstr) < 2) out(['query' => $qstr, 'results' => []]);
+    out(['query' => $qstr, 'results' => public_search_results($qstr)]);
+}
+function public_search_results(string $qstr): array {
+    if (mb_strlen($qstr) < 2) return [];
     $like = '%' . addcslashes($qstr, '\\%_') . '%';
     $needle = mb_strtolower($qstr);
     $hit = fn($t) => $t !== null && $t !== '' && mb_stripos((string)$t, $needle) !== false;
@@ -656,24 +674,9 @@ function public_search(): void {
     foreach ($info as [$label, $title, $text, $url]) {
         if ($hit($label) || $hit($title) || $hit($text)) $res[] = ['type' => 'ministry', 'title' => $label, 'text' => mb_substr(trim($title . ' ' . $text), 0, 140), 'url' => $url, 'meta' => ''];
     }
-    out(['query' => $qstr, 'results' => array_slice($res, 0, 20)]);
+    return array_slice($res, 0, 20);
 }
 
-function sitemap_xml(): void {
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' ? 'https' : 'http';
-    $origin = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-    $x = fn($s) => htmlspecialchars((string)$s, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-    $urls = [[$origin . '/', gmdate('Y-m-d'), '1.0'], [$origin . '/privacy', null, '0.3'], [$origin . '/terms', null, '0.3']];
-    foreach (q('SELECT id, created_at FROM messages ORDER BY created_at DESC LIMIT 500')->fetchAll() as $r) {
-        $urls[] = [$origin . '/?m=' . $r['id'], substr($r['created_at'], 0, 10), '0.6'];
-    }
-    header('Content-Type: application/xml; charset=utf-8');
-    header('Cache-Control: public, max-age=3600');
-    echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-    foreach ($urls as [$loc, $mod, $pri]) echo '<url><loc>' . $x($loc) . '</loc>' . ($mod ? '<lastmod>' . $x($mod) . '</lastmod>' : '') . '<priority>' . $pri . '</priority></url>';
-    echo '</urlset>';
-    exit;
-}
 
 /* =====================================================================
    PODCAST FEED
