@@ -1183,6 +1183,47 @@
     }
     @media (prefers-reduced-motion: reduce) { .sidebar, .drawer-backdrop { transition: none !important; } }
   </style>
+<style id="pai-premium-admin-overrides">
+  :root { --admin-accent:#d2ad62; --admin-radius:14px; --admin-line:rgba(210,173,98,.2); }
+  body { background:#080d17; }
+  .sidebar { background:#0b1220 !important; border-right:1px solid rgba(210,173,98,.15); }
+  .sidebar-btn { transition:background .2s ease, color .2s ease, transform .2s ease; }
+  .sidebar-btn:hover { background:rgba(210,173,98,.09); transform:translateX(2px); }
+  .sidebar-btn.active { background:rgba(210,173,98,.13) !important; color:#f2d89f !important; }
+  .view-header { margin-bottom:26px; }
+  .view-header h2 { letter-spacing:-.035em; }
+  .card, .panel, .admin-card, .stat-card, .settings-card, .admin-item { border:1px solid rgba(210,173,98,.16) !important; border-radius:14px !important; background:#111a2b !important; box-shadow:0 16px 40px rgba(0,0,0,.18) !important; }
+  .card { padding:clamp(18px,2.4vw,28px); }
+  input, textarea, select { border-radius:8px !important; border-color:#344057 !important; background:#0b1322 !important; }
+  input:focus, textarea:focus, select:focus { border-color:#d2ad62 !important; box-shadow:0 0 0 3px rgba(210,173,98,.12) !important; outline:none; }
+  button, .btn-mini { transition:filter .2s ease, transform .2s ease; }
+  button:hover, .btn-mini:hover { filter:brightness(1.08); }
+  #field-page-content { min-height:460px; tab-size:2; }
+
+  /* Page Builder */
+  .lay-list{display:flex;flex-direction:column;gap:10px}
+  .lay-row{border:1px solid var(--panel-border);border-radius:10px;background:#0b1322;padding:10px 12px}
+  .lay-row.is-off{opacity:.62}
+  .lay-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .lay-move{display:flex;flex-direction:column;gap:2px}
+  .lay-move button{border:1px solid var(--panel-border);background:transparent;color:var(--text);border-radius:5px;width:28px;height:22px;line-height:1;cursor:pointer;font-size:12px}
+  .lay-move button:disabled{opacity:.3;cursor:default}
+  .lay-name{flex:1;min-width:140px;font-weight:600}
+  .lay-name small{display:block;color:var(--text-muted);font-weight:500;font-size:11px;letter-spacing:.04em}
+  .lay-flags{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .lay-flags label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;margin:0}
+  .lay-edit{margin-top:12px;padding-top:12px;border-top:1px dashed var(--panel-border)}
+  .lay-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 7px;border-radius:4px;background:var(--admin-accent-soft);color:var(--gold2);margin-left:6px}
+  .lay-badge.draft{background:rgba(239,68,68,.15);color:#fca5a5}
+  .pt-group{margin-bottom:22px}
+  .pt-group h4{margin:0 0 12px;color:var(--gold2);font-size:14px;letter-spacing:.04em}
+  .pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+  .pt-grid .wide{grid-column:1/-1}
+  .pt-grid label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px}
+  .pt-faith-row{display:flex;gap:8px;margin-bottom:8px}
+  .pt-faith-row textarea{flex:1}
+  @media(max-width:760px){ .card{padding:18px !important;} }
+</style>
 </head>
 <body>
 
@@ -1248,6 +1289,10 @@
           <span>Public Site</span> <span>↗</span>
         </a>
 
+        <button type="button" class="btn-live-site" id="btn-preview" title="Open the website with your unsaved changes (nothing is published)">
+          <span>👁</span> Preview
+        </button>
+
         <button type="button" class="btn-save-master" id="btn-save-all">
           <span>💾</span> Save Changes
         </button>
@@ -1281,6 +1326,9 @@
         <div class="nav-group-title">Site Content</div>
         <button type="button" class="sidebar-btn" data-view="view-hero">
           <span>⚡</span> Hero Banner
+        </button>
+        <button type="button" class="sidebar-btn" data-view="view-layout">
+          <span>🧩</span> Page Builder
         </button>
         <button type="button" class="sidebar-btn" data-view="view-general">
           <span>🏛</span> General & Contacts
@@ -1901,6 +1949,31 @@
           </section>
 
           <!-- 7. ABOUT & FOUNDATION -->
+          <section class="tab-view" id="view-layout">
+            <div class="view-header">
+              <div class="view-header-text">
+                <h2><span>🧩</span> Page Builder</h2>
+                <p>Reorder, hide or unpublish homepage sections, add your own sections, and edit the wording of the whole page. Use <strong>Preview</strong> to see your changes first, then <strong>Save Changes</strong> to publish.</p>
+              </div>
+              <div class="view-header-actions">
+                <button type="button" class="btn-mini" id="btn-layout-preview">👁 Preview changes</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Homepage sections</h3>
+              <p class="form-help">Use the arrows to reorder. <strong>Visible</strong> off = hidden everywhere. <strong>Published</strong> off = a draft: hidden from visitors but shown (outlined) in Preview. Hidden sections also disappear from the menu. The hero banner always stays on top.</p>
+              <div class="lay-list" id="layout-list"></div>
+              <div style="margin-top:14px"><button type="button" class="btn-mini" id="btn-add-section">+ Add a new section</button></div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Page text</h3>
+              <p class="form-help">Edit headings, introductions, menu and button labels and the Statement of Faith. In a heading, type <code>|</code> to split it: the first part is normal, the second part is highlighted (example: <code>Built on|prayer, truth and faith.</code>).</p>
+              <div id="page-text-editor"></div>
+            </div>
+          </section>
+
           <section class="tab-view" id="view-about">
             <div class="view-header">
               <div class="view-header-text">
@@ -1966,6 +2039,16 @@
                 <label for="field-founder-bio">Founder Story / Bio</label>
                 <textarea id="field-founder-bio" rows="3"></textarea>
               </div>
+            </div>
+
+            <div class="card">
+              <h3 class="card-title">Website Page Content</h3>
+              <p style="font-size:12.5px;color:var(--text-muted);margin:-6px 0 14px;">Edit the remaining public page headings, labels and explanatory copy here. Keep the JSON structure and edit only the text between quotation marks. For split headings, use the vertical bar | to separate the gold-highlighted phrase. Statement of faith entries are one item per line.</p>
+              <div class="form-group">
+                <label for="field-page-content">Additional page content (JSON)</label>
+                <textarea id="field-page-content" rows="28" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.55;"></textarea>
+              </div>
+              <p class="form-help">This editor controls section headings, section introductions, contact-card labels, footer labels and the full Statement of Faith. Existing forms, media, events and other features remain separate.</p>
             </div>
 
             <div class="card">

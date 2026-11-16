@@ -5,6 +5,19 @@
 const SUPABASE_URL = `${location.origin}/api`;   // kept name for compatibility: this is now your own Hostinger PHP/MySQL API
 const SUPABASE_ANON_KEY = "";                      // not used any more
 
+// Preview mode (opened from the admin panel as /?preview=1): nothing is saved and no analytics are sent.
+const PREVIEW = new URLSearchParams(location.search).get('preview') === '1' && !!window.opener;
+let previewLocked = false;
+
+// Only http(s), mailto, tel and same-site paths are allowed in editable links and images.
+const safeLinkUrl = (u) => {
+  const v = String(u || '').trim().replace(/[\u0000-\u001f\u007f]/g, '');
+  if (!v) return '';
+  const m = v.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (m) return /^(https?|mailto|tel)$/i.test(m[1]) ? v : '';
+  return v.startsWith('//') ? '' : v;
+};
+
 const DEFAULT_SETTINGS = {
   general: {
     churchName: "Prayer Army International",
@@ -111,6 +124,91 @@ const DEFAULT_SETTINGS = {
     whatsapp: "https://wa.me/233241234567",
     telegram: ""
   },
+  content: {
+    "foundationEyebrow": "OUR FOUNDATION",
+    "foundationHeading": "Built on|prayer, truth and faith.",
+    "foundationIntro": "Who we are, where we are headed, and the convictions that hold us together.",
+    "missionKicker": "OUR MISSION",
+    "visionKicker": "OUR VISION",
+    "valuesKicker": "OUR VALUES",
+    "faithEyebrow": "STATEMENT OF FAITH",
+    "faithHeading": "What we believe",
+    "faithStatements": [
+        "We believe in one God, eternally existing as Father, Son and Holy Spirit, the Creator of heaven and earth and the source of all life.",
+        "We believe in Jesus Christ, the Son of God, who came in the flesh, died for our sins, rose again, and is Lord and Saviour of all who believe in Him.",
+        "We believe in the Holy Spirit, who convicts, regenerates, indwells, guides and empowers believers to live holy lives and serve God’s purposes.",
+        "We believe the Bible is God’s Word, trustworthy and authoritative for faith, doctrine, character and Christian living.",
+        "We believe in salvation by grace through faith in Jesus Christ, repentance from sin, the new birth and a life that reflects the character of Christ.",
+        "We believe in prayer, worship and the spiritual gifts, and that God still works through the Holy Spirit to strengthen, comfort, equip and build His Church.",
+        "We believe in the Great Commission: that every believer is called to share the gospel, make disciples and demonstrate God’s love through service.",
+        "We believe in the return of Jesus Christ, the resurrection of the dead, the final judgment and the eternal hope promised by God to His people."
+    ],
+    "storyEyebrow": "OUR STORY",
+    "founderEyebrow": "FOUNDER",
+    "founderCardName": "Prophet Suglo Prosper",
+    "sermonsEyebrow": "WATCH & LISTEN",
+    "sermonsArchiveLabel": "Sermon archive",
+    "sermonsArchiveHeading": "Sermon archive",
+    "sermonsArchiveCopy": "Every past message and live service is kept here. Press play to watch or listen without leaving the site.",
+    "eventsEyebrow": "PROGRAMS & EVENTS",
+    "eventsHeading": "Gather. Pray.|Transform.",
+    "eventsLinkLabel": "All events",
+    "weeklyEyebrow": "EVERY WEEK",
+    "weeklyHeading": "Weekly|activities",
+    "galleryEyebrow": "LIFE AT PRAYER ARMY",
+    "galleryHeading": "Moments from the|ministry.",
+    "galleryLinkLabel": "View gallery",
+    "wallEyebrow": "STAND WITH US",
+    "wallHeading": "The|prayer wall",
+    "wallCopy": "Requests shared by our church family. Tap “I prayed” to let them know someone stood with them.",
+    "testimoniesEyebrow": "WHAT GOD HAS DONE",
+    "testimoniesHeading": "Testimonies of|God’s faithfulness",
+    "testimoniesCopy": "Healings, breakthroughs, answered prayers. Read what the Lord is doing in our midst, and share yours.",
+    "connectEyebrow": "NEW HERE? LET’S CONNECT",
+    "connectHeading": "We would love to|meet you.",
+    "connectCopy": "Visiting for the first time, want to serve in a department, or need to speak with a pastor? Leave your details and someone from the ministry will reach out to you.",
+    "givingEyebrow": "PARTNER WITH THE MINISTRY",
+    "locationsEyebrow": "VISIT US",
+    "locationsHeading": "Our|locations",
+    "locationsCopy": "Find the branch nearest to you, with service times and directions.",
+    "contactEyebrow": "GET IN TOUCH",
+    "contactHeading": "Connect with|Prayer Army.",
+    "contactIntro": "Whether you have questions, desire counseling, want to visit, or wish to follow the prophetic ministry online, connect with us through any of our channels.",
+    "contactLocationTitle": "Headquarters",
+    "contactLocationNote": "Central Altar & Sanctuary",
+    "contactPhoneTitle": "Phone & WhatsApp",
+    "contactPhoneNote": "Lines open for prayer and inquiries",
+    "contactEmailTitle": "Official Email",
+    "contactEmailNote": "Official ministry correspondence",
+    "socialCardHeading": "Follow Us on Social Media",
+    "socialCardCopy": "Stay spiritually enriched daily. Watch full sermons, join prayer streams, and follow ministry updates across our official social channels.",
+    "footerExploreTitle": "Explore",
+    "footerConnectTitle": "Connect",
+    "footerHqTitle": "Headquarters",
+    "footerCredit": "Built for ministry, media & mission.",
+    "quick1Title": "Latest Sermons",
+    "quick1Copy": "Watch and listen to messages",
+    "quick2Title": "Live Services",
+    "quick2Copy": "Join services online",
+    "quick3Title": "Upcoming Events",
+    "quick3Copy": "Discover ministry programs",
+    "quick4Title": "Prayer Request",
+    "quick4Copy": "Let us pray with you",
+    "footerTagline": "Raising Generals, Transforming Generations.",
+    "aboutExploreLabel": "Explore our foundation",
+    "uiText": {
+      "navAbout":"About","navSermons":"Sermons","navLive":"Watch Live","navEvents":"Events","navGallery":"Gallery","navPrayer":"Prayer","navContact":"Contact","navGive":"Give",
+      "eventKicker":"UPCOMING PROGRAM","eventButton":"View Event","eventStackBrand":"Prayer Army International","founderCta":"Meet the founder","sermonWatch":"Watch message","sermonMiniWatch":"Watch","livePreviewCaption":"Tap to preview",
+      "connectVisitorOption":"I'm a first-time visitor","connectCallbackOption":"Please call me back","connectQuestionOption":"I have a question","connectVolunteerOption":"I want to volunteer (choir, ushers, media, children…)","connectCounselingOption":"I'd like counseling or a pastoral appointment","connectOtherOption":"Something else",
+      "sermonSearchPlaceholder":"Search sermons by title, speaker or topic…","podcastLead":"🎧 Prefer to listen on your phone?","podcastButton":"Copy our podcast feed link","podcastTail":"and paste it into Spotify, Apple Podcasts or any podcast app.",
+      "prayerNameLabel":"Full name","prayerContactLabel":"Phone / Email","prayerRequestLabel":"Prayer request","prayerPrivateLabel":"Keep this request confidential","prayerSubmit":"Submit Prayer Request",
+      "wallSummary":"Add a request to the wall","wallNotice":"This will be visible to everyone once approved. Please don't include phone numbers, addresses or private details. For a private request, use the prayer form above.","wallNameLabel":"Your first name (optional)","wallRequestLabel":"Prayer request","wallSubmit":"Submit to the wall",
+      "testimonySummary":"Share your testimony","testimonyNameLabel":"Name","testimonyLocationLabel":"Town / Country","testimonyTextLabel":"Your testimony","testimonySubmit":"Submit testimony","testimonyReviewNote":"Testimonies are reviewed before they appear on the site.",
+      "connectKindLabel":"How can we help?","connectNameLabel":"Name","connectPhoneLabel":"Phone / WhatsApp","connectEmailLabel":"Email","connectNoteLabel":"Anything we should know?","connectSubmit":"Send",
+      "footerAbout":"About","footerSermons":"Sermons","footerEvents":"Events","footerGallery":"Gallery","footerLive":"Live Stream","footerPrayer":"Prayer Request","footerGive":"Give","footerContact":"Contact","footerPrivacy":"Privacy Policy",
+      "yourNamePlaceholder":"Your name","optionalPlaceholder":"Optional","prayerRequestPlaceholder":"How can we pray with you?","anonymousPlaceholder":"Or leave blank to stay anonymous","testimonyPlaceholder":"Tell us what God has done…","phonePlaceholder":"e.g. 024 000 0000","emailOptionalPlaceholder":"Optional if you gave a phone number"
+    }
+},
   tracking: { metaPixelId: "" },
   verses: [
     { text: "The LORD is my shepherd; I shall not want.", ref: "Psalm 23:1" },
@@ -348,6 +446,7 @@ $('#cookie-settings')?.addEventListener('click', () => { $('#consent-banner').hi
 
 // Privacy-light analytics: no cookies, no IP, no personal data. Respects Do Not Track.
 const track = (kind, label) => {
+  if (PREVIEW) return;
   if (kind === 'sermon_play') pixelEvent('ViewContent', { content_name: String(label || '').slice(0, 100), content_type: 'sermon' });
   else if (kind === 'share') pixelEvent('ShareClick', { content_name: String(label || '').slice(0, 100) }, true);
   try {
@@ -653,9 +752,218 @@ const renderWeekly = (s) => {
 /* =========================================================================
    APPLY SETTINGS TO THE ENTIRE WEBSITE DOM
    ========================================================================= */
+/* =========================================================================
+   PAGE LAYOUT: section order, visibility, publishing and custom sections.
+   Settings shape (all optional; with no `layout` the page looks exactly as before):
+   layout.items  = [{ id, visible, published }]   in display order
+   layout.custom = [{ id, title, eyebrow, body, imageUrl, bgImage, buttonLabel, buttonUrl,
+                      button2Label, button2Url, style, navLabel, showInMenu }]
+   Everything below is written with textContent / validated URLs, so editors can never inject HTML or scripts.
+   ========================================================================= */
+const BUILTIN_SECTIONS = ['hero-section', 'quick-links', 'announcements', 'verse', 'about', 'foundation', 'sermons', 'live', 'events',
+  'gallery', 'prayer', 'prayer-wall', 'testimonies', 'connect', 'give', 'locations', 'contact'];
+
+const cleanSectionId = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+
+const buildCustomSection = (c, id) => {
+  const el = document.createElement('section');
+  const style = ['text', 'image-right', 'image-left', 'banner'].includes(c.style) ? c.style : 'text';
+  el.className = `section custom-section custom-${style}`;
+  el.id = id;
+  el.dataset.customSection = '1';
+  const bg = safeLinkUrl(c.bgImage);
+  if (bg) { el.classList.add('has-bg'); el.style.backgroundImage = `linear-gradient(rgba(9,14,24,.72),rgba(9,14,24,.72)), url(${JSON.stringify(bg)})`; }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'container custom-grid';
+  const copy = document.createElement('div');
+  copy.className = 'custom-copy';
+
+  if (c.eyebrow) { const p = document.createElement('p'); p.className = 'eyebrow dark'; p.textContent = String(c.eyebrow).slice(0, 120); copy.append(p); }
+  if (c.title) {
+    const h = document.createElement('h2');
+    const parts = String(c.title).slice(0, 200).split('|');          // "Normal|gold part", same as the other headings
+    h.append(document.createTextNode(parts[0]));
+    if (parts.length > 1) { h.append(document.createTextNode(' ')); const sp = document.createElement('span'); sp.textContent = parts.slice(1).join('|'); h.append(sp); }
+    copy.append(h);
+  }
+  String(c.body || '').slice(0, 8000).split(/\n{2,}/).map((t) => t.trim()).filter(Boolean).forEach((t) => {
+    const p = document.createElement('p');
+    t.split('\n').forEach((line, i) => { if (i) p.append(document.createElement('br')); p.append(document.createTextNode(line)); });
+    copy.append(p);
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'custom-actions';
+  [[c.buttonLabel, c.buttonUrl, 'btn btn-gold'], [c.button2Label, c.button2Url, 'btn btn-dark']].forEach(([label, url, cls]) => {
+    const href = safeLinkUrl(url);
+    if (!label || !href) return;
+    const a = document.createElement('a');
+    a.className = cls; a.href = href; a.textContent = String(label).slice(0, 60);
+    try { if (/^https?:/i.test(href) && new URL(href).origin !== location.origin) { a.target = '_blank'; a.rel = 'noopener noreferrer'; } } catch { /* relative */ }
+    actions.append(a);
+  });
+  if (actions.children.length) copy.append(actions);
+  wrap.append(copy);
+
+  const img = safeLinkUrl(c.imageUrl);
+  if (img && style !== 'banner') {
+    const fig = document.createElement('figure');
+    fig.className = 'custom-media';
+    const im = document.createElement('img');
+    im.src = img; im.alt = String(c.title || '').replace(/\|/g, ' ').slice(0, 120); im.loading = 'lazy';
+    fig.append(im);
+    wrap.append(fig);
+  }
+  el.append(wrap);
+  return el;
+};
+
+const applyLayout = (s) => {
+  const main = $('#main');
+  const layout = (s && s.layout) || null;
+  const savedItems = layout && Array.isArray(layout.items) ? layout.items : [];
+  const customList = layout && Array.isArray(layout.custom) ? layout.custom.slice(0, 40) : [];
+  if (!main || (!savedItems.length && !customList.length)) return; // nothing configured: leave the page untouched
+
+  $$('[data-custom-section]', main).forEach((n) => n.remove());
+  $$('[data-custom-nav]').forEach((n) => n.remove());
+
+  const els = new Map();
+  BUILTIN_SECTIONS.forEach((id) => { const el = document.getElementById(id); if (el && el.parentElement === main) els.set(id, el); });
+  customList.forEach((c) => { const id = cleanSectionId(c && c.id); if (id && !els.has(id)) els.set(id, buildCustomSection(c, id)); });
+
+  const order = [], seen = new Set();
+  savedItems.forEach((it) => { const id = cleanSectionId(it && it.id); if (els.has(id) && !seen.has(id)) { seen.add(id); order.push({ id, visible: it.visible !== false, published: it.published !== false }); } });
+  // Sections a saved layout does not know about (for example ones added by a later upgrade) go right after
+  // the section that normally precedes them, so existing sites do not get surprise reordering.
+  els.forEach((el, id) => {
+    if (seen.has(id)) return;
+    let at = order.length;
+    for (let k = BUILTIN_SECTIONS.indexOf(id) - 1; k >= 0; k--) {
+      const p = order.findIndex((o) => o.id === BUILTIN_SECTIONS[k]);
+      if (p >= 0) { at = p + 1; break; }
+    }
+    seen.add(id);
+    order.splice(at, 0, { id, visible: true, published: true });
+  });
+  const heroAt = order.findIndex((o) => o.id === 'hero-section');
+  if (heroAt > 0) order.unshift(order.splice(heroAt, 1)[0]);       // the hero always stays on top
+
+  order.forEach((o) => {
+    const el = els.get(o.id);
+    main.appendChild(el);
+    const pinned = o.id === 'hero-section';
+    const hidden = !pinned && o.visible === false;
+    const draft = !pinned && o.published === false;
+    el.classList.toggle('pai-off', hidden || (draft && !PREVIEW));
+    el.classList.toggle('pai-draft', draft && !hidden && PREVIEW);
+  });
+
+  // Menu links follow their section: hidden/unpublished sections disappear from menus and quick links.
+  $$('#primary-nav a[href^="#"], #footer a[href^="#"], .quick-grid a[href^="#"]').forEach((a) => {
+    const target = document.getElementById(a.getAttribute('href').slice(1));
+    const off = !!target && target.classList.contains('pai-off');
+    a.classList.toggle('pai-off', off);
+    const li = a.closest('li'); if (li) li.classList.toggle('pai-off', off);
+  });
+  const nav = $('#primary-nav');
+  if (nav) {
+    const giveLink = $('.nav-give', nav);
+    customList.forEach((c) => {
+      const id = cleanSectionId(c && c.id), el = els.get(id);
+      if (!c.showInMenu || !c.navLabel || !el || el.classList.contains('pai-off')) return;
+      const a = document.createElement('a');
+      a.href = `#${id}`; a.textContent = String(c.navLabel).slice(0, 30); a.dataset.customNav = '1';
+      nav.insertBefore(a, giveLink || null);
+    });
+  }
+};
+
+/* Preview: the admin panel opens /?preview=1 and sends its unsaved settings with postMessage.
+   Nothing is stored or published, and the page records no analytics while previewing. */
+const showPreviewBar = () => {
+  document.documentElement.classList.add('is-preview');
+  const bar = document.createElement('div');
+  bar.className = 'preview-bar';
+  bar.setAttribute('role', 'status');
+  const msg = document.createElement('span');
+  msg.textContent = 'Preview - these changes are not published yet. Unpublished sections are outlined in gold.';
+  const close = document.createElement('button');
+  close.type = 'button'; close.textContent = 'Close preview';
+  close.addEventListener('click', () => { try { window.close(); } catch { /* ignore */ } });
+  bar.append(msg, close);
+  document.body.prepend(bar);
+};
+
 const applySettings = (s) => {
   currentSettings = s;
   queueMicrotask(() => document.dispatchEvent(new CustomEvent('pai:settings', { detail: s })));
+
+  // Editable editorial copy: all values are plain text from site-settings.json.
+  // Split headings use "main|accent" so the highlighted phrase remains semantic and safe.
+  const pageCopy = s.content || {};
+  const uiText = pageCopy.uiText || {};
+  document.querySelectorAll('[data-copy-key]').forEach((el) => {
+    const value = uiText[el.dataset.copyKey];
+    if (typeof value === 'string') el.textContent = value;
+  });
+  document.querySelectorAll('[data-placeholder-key]').forEach((el) => {
+    const value = uiText[el.dataset.placeholderKey];
+    if (typeof value === 'string') el.setAttribute('placeholder', value);
+  });
+  const copyTargets = {
+    foundationEyebrow:'foundation-eyebrow', foundationIntro:'foundation-intro', missionKicker:'mission-kicker',
+    visionKicker:'vision-kicker', valuesKicker:'values-kicker', faithEyebrow:'faith-eyebrow', faithHeading:'faith-heading',
+    storyEyebrow:'story-eyebrow', founderEyebrow:'founder-eyebrow', founderCardName:'founder-card-name',
+    sermonsEyebrow:'sermons-eyebrow', sermonsArchiveHeading:'sermons-archive-heading', sermonsArchiveCopy:'sermons-archive-copy',
+    eventsEyebrow:'events-eyebrow', eventsLinkLabel:'events-link-label', weeklyEyebrow:'weekly-eyebrow',
+    galleryEyebrow:'gallery-eyebrow', galleryLinkLabel:'gallery-link-label', wallEyebrow:'wall-eyebrow', wallCopy:'wall-copy',
+    testimoniesEyebrow:'testimonies-eyebrow', testimoniesCopy:'testimonies-copy', connectEyebrow:'connect-eyebrow',
+    connectCopy:'connect-copy', givingEyebrow:'giving-eyebrow', locationsEyebrow:'locations-eyebrow', locationsCopy:'locations-copy',
+    contactEyebrow:'contact-eyebrow', contactIntro:'contact-intro', contactLocationTitle:'contact-card-location-title',
+    contactLocationNote:'contact-card-location-note', contactPhoneTitle:'contact-card-phone-title', contactPhoneNote:'contact-card-phone-note',
+    contactEmailTitle:'contact-card-email-title', contactEmailNote:'contact-card-email-note', socialCardHeading:'social-card-heading',
+    socialCardCopy:'social-card-copy', footerExploreTitle:'footer-explore-title', footerConnectTitle:'footer-connect-title',
+    footerHqTitle:'footer-hq-title', footerCredit:'footer-credit', footerTagline:'footer-tagline'
+  };
+  Object.entries(copyTargets).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el && typeof pageCopy[key] === 'string' && pageCopy[key]) el.textContent = pageCopy[key];
+  });
+  const setSplitHeading = (key, id) => {
+    const el = document.getElementById(id), value = pageCopy[key];
+    if (!el || typeof value !== 'string' || !value) return;
+    const parts = value.split('|');
+    el.textContent = '';
+    el.append(document.createTextNode(parts[0] || ''));
+    if (parts.length > 1) {
+      el.append(document.createTextNode(' '));
+      const accent = document.createElement('span'); accent.textContent = parts.slice(1).join('|'); el.append(accent);
+    }
+  };
+  if (pageCopy.aboutExploreLabel) { const el = document.getElementById('about-explore-link'); if (el) el.innerHTML = `${escapeHtml(pageCopy.aboutExploreLabel)} <span>↓</span>`; }
+  setSplitHeading('foundationHeading', 'foundation-heading');
+  setSplitHeading('eventsHeading', 'events-heading');
+  setSplitHeading('weeklyHeading', 'weekly-heading');
+  setSplitHeading('galleryHeading', 'gallery-heading');
+  setSplitHeading('wallHeading', 'wall-heading');
+  setSplitHeading('testimoniesHeading', 'testimonies-heading');
+  setSplitHeading('connectHeading', 'connect-heading');
+  setSplitHeading('locationsHeading', 'locations-heading');
+  setSplitHeading('contactHeading', 'contact-heading');
+  if (pageCopy.sermonsArchiveLabel) { const el = document.getElementById('sermons-archive-link'); if (el) el.innerHTML = `${escapeHtml(pageCopy.sermonsArchiveLabel)} <span>↓</span>`; }
+  for (let i = 1; i <= 4; i++) {
+    const title = document.getElementById(`quick${i}-title`), copy = document.getElementById(`quick${i}-copy`);
+    if (title && pageCopy[`quick${i}Title`]) title.textContent = pageCopy[`quick${i}Title`];
+    if (copy && pageCopy[`quick${i}Copy`]) copy.textContent = pageCopy[`quick${i}Copy`];
+  }
+  const faithCopy = document.querySelector('.faith-copy');
+  if (faithCopy && Array.isArray(pageCopy.faithStatements) && pageCopy.faithStatements.length) {
+    faithCopy.replaceChildren(...pageCopy.faithStatements.filter(x => typeof x === 'string' && x.trim()).map(statement => {
+      const paragraph = document.createElement('p'); paragraph.textContent = statement; return paragraph;
+    }));
+  }
 
   // Church Logo (header, footer, favicon)
   if (s.general?.logoUrl) {
@@ -870,7 +1178,8 @@ const applySettings = (s) => {
   if (aHeading && s.about?.heading) {
     // Wrap **text** as a gold accent span. This used to silently discard the
     // accent styling entirely once settings loaded (innerHTML was set to the
-    // plain heading text with no way to mark which part gets the color) - // now the admin's Heading field can mark the accented part with **stars**
+    // plain heading text with no way to mark which part gets the color) -
+    // now the admin's Heading field can mark the accented part with **stars**
     // and it's escaped first, so no raw HTML can be injected through it.
     aHeading.innerHTML = escapeHtml(s.about.heading).replace(/\*\*(.+?)\*\*/g, '<span>$1</span>');
   }
@@ -1111,6 +1420,8 @@ const applySettings = (s) => {
 
   const yearEl = $('#year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  applyLayout(s);
 };
 
 // Redirect to separate admin page if query param present
@@ -1120,6 +1431,12 @@ if (urlParams.has("manage") || urlParams.has("admin")) {
 }
 
 // Initial Settings loading
+const mergeSettings = (loaded) => ({
+  ...DEFAULT_SETTINGS, ...(loaded || {}),
+  content: { ...(DEFAULT_SETTINGS.content || {}), ...((loaded && loaded.content) || {}),
+    uiText: { ...((DEFAULT_SETTINGS.content || {}).uiText || {}), ...((loaded && loaded.content && loaded.content.uiText) || {}) } }
+});
+
 const loadInitialSettings = async () => {
   let loaded = null;
 
@@ -1148,11 +1465,13 @@ const loadInitialSettings = async () => {
     } catch {}
   }
 
-  const finalSettings = Object.assign({}, DEFAULT_SETTINGS, loaded || {});
+  if (previewLocked) return;        // the admin's unsaved preview wins over the saved copy
+  const finalSettings = mergeSettings(loaded);
   applySettings(finalSettings);
 };
 
-loadInitialSettings();
+// Start after the whole script has loaded: applySettings() uses helpers (e.g. renderPayMethods) defined further down.
+Promise.resolve().then(loadInitialSettings);
 
 // Gallery Lightbox (defensive: only wires up if both the dialog and at
 // least one gallery photo are present, so this never throws and never
@@ -1802,8 +2121,6 @@ wirePublicForm('#wall-form', '#wall-note', 'wall_prayers',
   (d) => ({ name: (d.name || '').trim().slice(0, 60) || null, request: (d.request || '').trim().slice(0, 400) }),
   'Thank you. Your request will appear on the wall once it has been reviewed. We are praying with you.');
 
-// Giving: count clicks on the payment buttons (event name only, no amounts or details)
-
 /* =========================================================================
    FRONTEND REDESIGN BEHAVIOR
    Progressive enhancement: existing forms, API calls, sermon playback,
@@ -1867,3 +2184,18 @@ if (redesignStage) {
 document.addEventListener('click', (e) => {
   if (e.target.closest('#give-link-btn, .pay-link')) pixelEvent('GiveClick', {}, true);
 });
+
+// Preview mode: receive unsaved settings from the admin panel that opened this tab.
+if (PREVIEW) {
+  const start = () => showPreviewBar();
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || e.source !== window.opener) return;
+    const d = e.data;
+    if (d && d.type === 'pai-preview' && d.settings && typeof d.settings === 'object' && !Array.isArray(d.settings)) {
+      previewLocked = true;
+      applySettings(mergeSettings(d.settings));
+    }
+  });
+  try { window.opener.postMessage({ type: 'pai-preview-ready' }, location.origin); } catch { /* opener closed */ }
+}

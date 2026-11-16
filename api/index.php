@@ -508,10 +508,46 @@ function fn_manage_content(): void {
     fail("Unknown action: $action", 400);
 }
 
+/** Links and images that editors can type into the Page Builder: only http(s), mailto, tel and same-site paths. */
+function safe_link(string $u): string {
+    $u = preg_replace('/[\x00-\x1F\x7F]/u', '', trim($u)) ?? '';
+    if ($u === '') return '';
+    if (preg_match('/^([a-z][a-z0-9+.\-]*):/i', $u, $m)) return in_array(strtolower($m[1]), ['http', 'https', 'mailto', 'tel'], true) ? $u : '';
+    return str_starts_with($u, '//') ? '' : $u;
+}
+
+/** Keep the page layout well-formed: known shape, length limits, safe links. */
+function sanitize_layout(array &$s): void {
+    if (!array_key_exists('layout', $s)) return;
+    $l = $s['layout'];
+    if (!is_array($l)) { unset($s['layout']); return; }
+    $id = fn($v) => substr(preg_replace('/[^a-z0-9\-]/', '', strtolower((string)(is_scalar($v) ? $v : ''))) ?? '', 0, 40);
+    $items = [];
+    foreach (array_slice(is_array($l['items'] ?? null) ? $l['items'] : [], 0, 80) as $it) {
+        if (!is_array($it) || $id($it['id'] ?? '') === '') continue;
+        $items[] = ['id' => $id($it['id']), 'visible' => ($it['visible'] ?? true) !== false, 'published' => ($it['published'] ?? true) !== false];
+    }
+    $custom = [];
+    foreach (array_slice(is_array($l['custom'] ?? null) ? $l['custom'] : [], 0, 40) as $c) {
+        if (!is_array($c) || $id($c['id'] ?? '') === '') continue;
+        $style = in_array($c['style'] ?? '', ['text', 'image-right', 'image-left', 'banner'], true) ? $c['style'] : 'text';
+        $custom[] = [
+            'id' => $id($c['id']), 'title' => clean($c['title'] ?? '', 200), 'eyebrow' => clean($c['eyebrow'] ?? '', 120),
+            'body' => clean($c['body'] ?? '', 8000), 'style' => $style,
+            'imageUrl' => safe_link(clean($c['imageUrl'] ?? '', 500)), 'bgImage' => safe_link(clean($c['bgImage'] ?? '', 500)),
+            'buttonLabel' => clean($c['buttonLabel'] ?? '', 60), 'buttonUrl' => safe_link(clean($c['buttonUrl'] ?? '', 500)),
+            'button2Label' => clean($c['button2Label'] ?? '', 60), 'button2Url' => safe_link(clean($c['button2Url'] ?? '', 500)),
+            'navLabel' => clean($c['navLabel'] ?? '', 30), 'showInMenu' => ($c['showInMenu'] ?? false) === true,
+        ];
+    }
+    $s['layout'] = ['items' => $items, 'custom' => $custom];
+}
+
 function fn_save_settings(): void {
     require_perm('settings');
     $s = body()['settings'] ?? null;
     if (!is_array($s)) fail('settings must be an object', 400);
+    sanitize_layout($s);
     unset($s['notifications'], $s['passkey']);
     $json = json_encode($s, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if ($json === false || strlen($json) > 2 * 1024 * 1024) fail('Settings are too large', 413);
