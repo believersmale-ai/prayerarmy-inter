@@ -317,6 +317,46 @@ app.get('/api/health/db', async (req, res) => {
   }
 });
 
+// ---------- read-only public content (existing production tables) ----------
+// Explicit column allowlists prevent private fields and unapproved submissions leaking.
+// Query parameters only affect a bounded limit and sort direction.
+app.get('/api/rest/v1/:resource', async (req, res, next) => {
+  const resource = req.params.resource;
+  const definitions = {
+    messages: {
+      table: 'site_content_messages',
+      fields: 'id, title, description, link, media_url, media_type, notes_url, created_at',
+      where: ''
+    },
+    testimonies: {
+      table: 'site_content_testimonies',
+      fields: 'id, name, location, testimony, created_at',
+      where: 'WHERE is_approved = 1'
+    },
+    wall_prayers: {
+      table: 'site_content_wall_prayers',
+      fields: 'id, name, request, prayed_count',
+      where: 'WHERE is_approved = 1'
+    }
+  };
+  const def = definitions[resource];
+  if (!def) return next();
+  const max = resource === 'messages' ? 200 : resource === 'testimonies' ? 50 : 100;
+  const requested = Number.parseInt(String(req.query.limit ?? max), 10);
+  const limit = Number.isFinite(requested) ? Math.min(max, Math.max(1, requested)) : max;
+  const order = String(req.query.order || '').endsWith('.asc') ? 'ASC' : 'DESC';
+  try {
+    const [rows] = await db.query(
+      `SELECT ${def.fields} FROM \`${def.table}\` ${def.where} ORDER BY created_at ${order} LIMIT ${limit}`
+    );
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    res.json(rows);
+  } catch (error) {
+    console.error('Public content read failed:', resource, error.message);
+    res.status(503).json({ error: 'Content temporarily unavailable' });
+  }
+});
+
 // ---------- public forms (same field names the website sends) ----------
 app.post('/api/rest/v1/prayer_requests', async (req, res) => {
   try {
