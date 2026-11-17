@@ -1327,13 +1327,254 @@ export function createChurchManagement(store, staff) {
         );
     }),
   );
+  const groupData = (body) => {
+    const b = object(body);
+    check(
+      ["ministry", "small_group"].includes(b.kind),
+      400,
+      "Choose a ministry or small group",
+    );
+    return {
+      name: required(b.name, 150, "Group name"),
+      kind: b.kind,
+      description: optional(b.description, 2000),
+      location: optional(b.location, 200),
+      meeting_details: optional(b.meeting_details, 300),
+    };
+  };
+  const getGroup = (id, connection) =>
+    one("SELECT * FROM church_groups WHERE id=?", [id], connection);
+  const lockGroup = async (id, body, connection, allowArchived = false) => {
+    const g = await one(
+      "SELECT * FROM church_groups WHERE id=? FOR UPDATE",
+      [id],
+      connection,
+    );
+    check(g, 404, "Group not found");
+    check(
+      Number(g.version) === revision(body),
+      409,
+      "This group changed. Reload before saving",
+    );
+    check(
+      allowArchived || !g.archived_at,
+      409,
+      "Restore this group before changing it",
+    );
+    return g;
+  };
+  router.get(
+    "/groups",
+    permit("members"),
+    route(async (req, res) => {
+      const { page, limit } = pageOf(req.query),
+        args = [],
+        conditions = [
+          req.query.archived === "true"
+            ? "g.archived_at IS NOT NULL"
+            : "g.archived_at IS NULL",
+        ];
+      if (req.query.search) {
+        conditions.push("g.name LIKE ?");
+        args.push(like(req.query.search));
+      }
+      if (req.query.kind) {
+        check(
+          ["ministry", "small_group"].includes(req.query.kind),
+          400,
+          "Invalid group type",
+        );
+        conditions.push("g.kind=?");
+        args.push(req.query.kind);
+      }
+      const where = conditions.join(" AND ");
+      const rows = await query(
+        `SELECT g.*,(SELECT COUNT(*) FROM church_group_members gm JOIN church_members m ON m.id=gm.member_id WHERE gm.group_id=g.id AND gm.left_at IS NULL AND m.archived_at IS NULL) member_count FROM church_groups g WHERE ${where} ORDER BY g.name,g.id LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        args,
+      );
+      res.json({
+        groups: rows.map(view),
+        total: count(
+          (
+            await one(
+              `SELECT COUNT(*) n FROM church_groups g WHERE ${where}`,
+              args,
+            )
+          ).n,
+        ),
+        page,
+        limit,
+      });
+    }),
+  );
+  router.post(
+    "/groups",
+    permit("members"),
+    route(async (req, res) => {
+      const data = groupData(req.body),
+        id = randomUUID();
+      await transaction(async (c) => {
+        await query(
+          "INSERT INTO church_groups(id,name,kind,description,location,meeting_details,created_at,updated_at) VALUES (?,?,?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())",
+          [id, ...Object.values(data)],
+          c,
+        );
+        await audit(req, "group", id, "group.created", Object.keys(data), c);
+      });
+      res.status(201).json({ group: view(await getGroup(id)) });
+    }),
+  );
+  router.get(
+    "/groups/:id",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        g = await getGroup(id);
+      check(g, 404, "Group not found");
+      const { page, limit } = pageOf(req.query),
+        args = [id];
+      let where = "gm.group_id=? AND gm.left_at IS NULL";
+      if (req.query.search) {
+        where +=
+          " AND CONCAT_WS(' ',m.first_name,m.last_name,m.preferred_name) LIKE ?";
+        args.push(like(req.query.search));
+      }
+      const rows = await query(
+        `SELECT m.id,m.first_name,m.last_name,m.preferred_name,m.membership_status,m.archived_at,gm.role,gm.joined_at FROM church_group_members gm JOIN church_members m ON m.id=gm.member_id WHERE ${where} ORDER BY gm.role='leader' DESC,m.last_name,m.first_name,m.id LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        args,
+      );
+      res.json({
+        group: view(g),
+        members: rows.map(memberView),
+        total: count(
+          (
+            await one(
+              `SELECT COUNT(*) n FROM church_group_members gm JOIN church_members m ON m.id=gm.member_id WHERE ${where}`,
+              args,
+            )
+          ).n,
+        ),
+        page,
+        limit,
+      });
+    }),
+  );
+  router.put(
+    "/groups/:id",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        data = groupData(req.body);
+      await transaction(async (c) => {
+        await lockGroup(id, req.body, c);
+        await query(
+          "UPDATE church_groups SET name=?,kind=?,description=?,location=?,meeting_details=?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+          [...Object.values(data), id],
+          c,
+        );
+        await audit(req, "group", id, "group.updated", Object.keys(data), c);
+      });
+      res.json({ group: view(await getGroup(id)) });
+    }),
+  );
+  router.post(
+    "/groups/:id/archive",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        b = object(req.body);
+      check(typeof b.archived === "boolean", 400, "Choose archive or restore");
+      await transaction(async (c) => {
+        await lockGroup(id, b, c, true);
+        await query(
+          "UPDATE church_groups SET archived_at=?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+          [b.archived ? utc() : null, id],
+          c,
+        );
+        await audit(
+          req,
+          "group",
+          id,
+          b.archived ? "group.archived" : "group.restored",
+          [],
+          c,
+        );
+      });
+      res.json({ group: view(await getGroup(id)) });
+    }),
+  );
+  router.put(
+    "/groups/:id/members/:memberId",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        memberId = idOf(req.params.memberId),
+        b = object(req.body);
+      check(
+        ["member", "leader", "removed"].includes(b.role),
+        400,
+        "Invalid group role",
+      );
+      await transaction(async (c) => {
+        await lockGroup(id, b, c);
+        const m = await one(
+          "SELECT id,archived_at FROM church_members WHERE id=? FOR UPDATE",
+          [memberId],
+          c,
+        );
+        check(m, 404, "Member not found");
+        const previous = await one(
+          "SELECT * FROM church_group_members WHERE group_id=? AND member_id=?",
+          [id, memberId],
+          c,
+        );
+        if (b.role === "removed") {
+          check(
+            previous && !previous.left_at,
+            404,
+            "Person is not on this roster",
+          );
+          await query(
+            "UPDATE church_group_members SET left_at=UTC_TIMESTAMP() WHERE group_id=? AND member_id=?",
+            [id, memberId],
+            c,
+          );
+        } else {
+          check(
+            !m.archived_at,
+            409,
+            "Restore this member before assigning a group",
+          );
+          await query(
+            "INSERT INTO church_group_members(group_id,member_id,role,joined_at) VALUES (?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE role=VALUES(role),joined_at=IF(left_at IS NULL,joined_at,UTC_TIMESTAMP()),left_at=NULL",
+            [id, memberId, b.role],
+            c,
+          );
+        }
+        await query(
+          "UPDATE church_groups SET version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+          [id],
+          c,
+        );
+        await audit(
+          req,
+          "group",
+          id,
+          "group.roster.updated",
+          ["member:" + memberId, "role:" + b.role],
+          c,
+        );
+      });
+      res.json({ group: view(await getGroup(id)) });
+    }),
+  );
   router.get(
     "/activity",
     permit("members"),
     route(async (req, res) => {
       const { page, limit } = pageOf(req.query);
       const rows = await query(
-        `SELECT a.*,COALESCE(p.display_name,u.email,IF(a.actor_id IS NULL,'Shared passkey','Former staff')) AS actor_name,CASE WHEN m.id IS NOT NULL THEN CONCAT_WS(' ',m.first_name,m.last_name) ELSE COALESCE(h.name,s.title) END AS record_name FROM church_activity a LEFT JOIN node_staff_profiles p ON p.user_id COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN admin_users u ON CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN church_members m ON m.id=a.entity_id AND a.entity_type IN ('member','attendance') LEFT JOIN church_households h ON h.id=a.entity_id AND a.entity_type='household' LEFT JOIN church_sessions s ON s.id=a.entity_id AND a.entity_type='session' ORDER BY a.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        `SELECT a.*,COALESCE(p.display_name,u.email,IF(a.actor_id IS NULL,'Shared passkey','Former staff')) AS actor_name,CASE WHEN m.id IS NOT NULL THEN CONCAT_WS(' ',m.first_name,m.last_name) ELSE COALESCE(h.name,s.title,g.name) END AS record_name FROM church_activity a LEFT JOIN node_staff_profiles p ON p.user_id COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN admin_users u ON CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN church_members m ON m.id=a.entity_id AND a.entity_type IN ('member','attendance') LEFT JOIN church_households h ON h.id=a.entity_id AND a.entity_type='household' LEFT JOIN church_sessions s ON s.id=a.entity_id AND a.entity_type='session' LEFT JOIN church_groups g ON g.id=a.entity_id AND a.entity_type='group' ORDER BY a.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
       );
       res.json({
         activity: rows.map((r) => ({
@@ -1347,16 +1588,21 @@ export function createChurchManagement(store, staff) {
     }),
   );
   const initialize = async () => {
-    const sql = await readFile(
-      new URL("./migrations/006_church_management.sql", import.meta.url),
-      "utf8",
-    );
-    for (const statement of sql
-      .replace(/^--.*$/gm, "")
-      .split(";")
-      .map((s) => s.trim())
-      .filter(Boolean))
-      await store.db.query(statement);
+    for (const migration of [
+      "006_church_management.sql",
+      "007_church_groups.sql",
+    ]) {
+      const sql = await readFile(
+        new URL("./migrations/" + migration, import.meta.url),
+        "utf8",
+      );
+      for (const statement of sql
+        .replace(/^--.*$/gm, "")
+        .split(";")
+        .map((s) => s.trim())
+        .filter(Boolean))
+        await store.db.query(statement);
+    }
   };
   return { router, initialize };
 }

@@ -40,6 +40,11 @@
       "See the bigger picture.",
       "Review recorded attendance across your services.",
     ],
+    groups: [
+      "Serving and growing together.",
+      "Organize ministries, small groups and their leaders.",
+    ],
+    group: ["Group roster", "Connect people with a ministry or small group."],
     activity: [
       "A clear record of changes.",
       "See who updated church records and when.",
@@ -67,6 +72,9 @@
     households: { search: "", archived: false, page: 1 },
     sessions: { state: "", page: 1 },
     register: { search: "", mark: "", page: 1 },
+    groups: { search: "", kind: "", archived: false, page: 1 },
+    group: null,
+    groupPage: 1,
     session: null,
     pending: new Map(),
     rows: [],
@@ -137,6 +145,9 @@
     $("#toast").hidden = true;
     state.page = 1;
     state.me = null;
+    state.group = null;
+    state.groups = { search: "", kind: "", archived: false, page: 1 };
+    state.groupPage = 1;
     state.pending.clear();
     state.member = null;
     state.household = null;
@@ -238,6 +249,9 @@
     if (e.target.closest("form")) modalDirty = true;
   });
   function actionsFor(view) {
+    if (view === "groups")
+      return button("+ Add group", "new-group", "", "primary");
+    if (view === "group") return button("← All groups", "groups");
     if (view === "members")
       return `${button("↓ Export", "export-members")}${button("Import CSV", "import-members")}${button("+ Add member", "new-member", "", "primary")}`;
     if (view === "households")
@@ -266,7 +280,12 @@
     $("#page-actions").innerHTML = actionsFor(view);
     $$("#church-nav [data-view]").forEach((b) => {
       const selected =
-        b.dataset.view === (view === "register" ? "attendance" : view);
+        b.dataset.view ===
+        (view === "register"
+          ? "attendance"
+          : view === "group"
+            ? "groups"
+            : view);
       b.classList.toggle("active", selected);
       if (selected) b.setAttribute("aria-current", "page");
       else b.removeAttribute("aria-current");
@@ -281,6 +300,8 @@
       else if (view === "attendance") await sessions();
       else if (view === "reports") await reports();
       else if (view === "activity") await activity();
+      else if (view === "groups") await groups();
+      else if (view === "group") await groupDetail();
     } catch (e) {
       if (state.me) {
         status(e.message);
@@ -295,6 +316,8 @@
     }
   }
   async function refresh() {
+    if (state.view === "groups") return groupRows();
+    if (state.view === "group") return groupDetail();
     if (!state.me) return;
     if (state.view === "members") return memberRows();
     if (state.view === "households") return householdRows();
@@ -753,6 +776,11 @@
       `<div class="card-content"><p class="muted">Open and closed sessions in your selected date range. Unmarked records are shown separately from absent records.</p><div class="report-metrics">${metric("Recorded attendances", s.totalAttendance, "Present + late + unnamed guests", "✓")}${metric("Service sessions", s.sessions, "Cancelled sessions excluded", "▥")}${metric("Late arrivals", s.late, "Included in attendance totals", "◷")}${metric("Unnamed guests", s.guests, "Recorded by session staff", "↗")}</div></div>${data.sessions.length ? `<div class="table-scroll"><table><thead><tr><th>Service</th><th>Date</th><th>Present</th><th>Late</th><th>Guests</th><th>Excused</th><th>Absent</th><th>Unmarked</th></tr></thead><tbody>${data.sessions.map((r) => `<tr><td>${esc(r.title)}<small>${esc(labels[r.state])}</small></td><td class="nowrap">${esc(dateTime(r.starts_at))}</td>${["present", "late", "guest_count", "excused", "absent", "unmarked"].map((k) => `<td>${Number(r[k])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : empty("No sessions in this date range", "Choose another date range, or open a service register to begin recording attendance.")}`;
   }
   const actionLabels = {
+    "group.created": "Group created",
+    "group.updated": "Group details updated",
+    "group.archived": "Group archived",
+    "group.restored": "Group restored",
+    "group.roster.updated": "Group roster updated",
     "member.create": "Member added",
     "member.update": "Member updated",
     "member.archive": "Member archived",
@@ -774,6 +802,140 @@
     "members.export": "Member directory exported",
     "attendance.export": "Attendance report exported",
   };
+  const groupKind = (kind) =>
+    kind === "ministry" ? "Ministry" : "Small group";
+  async function groups() {
+    $("#page-content").innerHTML =
+      `<article class="card"><div class="toolbar"><label class="search"><span hidden>Search groups</span><input id="group-search" type="search" placeholder="Search groups" value="${esc(state.groups.search)}"></label><select id="group-kind" aria-label="Group type"><option value="">All types</option><option value="ministry">Ministries</option><option value="small_group">Small groups</option></select><select id="group-archived" aria-label="Archived groups"><option value="false">Current groups</option><option value="true">Archived groups</option></select></div><div id="groups-table"></div></article>`;
+    $("#group-kind").value = state.groups.kind;
+    $("#group-archived").value = String(state.groups.archived);
+    const filter = () => {
+      if (state.view !== "groups" || !$("#group-search")) return;
+      state.groups.search = $("#group-search").value;
+      state.groups.kind = $("#group-kind").value;
+      state.groups.archived = $("#group-archived").value === "true";
+      state.groups.page = 1;
+      return groupRows();
+    };
+    $("#group-search").oninput = debounce(filter);
+    $("#group-kind").onchange = () => filter().catch((e) => status(e.message));
+    $("#group-archived").onchange = () =>
+      filter().catch((e) => status(e.message));
+    await groupRows();
+  }
+  async function groupRows() {
+    const token = ++request,
+      q = new URLSearchParams({ ...state.groups, limit: 25 }),
+      data = await api("/groups?" + q);
+    if (token !== request || !$("#groups-table")) return;
+    $("#groups-table").innerHTML = data.groups.length
+      ? `<div class="table-scroll"><table><thead><tr><th>Group</th><th>Type</th><th>Current people</th><th>Meeting</th><th></th></tr></thead><tbody>${data.groups.map((g) => `<tr><td><button type="button" class="text-button" data-action="group" data-id="${g.id}">${esc(g.name)}</button><small>${esc(g.location || "")}</small></td><td>${groupKind(g.kind)}</td><td>${g.member_count}</td><td>${esc(g.meeting_details || "Not recorded")}</td><td>${button("Open roster →", "group", `data-id="${g.id}"`, "small")}</td></tr>`).join("")}</tbody></table></div>${pagination(data)}`
+      : empty(
+          "No groups found",
+          "Add a ministry or small group, or adjust your filters.",
+        );
+  }
+  async function groupDetail() {
+    const token = ++request,
+      data = await api(
+        `/groups/${state.group.id}?page=${state.groupPage}&limit=25`,
+      );
+    if (token !== request || state.view !== "group") return;
+    const g = (state.group = data.group);
+    $("#page-content").innerHTML =
+      `<article class="card"><div class="card-heading"><div><h3>${esc(g.name)}</h3><p class="muted">${groupKind(g.kind)}${g.archived_at ? " · Archived" : ""}</p></div><div class="actions">${!g.archived_at ? button("Edit group", "edit-group") + button("+ Add person", "group-add", "", "primary") : ""}${button(g.archived_at ? "Restore group" : "Archive group", "archive-group")}</div></div><p>${esc(g.description || "No description recorded.")}</p><dl class="profile-details"><div><dt>Location</dt><dd>${esc(g.location || "Not recorded")}</dd></div><div><dt>Meeting details</dt><dd>${esc(g.meeting_details || "Not recorded")}</dd></div></dl><p class="muted">${data.total} people on this roster. Archived member records remain visible; current group counts exclude them. Leader assignments do not grant staff access.</p>${data.members.length ? `<div class="table-scroll"><table><thead><tr><th>Person</th><th>Group role</th><th>Joined group</th><th></th></tr></thead><tbody>${data.members.map((m) => `<tr><td>${person(m)}${m.archived_at ? '<span class="badge">Archived member</span>' : ""}</td><td>${m.role === "leader" ? "Leader" : "Member"}</td><td>${esc(dateTime(m.joined_at))}</td><td><div class="actions">${!g.archived_at ? (!m.archived_at ? button(m.role === "leader" ? "Make member" : "Make leader", "group-role", `data-id="${m.id}" data-role="${m.role === "leader" ? "member" : "leader"}"`, "small") : "") + button("Remove", "group-remove", `data-id="${m.id}"`, "small danger") : ""}</div></td></tr>`).join("")}</tbody></table></div>${pagination(data)}` : empty("Build this group’s roster", "Add people from your existing member directory.")}</article>`;
+  }
+  function groupForm(record = null) {
+    const g = record || {};
+    modal(
+      record ? "Edit group" : "Add a group",
+      `<form id="group-form"><div class="form-grid">${field("Group name *", "name", g.name, "text", 'required maxlength="150"')}<label>Group type<select name="kind"><option value="ministry" ${g.kind === "ministry" ? "selected" : ""}>Ministry</option><option value="small_group" ${g.kind === "small_group" ? "selected" : ""}>Small group</option></select></label>${field("Location", "location", g.location, "text", 'maxlength="200"')}${field("Meeting details", "meeting_details", g.meeting_details, "text", 'maxlength="300" placeholder="e.g. Wednesdays at 18:00"')}<label>Description<textarea name="description" maxlength="2000" rows="4">${esc(g.description || "")}</textarea></label></div><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button type="submit" class="button primary">${record ? "Save group" : "Add group"}</button></div></form>`,
+    );
+    $("#group-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget,
+        b = $("button[type=submit]", form);
+      b.disabled = true;
+      try {
+        const body = Object.fromEntries(new FormData(form));
+        if (record) body.version = g.version;
+        const d = await api("/groups" + (record ? "/" + g.id : ""), {
+          method: record ? "PUT" : "POST",
+          body,
+        });
+        modalDirty = false;
+        closeModal();
+        state.group = d.group;
+        state.groupPage = 1;
+        await navigate("group");
+        toast(record ? "Group updated" : "Group added");
+      } catch (e) {
+        if ($("#form-error")) $("#form-error").textContent = e.message;
+      } finally {
+        b.disabled = false;
+      }
+    };
+  }
+  async function groupAdd() {
+    const g = state.group;
+    modal(
+      "Add a person",
+      `<form id="group-find"><label>Search member directory<input id="group-person-search" type="search" maxlength="100" placeholder="Enter a name"></label><button class="button" type="submit">Find people</button></form><form id="group-person-form"><label>Person<select name="member_id" required id="group-person-picker"><option value="">Loading people…</option></select></label><p id="group-picker-note" class="muted"></p><label>Group role<select name="role"><option value="member">Member</option><option value="leader">Leader</option></select></label><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button type="submit" class="button primary">Add to group</button></div></form>`,
+    );
+    const token = modalRequest;
+    let searchRequest = 0;
+    const find = async () => {
+      const seq = ++searchRequest,
+        search = $("#group-person-search").value,
+        d = await api(
+          "/members?limit=100&search=" + encodeURIComponent(search),
+        );
+      if (token !== modalRequest || seq !== searchRequest) return;
+      $("#group-person-picker").innerHTML =
+        '<option value="">Choose a person</option>' +
+        d.members
+          .map(
+            (m) =>
+              `<option value="${m.id}">${esc(m.name)}${m.household_name ? " · " + esc(m.household_name) : ""}${m.email || m.phone ? " · " + esc(m.email || m.phone) : ""}</option>`,
+          )
+          .join("");
+      $("#group-picker-note").textContent =
+        d.total > 100
+          ? "Showing the first 100 matches. Refine the search to find someone else."
+          : `${d.total} people found. Existing roster entries will be updated without duplicates.`;
+    };
+    $("#group-find").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await find();
+      } catch (e) {
+        if ($("#form-error")) $("#form-error").textContent = e.message;
+      }
+    };
+    $("#group-person-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.currentTarget,
+        b = $("button[type=submit]", f);
+      b.disabled = true;
+      try {
+        const body = Object.fromEntries(new FormData(f));
+        body.version = g.version;
+        await api(`/groups/${g.id}/members/${body.member_id}`, {
+          method: "PUT",
+          body,
+        });
+        modalDirty = false;
+        closeModal();
+        await groupDetail();
+        toast("Group roster updated");
+      } catch (e) {
+        if ($("#form-error")) $("#form-error").textContent = e.message;
+      } finally {
+        b.disabled = false;
+      }
+    };
+    await find();
+  }
   async function activity() {
     const token = request,
       data = await api("/activity?page=" + state.page + "&limit=25");
@@ -902,6 +1064,47 @@
     };
   }
   async function handle(action, el) {
+    if (action === "groups") return navigate("groups");
+    if (action === "group") {
+      state.group = { id: el.dataset.id };
+      state.groupPage = 1;
+      return navigate("group");
+    }
+    if (action === "new-group") return groupForm();
+    if (action === "edit-group") return groupForm(state.group);
+    if (action === "group-add") return groupAdd();
+    if (action === "archive-group") {
+      const g = state.group;
+      if (
+        !confirm(
+          g.archived_at
+            ? "Restore this group?"
+            : "Archive this group? Its roster and history will remain available.",
+        )
+      )
+        return;
+      await api(`/groups/${g.id}/archive`, {
+        method: "POST",
+        body: { version: g.version, archived: !g.archived_at },
+      });
+      return groupDetail();
+    }
+    if (action === "group-role" || action === "group-remove") {
+      if (
+        action === "group-remove" &&
+        !confirm("Remove this person from the group roster?")
+      )
+        return;
+      await api(`/groups/${state.group.id}/members/${el.dataset.id}`, {
+        method: "PUT",
+        body: {
+          version: state.group.version,
+          role: action === "group-remove" ? "removed" : el.dataset.role,
+        },
+      });
+      return groupDetail();
+    }
+
     if (
       [
         "overview",
@@ -949,6 +1152,14 @@
     if (action === "page") {
       if (state.view === "register" && !discardMarks()) return;
       const step = Number(el.dataset.step);
+      if (state.view === "groups") {
+        state.groups.page += step;
+        return groupRows();
+      }
+      if (state.view === "group") {
+        state.groupPage += step;
+        return groupDetail();
+      }
       if (state.view === "members") {
         state.members.page += step;
         return memberRows();
