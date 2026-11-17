@@ -1566,6 +1566,7 @@ const handleFileUpload = async (files) => {
         }, 800);
         showToast(`Successfully uploaded ${count} media file(s)!`, 'success');
         loadMedia();
+        document.dispatchEvent(new CustomEvent('pai:media-uploaded'));
       } else {
         let why = 'Upload failed. Check file size or format.';
         try { why = JSON.parse(xhr.responseText).error || why; } catch {}
