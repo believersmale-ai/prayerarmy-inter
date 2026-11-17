@@ -303,6 +303,20 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
+// Read-only overview of actual staging records. Missing optional tables are omitted.
+app.get('/api/admin/dashboard',requireAdmin,async(req,res)=>{
+  const counts={};
+  for(const [key,table] of Object.entries({prayer_requests:'prayer_requests',visitor_enquiries:'connect_requests',member_applications:'public_accounts'})){
+    try {
+      const sql=key==='member_applications'?"SELECT COUNT(*) AS total FROM public_accounts WHERE status='pending'":"SELECT COUNT(*) AS total FROM "+table;
+      const [rows]=await db.query(sql);
+      counts[key]=Number(rows[0].total);
+    }catch(err){console.warn('Dashboard count unavailable:',key,err.code||err.message);}
+  }
+  res.setHeader('Cache-Control','no-store');
+  res.json({counts});
+});
+
 app.get('/api/admin/session',requireAdmin,async(req,res)=>{
   try {
     const email=String(process.env.ADMIN_EMAIL||'').trim().toLowerCase();
