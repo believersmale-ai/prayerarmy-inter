@@ -306,6 +306,68 @@ try {
     .locator("#members-table")
     .getByRole("button", { name: "Amina Mensah", exact: true })
     .waitFor();
+  await nav("groups");
+  await page.locator('[data-action="new-group"]').click();
+  await page.locator("#group-form [name=name]").fill("Welcome ministry");
+  await page
+    .locator("#group-form [name=meeting_details]")
+    .fill("Sundays at 08:00");
+  await page
+    .locator("#group-form [name=description]")
+    .fill("Welcome every person. <img src=x onerror=alert(1)>");
+  await page.locator("#group-form button[type=submit]").click();
+  await page
+    .locator("#page-content h3")
+    .filter({ hasText: "Welcome ministry" })
+    .waitFor();
+  assert.equal(await page.locator("#page-content img").count(), 0);
+  await page.locator('[data-action="group-add"]').click();
+  await page.locator("#group-person-search").fill("Amina");
+  await page.locator("#group-find button").click();
+  await page.waitForFunction(
+    () => document.querySelector("#group-person-picker")?.options.length === 2,
+  );
+  await page.locator("#group-person-picker").selectOption({ index: 1 });
+  await page.locator("#group-person-form [name=role]").selectOption("leader");
+  await page.locator("#group-person-form button[type=submit]").click();
+  await page
+    .locator("#page-content td")
+    .getByText("Leader", { exact: true })
+    .waitFor();
+  await noOverflow("Group roster");
+  await page.locator('[data-action="group-role"]').click();
+  await page
+    .locator('[data-action="group-role"]')
+    .filter({ hasText: "Make leader" })
+    .waitFor();
+  await page.locator('[data-action="group-remove"]').click();
+  await page
+    .getByRole("heading", { name: "Build this group’s roster" })
+    .waitFor();
+  await page.locator('[data-action="edit-group"]').click();
+  await page.locator("#group-form [name=name]").fill("Welcome team");
+  await page.locator("#group-form [name=kind]").selectOption("small_group");
+  await page.locator("#group-form button[type=submit]").click();
+  await page
+    .locator("#page-content h3")
+    .filter({ hasText: "Welcome team" })
+    .waitFor();
+  await page.locator('[data-action="archive-group"]').click();
+  await page
+    .locator('[data-action="archive-group"]')
+    .filter({ hasText: "Restore group" })
+    .waitFor();
+  assert.equal(await page.locator('[data-action="group-add"]').count(), 0);
+  await page.locator('[data-action="archive-group"]').click();
+  await page.locator('[data-action="group-add"]').waitFor();
+  await nav("groups");
+  await page.locator("#group-search").fill("Welcome");
+  await page.locator("#group-kind").selectOption("small_group");
+  await page
+    .locator("#groups-table")
+    .getByRole("button", { name: "Welcome team", exact: true })
+    .waitFor();
+  await noOverflow("Groups");
   await nav("activity");
   await page.locator(".activity-item").first().waitFor();
   await noOverflow("Activity");
@@ -354,6 +416,14 @@ try {
     await page.locator("#church-nav [data-view=reports]").isVisible(),
     false,
   );
+  assert.equal(
+    await page.locator("#church-nav [data-view=groups]").isVisible(),
+    false,
+  );
+  assert.equal(
+    (await context.request.get(base + "/api/church/groups")).status(),
+    403,
+  );
   await nav("attendance");
   await page.locator("#sessions-table [data-action=register]").first().click();
   await page.locator("[data-attendance]").first().waitFor();
@@ -371,7 +441,7 @@ try {
   assert.deepEqual(failures, []);
   await context.close();
   console.log(
-    "PASS church browser: real member/household CRUD, CSV preview/import, XSS escaping, timezone scheduling, attendance save/lock, reports/download, archive/restore, responsive views, logout clearing and usher privacy",
+    "PASS church browser: ministries/small groups/leader rosters/archives, real member/household CRUD, CSV preview/import, XSS escaping, timezone scheduling, attendance save/lock, reports/download, archive/restore, responsive views, logout clearing and usher privacy",
   );
 } catch (error) {
   console.error(logs.slice(-4000));

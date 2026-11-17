@@ -2,7 +2,9 @@
 
 ## Church management
 
-The Node application now includes a private **Members, Households & Attendance** workspace at `/church`. See **[docs/CHURCH-MANAGEMENT.md](docs/CHURCH-MANAGEMENT.md)** for roles, workflows, migration and tests. This is the first release toward the wider church-management system.
+The Node application now includes a private **Members, Households, Groups & Attendance** workspace at `/church`. See **[docs/CHURCH-MANAGEMENT.md](docs/CHURCH-MANAGEMENT.md)** for roles, workflows, migration and tests. These modules form the foundation of the wider church-management system.
+
+Ministries and small groups are available in the private `/church` workspace under **Groups**. System admins and registrars can manage meeting details, member/leader rosters and archives. See [church-management workflows](docs/CHURCH-MANAGEMENT.md#ministries-and-small-groups).
 
 ## Deployment & backend (read this first)
 

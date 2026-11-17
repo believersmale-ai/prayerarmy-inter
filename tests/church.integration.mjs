@@ -143,6 +143,7 @@ try {
     await church("/members", { cookie: roles[role], expected: 403 });
     await church("/members/export", { cookie: roles[role], expected: 403 });
     await church("/households", { cookie: roles[role], expected: 403 });
+    await church("/groups", { cookie: roles[role], expected: 403 });
     await church("/activity", { cookie: roles[role], expected: 403 });
   }
   await church("/members", {
@@ -585,6 +586,179 @@ try {
   r = await church("/overview", { cookie: roles.usher });
   assert.equal(r.data.members, undefined);
   assert.equal(r.data.households, undefined);
+  // Group edits and roster changes share a version to prevent lost updates.
+  await church("/groups", { cookie: "", expected: 401 });
+  await church("/groups", {
+    method: "POST",
+    body: { name: "Invalid", kind: "other" },
+    expected: 400,
+  });
+  await church("/groups", {
+    method: "POST",
+    origin: "https://untrusted.example",
+    body: { name: "Blocked", kind: "ministry" },
+    expected: 403,
+  });
+  let group = (
+    await church("/groups", {
+      method: "POST",
+      cookie: roles.registrar,
+      body: {
+        name: "Welcome ministry",
+        kind: "ministry",
+        meeting_details: "Sundays at 08:00",
+      },
+      expected: 201,
+    })
+  ).data.group;
+  const groupPath = "/groups/" + group.id;
+  await church(groupPath + "/archive", {
+    method: "POST",
+    body: null,
+    expected: 400,
+  });
+  await church("/groups/not-an-id", { expected: 400 });
+  await church("/groups/" + randomUUID(), { expected: 404 });
+  await church(groupPath, {
+    method: "PUT",
+    body: { name: "Missing version", kind: "ministry" },
+    expected: 428,
+  });
+  await church(groupPath + "/members/" + m1.id, {
+    method: "PUT",
+    cookie: roles.usher,
+    body: { version: 1, role: "leader" },
+    expected: 403,
+  });
+  await church(groupPath + "/members/" + m1.id, {
+    method: "PUT",
+    body: { version: 1, role: "admin" },
+    expected: 400,
+  });
+  group = (
+    await church(groupPath + "/members/" + m1.id, {
+      method: "PUT",
+      body: { version: group.version, role: "leader" },
+    })
+  ).data.group;
+  await church(groupPath, {
+    method: "PUT",
+    body: { version: 1, name: "Stale name", kind: "small_group" },
+    expected: 409,
+  });
+  assert.equal((await church(groupPath)).data.members[0].role, "leader");
+  const sharedVersion = group.version;
+  const attempts = await Promise.all(
+    ["member", "leader"].map((role) =>
+      church(groupPath + "/members/" + m2.id, {
+        method: "PUT",
+        body: { version: sharedVersion, role },
+        expected: [200, 409],
+      }),
+    ),
+  );
+  assert.deepEqual(attempts.map((a) => a.response.status).sort(), [200, 409]);
+  group = (await church(groupPath)).data.group;
+  group = (
+    await church(groupPath + "/members/" + m1.id, {
+      method: "PUT",
+      body: { version: group.version, role: "leader" },
+    })
+  ).data.group;
+  assert.equal((await church(groupPath)).data.total, 2);
+  group = (
+    await church(groupPath + "/members/" + m1.id, {
+      method: "PUT",
+      body: { version: group.version, role: "removed" },
+    })
+  ).data.group;
+  assert.equal((await church(groupPath)).data.total, 1);
+  const [retained] = await db.query(
+    "SELECT left_at FROM church_group_members WHERE group_id=? AND member_id=?",
+    [group.id, m1.id],
+  );
+  assert.ok(retained[0].left_at);
+  group = (
+    await church(groupPath + "/members/" + m1.id, {
+      method: "PUT",
+      body: { version: group.version, role: "leader" },
+    })
+  ).data.group;
+  assert.equal((await church(groupPath)).data.total, 2);
+  // Archived member records remain on the roster, with no new assignments allowed.
+  const gm = (await church("/members/" + m1.id)).data.member;
+  await church("/members/" + m1.id + "/archive", {
+    method: "POST",
+    body: { version: gm.version, archived: true },
+  });
+  assert.ok(
+    (await church(groupPath)).data.members.find((m) => m.id === m1.id)
+      .archived_at,
+  );
+  assert.equal(
+    (await church("/groups?search=Welcome")).data.groups[0].member_count,
+    1,
+  );
+  await church(groupPath + "/members/" + m1.id, {
+    method: "PUT",
+    body: { version: group.version, role: "member" },
+    expected: 409,
+  });
+  const archivedM = (await church("/members/" + m1.id)).data.member;
+  await church("/members/" + m1.id + "/archive", {
+    method: "POST",
+    body: { version: archivedM.version, archived: false },
+  });
+  group = (
+    await church(groupPath + "/archive", {
+      method: "POST",
+      body: { version: group.version, archived: true },
+    })
+  ).data.group;
+  await church(groupPath + "/members/" + m1.id, {
+    method: "PUT",
+    body: { version: group.version, role: "removed" },
+    expected: 409,
+  });
+  await church(groupPath, {
+    method: "PUT",
+    body: { version: group.version, name: "Locked", kind: "ministry" },
+    expected: 409,
+  });
+  assert.equal((await church("/groups?search=Welcome")).data.total, 0);
+  assert.equal(
+    (await church("/groups?archived=true&kind=ministry")).data.total,
+    1,
+  );
+  group = (
+    await church(groupPath + "/archive", {
+      method: "POST",
+      body: { version: group.version, archived: false },
+    })
+  ).data.group;
+  group = (
+    await church(groupPath, {
+      method: "PUT",
+      body: {
+        version: group.version,
+        name: "Welcome team",
+        kind: "small_group",
+        location: "Main hall",
+      },
+    })
+  ).data.group;
+  assert.equal(
+    (await church("/groups?kind=small_group&search=Welcome")).data.total,
+    1,
+  );
+  assert.equal(
+    (await church(groupPath + "?limit=1&page=2")).data.members.length,
+    1,
+  );
+  const ga = (await church("/activity")).data.activity.find(
+    (a) => a.action === "group.updated",
+  );
+  assert.equal(ga.record_name, "Welcome team");
   await new Promise((resolve) => {
     server.once("exit", resolve);
     server.kill();
@@ -594,6 +768,8 @@ try {
   assert.equal(r.data.member.first_name, "Amina");
   r = await church("/sessions/" + session.id);
   assert.equal(r.data.session.guest_count, 4);
+  assert.equal((await church(groupPath)).data.total, 2);
+  assert.equal((await church(groupPath)).data.group.name, "Welcome team");
   const oversized = Array.from({ length: 5001 }, () => [
     randomUUID(),
     "Report bound fixture",
@@ -607,7 +783,7 @@ try {
   );
   await church("/reports/attendance" + range, { expected: 422 });
   console.log(
-    "PASS church integration: roles/privacy, members/households, account links, atomic imports, concurrent attendance, history, reports, exports and restart persistence",
+    "PASS church integration: groups/leader rosters/concurrency/archives, roles/privacy, members/households, account links, atomic imports, concurrent attendance, history, reports, exports and restart persistence",
   );
 } catch (error) {
   console.error(logs.slice(-4000));

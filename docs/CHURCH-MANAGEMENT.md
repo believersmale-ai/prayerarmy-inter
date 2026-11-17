@@ -1,12 +1,13 @@
-# Church management — members, households and attendance
+# Church management — people, groups and attendance
 
-This is the first church-management release, following the requested priority of **members, households and attendance**. It adds the private staff workspace at **`/church`** to the existing Node 22+/MySQL application. The public website, current media/editor improvements and separate PHP deployment remain in place.
+The church-management workspace includes **members, households, ministries/small groups and attendance**. It adds the private staff workspace at **`/church`** to the existing Node 22+/MySQL application. The public website, current media/editor improvements and separate PHP deployment remain in place.
 
 ## What staff can do
 
 - Search, filter, create and edit member/visitor records, contact details, optional birth dates and join dates.
 - Organize people into households, record relationships and select a primary contact from that household.
 - Archive and restore members and empty households while retaining their history.
+- Create ministries and small groups, record meeting details, assign member/leader roles and maintain group rosters.
 - Preview/validate/import CSV member lists in batches of up to 500 rows, with duplicate detection and retry protection. Export a filtered directory as CSV.
 - Optionally link a directory record to an already-active registered member account with the same email. Linking does not create, approve, promote or disable public accounts.
 - Create service sessions and open a register. First opening snapshots current non-archived, non-inactive directory records. Registrars can refresh an open roster to include newly added people.
@@ -20,7 +21,7 @@ The system does not infer official membership, mark unrecorded people absent, or
 
 Sign in at `/church` with an existing personal **staff** account. The website manager at `/admin` uses the same staff session and provides a Church Management link to authorized users. System admins assign roles through **Team & Accounts**.
 
-| Role | Directory and households | Attendance register | Create/open/close sessions | Reports/activity |
+| Role | Directory, households and groups | Attendance register | Create/open/close sessions | Reports/activity |
 | --- | --- | --- | --- | --- |
 | System admin | Yes | Yes | Yes | Yes |
 | Church registrar | Yes | Yes | Yes | Yes |
@@ -28,6 +29,16 @@ Sign in at `/church` with an existing personal **staff** account. The website ma
 | Existing editor/media/pastoral-care roles | Existing permissions retained | No new access | No new access | Existing permissions retained |
 
 An usher's roster response excludes member emails, phone numbers, birth dates and account links. Private endpoints check staff permissions on every request; hiding a navigation item is not the access control. Logout clears the displayed records and dialogs. Personal staff accounts identify activity; a legacy shared-passkey session is labeled as such.
+
+## Ministries and small groups
+
+Open **Groups** in the sidebar as a system admin or registrar. Add a ministry or small group with a name, description, location and meeting details. Open its roster and choose **Add person** to search the existing directory; refine the search if more than 100 people match. Assign the person as a member or leader. One person can belong to several groups, and each group can have several leaders. Leader designations do not create staff accounts or grant system permissions.
+
+Use the roster to change roles or remove people. Removed assignments are retained in storage and changes are recorded in Activity. Re-adding someone restores the assignment without creating a duplicate. Archiving a group locks its details and roster until restored. Archived directory members stay visible on their group rosters, but new assignments and role changes require restoring their member record. The group list counts current roster members whose directory records are not archived; the detailed roster also shows archived people. Inactive directory members can participate; group membership does not change their official membership status.
+
+Group lists and rosters are paginated. Search and filter the group list by name, type and archive status. Group edits and roster changes share an optimistic version; concurrent changes return 409 and require reopening the group before retrying. No group messages, recurring events or attendance sessions are created automatically. Meeting details are descriptive text, not a scheduling engine.
+
+`migrations/007_church_groups.sql` adds `church_groups` and `church_group_members`, with foreign keys to the directory. It runs idempotently after migration 006 during Node startup. Existing church records are retained; no production migration was performed while implementing this feature. Ushers and existing editor/media/pastoral-care roles have no new group access.
 
 ## Data and rules
 
@@ -70,12 +81,12 @@ pnpm run test:database
 
 For an existing Chromium installation, set `CHROMIUM_EXECUTABLE_PATH` when running the browser suite. No live church records, production credentials or external email delivery are used by the church-management tests.
 
-The API suite checks role boundaries, date validation, household invariants, version conflicts, concurrent check-ins, all-or-nothing batches, archive history, CSV safety, atomic duplicate imports, account-link protection, reports and persistence after restart.
+The API suite checks group CRUD, concurrent roster changes, duplicate protection, archive/restore rules and restart persistence, plus role boundaries, date validation, household invariants, version conflicts, concurrent check-ins, all-or-nothing batches, archive history, CSV safety, atomic duplicate imports, account-link protection, reports and persistence after restart.
 
-The browser suite creates and edits real test records through the UI, assigns a household primary contact, validates/imports a CSV, checks escaped markup, schedules in a non-UTC timezone, records and locks attendance, exports a report, archives/restores a member, checks all major views at 390/768/1440px and verifies logout clearing and usher privacy.
+The browser suite creates and edits groups, assigns leaders, changes/removes roster assignments, archives/restores groups, tests group filters and mobile layouts, and creates and edits real test records through the UI, assigns a household primary contact, validates/imports a CSV, checks escaped markup, schedules in a non-UTC timezone, records and locks attendance, exports a report, archives/restores a member, checks all major views at 390/768/1440px and verifies logout clearing and usher privacy.
 
 ## Next releases toward the full church-management system
 
-The requested first-priority foundation is covered here. Follow-on modules are separate work: ministries/small groups and volunteer scheduling; pastoral-care cases; giving/funds/pledges/expenses and financial permissions; member self-service and agreed check-in policies; communications and consent preferences; academy/blog integration and organization-specific fields. Financial rules, membership criteria, messaging consent and retention policies should come from the church rather than be inferred by the software.
+The requested first-priority foundation is covered here. Follow-on modules are separate work: volunteer scheduling and group-specific attendance; pastoral-care cases; giving/funds/pledges/expenses and financial permissions; member self-service and agreed check-in policies; communications and consent preferences; academy/blog integration and organization-specific fields. Financial rules, membership criteria, messaging consent and retention policies should come from the church rather than be inferred by the software.
 
 This branch is code for review and staging validation. No production database migration or hosting deployment was performed while building this release.

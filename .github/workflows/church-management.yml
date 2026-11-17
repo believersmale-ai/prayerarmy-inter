@@ -12,7 +12,7 @@ on:
       - "pnpm-lock.yaml"
       - ".github/workflows/church-management.yml"
   push:
-    branches: ["feature/church-members-attendance"]
+    branches: ["feature/church-*"]
 permissions:
   contents: read
 jobs:
