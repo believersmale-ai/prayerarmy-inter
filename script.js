@@ -1494,13 +1494,10 @@ const loadInitialSettings = async () => {
     console.info('Using local fallback for settings');
   }
 
-  // Fallback to localStorage
-  if (!loaded) {
-    try {
-      const saved = localStorage.getItem('pai_site_settings');
-      if (saved) loaded = JSON.parse(saved);
-    } catch {}
-  }
+  // Do not show browser-local admin drafts as published website content.
+  // If the database is unavailable, use the bundled design defaults instead
+  // of displaying an unrelated visitor's stale localStorage.
+  if (!loaded) console.warn('Public website settings unavailable; showing bundled defaults.');
 
   if (previewLocked) return;        // the admin's unsaved preview wins over the saved copy
   const finalSettings = mergeSettings(loaded);
