@@ -1,0 +1,53 @@
+name: Church management checks
+on:
+  pull_request:
+    paths:
+      - "church-management*"
+      - "node-*.js"
+      - "server.js"
+      - "database.js"
+      - "migrations/**"
+      - "tests/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/church-management.yml"
+  push:
+    branches: ["feature/church-members-attendance"]
+permissions:
+  contents: read
+jobs:
+  church-management:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      database:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: isolated-ci-test-password
+        ports: ["3307:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      PAI_TEST_DB_HOST: 127.0.0.1
+      PAI_TEST_DB_PORT: "3307"
+      PAI_TEST_DB_USER: root
+      PAI_TEST_DB_PASSWORD: isolated-ci-test-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check JavaScript syntax
+        run: |
+          for file in *.js scripts/*.mjs tests/*.mjs; do node --check "$file"; done
+      - run: pnpm test
+      - run: pnpm run test:church
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run test:church:browser
+      - run: pnpm run test:database

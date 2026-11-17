@@ -30,3 +30,5 @@
 .main-area,.app-body,#settings-form{min-width:0}
 .media-tabs,.media-btn-row{flex-wrap:wrap}
 .ux-task[hidden],.ux-quick-link[hidden]{display:none!important}
+
+.church-management-link{display:flex;align-items:center;padding:12px;margin:2px 3px 12px;color:#f3e5ab;border:1px solid #63532c;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px}.church-management-link[hidden]{display:none!important}
