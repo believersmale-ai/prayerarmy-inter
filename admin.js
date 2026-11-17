@@ -2758,6 +2758,19 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
     const box = document.getElementById('dash-body');
     if (!box) return;
     try {
+      if(isNodeAdminSession()){
+        const response=await _origFetch(`${SUPABASE_URL}/admin/dashboard`,{credentials:'same-origin',cache:'no-store'});
+        if(!response.ok)throw Error('Dashboard unavailable ('+response.status+')');
+        const {counts}=await response.json();
+        const cards=[];
+        if(counts.prayer_requests!==undefined)cards.push(card(counts.prayer_requests,'Prayer requests','view-requests'));
+        if(counts.visitor_enquiries!==undefined)cards.push(card(counts.visitor_enquiries,'Visitor enquiries','view-connect'));
+        if(counts.member_applications!==undefined)cards.push(card(counts.member_applications,'Pending member accounts','view-dashboard'));
+        box.innerHTML=cards.length?'<div class="dash-grid">'+cards.join('')+'</div><p class="muted-note">Overview shows available records in the staging database. Other modules will appear as their APIs are connected.</p>':'<p class="muted-note">No dashboard record sources are available yet. Check the staging database tables.</p>';
+        const w=document.getElementById('dash-welcome');
+        if(w)w.textContent='Welcome, '+(me?.name||me?.email||'Administrator')+'. These figures are from available staging records.';
+        return;
+      }
       const { dashboard: d } = await callManageContent('get_dashboard');
       const cards = [];
       if (d.live) cards.push(card(d.live.isLive ? 'LIVE' : 'Offline', 'Livestream status', 'view-live', { hint: d.live.isLive ? d.live.title : 'Not broadcasting', cls: d.live.isLive ? 'live-on' : '' }));
