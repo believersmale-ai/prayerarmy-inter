@@ -1939,7 +1939,20 @@ const saveSettings = async (showNotification = true) => {
     $('#field-page-content')?.focus();
     return;
   }
-  const data = collectFormData();
+  // Preserve settings that do not have a visible field in this editor.
+  // Without this, saving one section silently deletes unrelated public content.
+  const mergeEditedSettings = (original, edited) => {
+    if (!edited || typeof edited !== 'object' || Array.isArray(edited)) return edited;
+    const base = original && typeof original === 'object' && !Array.isArray(original) ? original : {};
+    const result = {...base};
+    for (const [key,value] of Object.entries(edited)) {
+      if (['__proto__','prototype','constructor'].includes(key)) continue;
+      result[key] = value && typeof value === 'object' && !Array.isArray(value)
+        ? mergeEditedSettings(base[key], value) : value;
+    }
+    return result;
+  };
+  const data = mergeEditedSettings(currentSettings, collectFormData());
   const newPasskey = $('#field-manager-passkey')?.value.trim();
   if(isNodeAdminSession() && newPasskey){
     showToast('Changing the shared passkey is not available through this Node admin session. Clear that field before saving.', 'error');
