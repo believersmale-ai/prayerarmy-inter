@@ -1,5 +1,9 @@
 > **Hosting:** this repository contains both PHP/Apache and Node/MySQL backends. The November 16 audit records a Node deployment; older instructions below describe PHP hosting. Confirm the deployed runtime using `/api/runtime` after this update. The Node modules are now complete; see **docs/NODE-BACKEND-COMPLETION.md** for Node 22 requirements, configuration, validation and hosting status. Follow **HOSTINGER-DEPLOY.md** for the PHP deployment path.
 
+## Church management
+
+The Node application now includes a private **Members, Households & Attendance** workspace at `/church`. See **[docs/CHURCH-MANAGEMENT.md](docs/CHURCH-MANAGEMENT.md)** for roles, workflows, migration and tests. This is the first release toward the wider church-management system.
+
 ## Deployment & backend (read this first)
 
 This site deploys to Vercel as a **plain static site**. No server, no build step, no environment

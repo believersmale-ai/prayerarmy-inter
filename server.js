@@ -22,6 +22,7 @@ import { createContent } from './node-content.js';
 import { registerMediaPosts } from './media-posts.js';
 import { registerBundledMediaVisibility } from './bundled-media-visibility.js';
 import { registerPages } from './node-pages.js';
+import { createChurchManagement } from './church-management.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,6 +94,9 @@ const content = createContent(store, staff, getStoredSettings, UPLOAD_DIR);
 const pages = registerPages(app, { content, store, root: __dirname, uploadsDir: UPLOAD_DIR,
   getFallbackSettings: () => { try { const s = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')); delete s.passkey; delete s.notifications; return s; } catch { return {}; } } });
 content.register(app);
+const church = createChurchManagement(store, staff);
+app.use('/api/church', church.router);
+app.get(['/church','/church/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'church-management.html')));
 registerMediaPosts(app,{db,staff,sameOrigin,uploadDir:UPLOAD_DIR,mediaTypeOf});
 registerBundledMediaVisibility(app,{db,staff,sameOrigin,imagesDir:IMAGES_DIR});
 
@@ -100,7 +104,7 @@ registerBundledMediaVisibility(app,{db,staff,sameOrigin,imagesDir:IMAGES_DIR});
 // package files, docs or migrations.
 const PUBLIC_FILES = ['index.html', 'admin.html', 'member-register.html', 'privacy.html', 'terms.html', 'styles.css', 'template.css',
   'script.js', 'site-extras.js', 'agent-tools.js', 'admin.js', 'admin-ux.js', 'admin-dashboard.js',
-  'admin-ux.css', 'admin-dashboard.css', 'admin-media-posts.js', 'public-media-posts.js', 'media-posts.css', 'public-polish.css', 'hero-slides.css', 'footer-fix.css', 'admin-hero-slides.js', 'admin-quick-edit.js', 'admin-quick-edit.css', 'public-hero-slides.js', 'robots.txt'];
+  'admin-ux.css', 'admin-dashboard.css', 'admin-media-posts.js', 'public-media-posts.js', 'media-posts.css', 'public-polish.css', 'church-management-ui.js', 'church-management.css', 'hero-slides.css', 'footer-fix.css', 'admin-hero-slides.js', 'admin-quick-edit.js', 'admin-quick-edit.css', 'public-hero-slides.js', 'robots.txt'];
 for (const f of PUBLIC_FILES) {
   app.get('/' + f, (req, res) => {
     if (f === 'admin.html') { res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive'); }
@@ -606,6 +610,9 @@ async function startServer() {
         for (const statement of sql.replace(/^--.*$/gm, '').split(';').map(s => s.trim()).filter(Boolean)) await db.query(statement);
       }
     }
+    const mediaSchema=fs.readFileSync(path.join(__dirname,'migrations','004_media_captions.sql'),'utf8');
+    for(const statement of mediaSchema.replace(/^--.*$/gm,'').split(';').map(s=>s.trim()).filter(Boolean))await db.query(statement);
+    await church.initialize();
     await getStoredSettings();
     backendReady = true;
     console.log('Database tables and admin setup are ready');

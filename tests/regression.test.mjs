@@ -51,7 +51,7 @@ test('admin aliases canonicalize trailing slashes', async () => {
   }
 });
 test('missing pages and server sources are real 404s', async () => {
-  for (const path of ['/missing-page', '/server.js', '/database.js', '/node-auth.js', '/node-common.js', '/node-content.js', '/node-pages.js', '/api/config.php', '/.git/config']) {
+  for (const path of ['/missing-page', '/server.js', '/database.js', '/node-auth.js', '/node-common.js', '/node-content.js', '/node-pages.js', '/church-management.js', '/api/config.php', '/.git/config']) {
     assert.equal((await fetch(base + path)).status, 404, path);
   }
 });
@@ -98,4 +98,10 @@ test('Apache/PHP public routes and private file protections', { skip: !phpBase }
 test('runtime reports unavailable initialization without disclosing configuration', async () => {
   const response=await fetch(base+'/api/runtime');
   assert.deepEqual(await response.json(),{backend:'node',ready:false,mediaStorageDurable:false});
+});
+
+test('church workspace assets load and personal records require staff authentication', async () => {
+  const shell=await fetch(base+'/church');assert.equal(shell.status,200);assert.match(shell.headers.get('x-robots-tag'),/noindex/);assert.equal(shell.headers.get('cache-control'),'no-store');
+  for(const path of ['/church-management-ui.js','/church-management.css'])assert.equal((await fetch(base+path)).status,200,path);
+  for(const path of ['/api/church/members','/api/church/households','/api/church/sessions','/api/church/reports/attendance','/api/church/activity'])assert.equal((await fetch(base+path)).status,401,path);
 });

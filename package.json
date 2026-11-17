@@ -6,7 +6,9 @@
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node --test tests/*.test.mjs",
-    "test:database": "node tests/database.integration.mjs"
+    "test:database": "node tests/database.integration.mjs",
+    "test:church": "node tests/church.integration.mjs",
+    "test:church:browser": "node tests/church.browser.mjs"
   },
   "dependencies": {
     "express": "^5.3.0",
@@ -18,5 +20,8 @@
   "type": "module",
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "1.65.1"
   }
 }

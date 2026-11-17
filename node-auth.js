@@ -24,10 +24,16 @@ export const PERMISSIONS = {
     "analytics",
     "team",
     "security",
+    "members",
+    "attendance",
+    "attendance_manage",
+    "reports",
   ],
   editor: ["settings", "media", "messages", "analytics"],
   media: ["media", "messages"],
   care: ["care"],
+  registrar: ["members", "attendance", "attendance_manage", "reports"],
+  usher: ["attendance"],
 };
 export async function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");

@@ -286,7 +286,7 @@ const btnLogout = $('#btn-logout');
 let me = null;               // who is signed in: { role, email, name, via, permissions }
 let legacyEnabled = true;    // is the shared passkey still switched on?
 const can = (perm) => !!me && me.permissions.includes(perm);
-const ROLE_LABEL = { owner: 'System admin', editor: 'Editor', media: 'Media', care: 'Pastoral care' };
+const ROLE_LABEL = { owner: 'System admin', editor: 'Editor', media: 'Media', care: 'Pastoral care', registrar: 'Church registrar', usher: 'Attendance usher' };
 
 let authMode = 'account';
 const setAuthMode = (mode) => {
@@ -371,6 +371,9 @@ const applyRoleUI = () => {
   if (backup) backup.hidden = !can('settings');
   const chip = $('#whoami-chip');
   if (chip) chip.textContent = `${me.name || me.email} · ${ROLE_LABEL[me.role] || me.role}`;
+  const churchLink=document.getElementById('church-management-link');
+  if(churchLink)churchLink.hidden=!isNodeAdminSession()||!me.permissions.some(p=>['members','attendance','reports'].includes(p));
+  $$('#team-role option').forEach(o=>{if(['registrar','usher'].includes(o.value)){o.hidden=!isNodeAdminSession();o.disabled=!isNodeAdminSession();}});
   renderAccountCard();
 };
 
@@ -2681,7 +2684,9 @@ const ROLE_HELP = {
   owner: 'Everything, including this team page and security.',
   editor: 'Website content, events, giving, live status, pictures, sermons and visitor stats. Cannot see private prayer requests or the team list.',
   media: 'Pictures, videos, audio and the sermon archive only.',
-  care: 'Private prayer requests, new visitors and volunteers, testimonies and the prayer wall only.'
+  care: 'Private prayer requests, new visitors and volunteers, testimonies and the prayer wall only.',
+  registrar: 'Member directory, households, attendance sessions and reports.',
+  usher: 'Attendance registers and check-in only. No member contact details or directory exports.'
 };
 const showRoleHelp = () => { const el = $('#team-role-help'); if (el) el.textContent = ROLE_HELP[$('#team-role').value] || ''; };
 $('#team-role')?.addEventListener('change', showRoleHelp);
@@ -2713,7 +2718,7 @@ const loadTeam = async () => {
         </div>
         <div>
           <select class="team-role-select" data-id="${u.user_id}" aria-label="Role for ${escapeAdminHtml(u.email)}">
-            ${Object.keys(ROLE_LABEL).map((r) => `<option value="${r}"${u.role === r ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+            ${Object.keys(ROLE_LABEL).filter(r=>isNodeAdminSession()||!['registrar','usher'].includes(r)).map((r) => `<option value="${r}"${u.role === r ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
           </select>
         </div>
         <div class="team-actions">
