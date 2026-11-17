@@ -4,7 +4,6 @@
  panel.innerHTML='<div class="mp-head"><div><h3>Publish media to the website</h3><p>Add captions to uploaded photos or videos, then publish them to the homepage gallery.</p></div><button type="button" id="mp-refresh">Refresh</button></div><p class="mp-status" id="mp-status" role="status" aria-live="polite"></p><div class="mp-list" id="mp-list"></div>';
  const anchor=view.querySelector('.upload-progress-box');(anchor||view.querySelector('.upload-dropzone'))?.after(panel);
  const status=panel.querySelector('#mp-status'),list=panel.querySelector('#mp-list');
- const escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  async function refresh(){
   status.textContent='Loading uploaded media…';
   try{
@@ -42,6 +41,7 @@
  }
  panel.querySelector('#mp-refresh').addEventListener('click',refresh);
  document.addEventListener('pai:admin-ready',refresh);
+ document.addEventListener('pai:media-uploaded',refresh);
  // Reload when returning to Media Uploader after uploading.
  const button=document.querySelector('.sidebar-btn[data-view="view-media"]');
  button?.addEventListener('click',()=>{setTimeout(refresh,150);});
