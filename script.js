@@ -1020,7 +1020,7 @@ const applySettings = (s) => {
     const requestedBg = safeLinkUrl(s.hero.bgImage);
     const logoPath = String(s.general?.logoUrl || '').split('?')[0].toLowerCase();
     const bgPath = requestedBg.split('?')[0].toLowerCase();
-    const isBrandLogo = /(?:^|\\/)(?:prayer[-_ ]?army[-_ ]?logo|logo[-_ ]?prayer[-_ ]?army)\\.(?:png|jpe?g|webp|svg)$/i.test(bgPath)
+    const isBrandLogo = /(?:^|\/)(?:prayer[-_ ]?army[-_ ]?logo|logo[-_ ]?prayer[-_ ]?army)\.(?:png|jpe?g|webp|svg)$/i.test(bgPath)
       || Boolean(logoPath && bgPath === logoPath);
     const bg = isBrandLogo || !requestedBg ? DEFAULT_SETTINGS.hero.bgImage : requestedBg;
     heroMedia.classList.toggle('hero-logo-fallback',isBrandLogo);
