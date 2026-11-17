@@ -1,0 +1,21 @@
+/* Hero slideshow and admin manager — retains existing navy/gold identity */
+.hero-media{overflow:hidden}
+.hero-slide-layer{position:absolute;inset:0;z-index:1;animation:hero-fade .65s ease-out both}
+.hero-slide-layer img,.hero-slide-layer video{display:block;width:100%;height:100%;object-fit:cover;object-position:center 38%;pointer-events:none}
+@keyframes hero-fade{from{opacity:.35}to{opacity:1}}
+.hero-carousel-controls{position:absolute;z-index:4;bottom:25px;right:max(24px,calc((100vw - 1200px)/2));display:flex;align-items:center;gap:6px;padding:6px;border-radius:100px;background:rgba(8,14,25,.85);border:1px solid rgba(255,255,255,.25);color:#fff}
+.hero-carousel-controls[hidden]{display:none}
+.hero-carousel-controls button{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:inherit;font-size:23px;cursor:pointer}
+.hero-carousel-controls button:hover,.hero-carousel-controls button:focus-visible{background:#c9a85d;color:#111827}
+.hero-carousel-count{min-width:42px;text-align:center;font:600 12px/1.4 system-ui}
+.hero-slide-manager{margin-bottom:24px;padding:20px;border:1px solid var(--panel-border,#364253);border-radius:10px}
+.hero-slide-options,.hero-slide-add{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:16px 0}
+.hero-slide-options input[type=number]{width:72px;padding:8px}
+.hero-slide-add input{flex:1;min-width:180px;padding:12px}
+.hero-slide-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--panel-border,#364253)}
+.hero-slide-details{flex:1;min-width:0}.hero-slide-details strong{display:block;overflow-wrap:anywhere;font-size:13px}.hero-slide-caption{display:block;width:100%;margin-top:6px;padding:8px}
+.hero-slide-row button{padding:8px 10px;border:1px solid #b89b5e;border-radius:6px;background:transparent;color:inherit;cursor:pointer}
+.hero-slide-row button:disabled{opacity:.35;cursor:not-allowed}
+.hero-slide-index{color:#dcbc74;font-weight:700}
+@media(max-width:640px){.hero-carousel-controls{bottom:14px;right:16px}.hero-slide-row{flex-wrap:wrap}.hero-slide-details{flex-basis:calc(100% - 46px)}}
+@media(prefers-reduced-motion:reduce){.hero-slide-layer{animation:none}}
