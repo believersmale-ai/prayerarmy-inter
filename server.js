@@ -528,7 +528,7 @@ app.delete('/api/admin/submissions/:type/:id', requireAdmin, async (req, res) =>
 });
 
 // ---------- admin: media ----------
-app.post('/api/upload', requireAdmin, (req, res) => {
+app.post('/api/upload', requireAdmin, requireSettingsOrigin, (req, res) => {
   upload.array('files', 10)(req, res, (err) => {
     if (err) return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'A file is larger than 100 MB' : err.message });
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files were uploaded' });
@@ -564,9 +564,10 @@ app.get('/api/media', requireAdmin, (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to retrieve media files' }); }
 });
 
-app.delete('/api/media/:filename', requireAdmin, (req, res) => {
+app.delete('/api/media/:filename', requireAdmin, requireSettingsOrigin, (req, res) => {
   try {
-    const filename = path.basename(req.params.filename);
+    const filename = req.params.filename;
+    if (!filename || filename !== path.basename(filename) || filename.startsWith('.')) return res.status(400).json({error:'Invalid filename'});
     const target = path.join(UPLOAD_DIR, filename);
     if (!fs.existsSync(target)) return res.status(404).json({ error: 'File not found in uploads' });
     fs.unlinkSync(target);
