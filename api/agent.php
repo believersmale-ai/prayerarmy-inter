@@ -19,7 +19,7 @@ function a_origin(): string {
 function a_db_ok(): bool {
     static $ok = null;
     if ($ok === null) {
-        try { new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_TIMEOUT => 3]); $ok = true; }
+        try { new PDO('mysql:host=' . DB_HOST . (defined('DB_PORT') ? ';port=' . DB_PORT : '') . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_TIMEOUT => 3]); $ok = true; }
         catch (Throwable $e) { $ok = false; }
     }
     return $ok;
@@ -490,9 +490,15 @@ function a_mcp(): void {
     if ($m !== 'POST') { header('Allow: POST, OPTIONS'); out(['error' => 'This MCP endpoint accepts JSON-RPC over HTTP POST (Streamable HTTP).'], 405); }
     rate_guard('mcp', 240, 600);
     $raw = json_decode((string)file_get_contents('php://input'), true);
-    if (!is_array($raw)) out(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Parse error']], 400);
+    if (json_last_error() !== JSON_ERROR_NONE) out(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Parse error']], 400);
+    if (!is_array($raw) || $raw === []) out(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'Invalid Request']], 400);
     $batch = array_is_list($raw); $reqs = $batch ? $raw : [$raw]; $res = [];
     foreach ($reqs as $r) {
+        if (!is_array($r) || ($r['jsonrpc'] ?? '') !== '2.0' || !is_string($r['method'] ?? null)
+            || (isset($r['params']) && !is_array($r['params']))) {
+            $res[] = ['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32600, 'message' => 'Invalid Request']];
+            continue;
+        }
         $id = $r['id'] ?? null; $method = (string)($r['method'] ?? ''); $p = is_array($r['params'] ?? null) ? $r['params'] : [];
         if (!array_key_exists('id', $r)) continue;                       // notification: no response
         try {

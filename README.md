@@ -1,7 +1,4 @@
-> **Hosting update:** the live site now runs on Hostinger with its own PHP + MySQL backend (`api/`).
-> Follow **HOSTINGER-DEPLOY.md** to deploy. The Supabase / Vercel notes below describe the previous
-> setup and are kept for reference (`supabase/` and `docs/` are not uploaded or served).
-> `server.js` is a leftover Node helper that the website does not use.
+> **Hosting:** this repository contains both PHP/Apache and Node/MySQL backends. The November 16 audit records a Node deployment; older instructions below describe PHP hosting. Confirm the deployed runtime using `/api/runtime` after this update. See **docs/BUGFIX-VALIDATION-2026-11-17.md** for verified fixes, test commands and remaining Node integration gaps. Follow **HOSTINGER-DEPLOY.md** for the PHP deployment path.
 
 ## Deployment & backend (read this first)
 

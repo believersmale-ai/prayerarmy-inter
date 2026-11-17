@@ -1,6 +1,10 @@
 # Prayer Army International - Apache rules (Hostinger / any Apache host with mod_rewrite)
 Options -Indexes
 DirectoryIndex index.html
+# Legal page folders must not trigger mod_dir redirects before our page routes.
+<IfModule mod_dir.c>
+  DirectorySlash Off
+</IfModule>
 
 # Missing pages return a real HTTP 404 (rendered by PHP, branded, noindex)
 ErrorDocument 404 /api/index.php
@@ -12,6 +16,9 @@ ErrorDocument 404 /api/index.php
   RewriteCond %{HTTPS} !=on
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Canonical URLs keep relative scripts and styles working.
+  RewriteRule ^(admin|manage|portal)/$ /$1 [L,R=301]
 
   # Admin dashboard (three equivalent addresses)
   RewriteRule ^(admin|manage|portal)/?$ admin.html [L]
@@ -26,8 +33,8 @@ ErrorDocument 404 /api/index.php
   RewriteRule ^\.well-known/mcp/server-card\.json$ api/index.php [L]
 
   # Developer / deployment files must never be downloadable
-  RewriteRule ^(supabase|docs|node_modules)(/|$) - [F,L]
-  RewriteRule ^(server\.js|database\.js|package\.json|pnpm-lock\.yaml|metadata\.json|vercel\.json)$ - [F,L]
+  RewriteRule ^(supabase|docs|node_modules|tests|scripts)(/|$) - [F,L]
+  RewriteRule ^(server\.js|database\.js|public-auth\.js|package\.json|pnpm-lock\.yaml|metadata\.json|vercel\.json)$ - [F,L]
   RewriteRule \.(md|sql|lock)$ - [F,L]
 </IfModule>
 

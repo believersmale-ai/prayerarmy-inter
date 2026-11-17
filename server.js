@@ -16,7 +16,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { randomUUID, randomBytes, createHash, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
+import { randomUUID, randomBytes, createHash, createHmac, scrypt as scryptCallback, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import multer from 'multer';
 import db from './database.js';
@@ -33,10 +33,10 @@ const SETTINGS_FILE = DATA_DIR ? path.join(DATA_DIR, 'site-settings.json') : BUN
 const UPLOAD_DIR = DATA_DIR ? path.join(DATA_DIR, 'uploads') : path.join(__dirname, 'assets', 'uploads');
 const IMAGES_DIR = path.join(__dirname, 'assets', 'images');
 const SESSION_MS = 8 * 60 * 60 * 1000;
-const ADMIN_SESSIONS = new Map(); // token -> expiry (ms)
+const ADMIN_SESSIONS = new Map(); // token -> { expires, user }
 
 const MEDIA_EXT = {
-  image: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg'],
+  image: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'],
   video: ['.mp4', '.webm', '.mov', '.m4v', '.ogv'],
   audio: ['.mp3', '.m4a', '.wav', '.ogg', '.oga', '.aac']
 };
@@ -75,6 +75,12 @@ const upload = multer({
 
 const app = express();
 app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  next();
+});
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
@@ -85,7 +91,8 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Only the website itself is public. Never serve api/ (database password), server code,
 // package files, docs or migrations.
 const PUBLIC_FILES = ['index.html', 'admin.html', 'member-register.html', 'privacy.html', 'terms.html', 'styles.css', 'template.css',
-  'script.js', 'admin.js', 'robots.txt'];
+  'script.js', 'site-extras.js', 'agent-tools.js', 'admin.js', 'admin-ux.js', 'admin-dashboard.js',
+  'admin-ux.css', 'admin-dashboard.css', 'robots.txt'];
 for (const f of PUBLIC_FILES) {
   app.get('/' + f, (req, res) => {
     if (f === 'admin.html') { res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive'); }
@@ -106,6 +113,10 @@ if (DATA_DIR) app.use('/assets/uploads', express.static(UPLOAD_DIR, { index: fal
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { index: false, dotfiles: 'ignore', maxAge: '7d' }));
 app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
 app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'terms.html')));
+app.get(['/admin/', '/manage/', '/portal/'], (req, res, next) => {
+  if (req.path.endsWith('/')) return res.redirect(301, req.path.slice(0, -1));
+  next();
+});
 app.get(['/admin', '/manage', '/portal'], (req, res) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
@@ -131,21 +142,23 @@ function limited(key, max, windowMs) {
   hits.set(key, list);
   return list.length > max;
 }
-setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (!v.some((t) => now - t < 3600000)) hits.delete(k); for (const [t, exp] of ADMIN_SESSIONS) if (exp < now) ADMIN_SESSIONS.delete(t); }, 600000).unref();
+setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (!v.some((t) => now - t < 3600000)) hits.delete(k); for (const [t, session] of ADMIN_SESSIONS) if (session.expires < now) ADMIN_SESSIONS.delete(t); }, 600000).unref();
 
 function requireAdmin(req, res, next) {
   const token = parseCookies(req).admin_session;
-  const exp = token && ADMIN_SESSIONS.get(token);
-  if (!exp || exp < Date.now()) {
+  const session = token && ADMIN_SESSIONS.get(token);
+  if (!session || session.expires < Date.now()) {
     if (token) ADMIN_SESSIONS.delete(token);
     return res.status(401).json({ error: 'Admin authentication required' });
   }
+  res.setHeader('Cache-Control', 'no-store');
+  req.adminUser = session.user;
   next();
 }
 
-function setAdminSession(req, res) {
+function setAdminSession(req, res, user) {
   const token = randomUUID();
-  ADMIN_SESSIONS.set(token, Date.now() + SESSION_MS);
+  ADMIN_SESSIONS.set(token, { expires: Date.now() + SESSION_MS, user });
   const secure = req.secure ? '; Secure' : '';
   res.setHeader('Set-Cookie', `admin_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}${secure}`);
 }
@@ -224,8 +237,16 @@ async function ensureTables() {
   }
   await addColumnIfMissing('prayer_requests', 'request', 'TEXT NULL');
   await addColumnIfMissing('prayer_requests', 'is_private', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing('prayer_requests', 'is_read', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing('prayer_requests', 'follow_up', "VARCHAR(12) NOT NULL DEFAULT 'new'");
+  await addColumnIfMissing('prayer_requests', 'admin_note', 'VARCHAR(1000) NULL');
   await addColumnIfMissing('connect_requests', 'subject', 'VARCHAR(255) NULL');
   await addColumnIfMissing('connect_requests', 'message', 'TEXT NULL');
+  await db.query(`CREATE TABLE IF NOT EXISTS site_settings_store (
+    id TINYINT UNSIGNED PRIMARY KEY, settings_json LONGTEXT NOT NULL,
+    revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 }
 
 async function provisionInitialAdmin() {
@@ -253,7 +274,7 @@ function requireSettingsOrigin(req,res,next){
   if(!origin)return res.status(403).json({error:'Origin required'});
   try{
     const parsed=new URL(origin);
-    if(parsed.host!==req.get('host') || (req.secure && parsed.protocol!=='https:'))
+    if(!['http:', 'https:'].includes(parsed.protocol) || parsed.host!==req.get('host') || (req.secure && parsed.protocol!=='https:'))
       return res.status(403).json({error:'Origin mismatch'});
   }catch{return res.status(403).json({error:'Invalid origin'});}
   next();
@@ -295,30 +316,32 @@ app.post('/api/settings',requireAdmin,requireSettingsOrigin,async(req,res)=>{
     if(!Number.isSafeInteger(expected)||expected<1)return res.status(428).json({error:'Reload settings before saving'});
     const [result]=await db.execute('UPDATE site_settings_store SET settings_json=?,revision=revision+1 WHERE id=1 AND revision=?',[json,expected]);
     if(!result.affectedRows)return res.status(409).json({error:'Settings changed since you opened this page. Reload before saving.'});
-    const {settings,revision}=await getStoredSettings();
+    const revision = expected + 1;
     res.setHeader('Cache-Control','no-store');
     res.setHeader('X-Settings-Revision',String(revision));
-    res.json({success:true,settings,revision});
+    res.json({success:true,settings:cleanSettings,revision});
   }catch(err){
     console.error('Persistent settings write failed:',err.code||err.message);
     res.status(503).json({error:'Settings could not be saved to MySQL; check migration 003'});
   }
 });
 
+app.get('/api/runtime', (req, res) => res.json({ backend: 'node' }));
+
 // ---------- admin sign-in ----------
-app.post('/api/verify-passkey', (req, res) => {
+app.post('/api/verify-passkey', requireSettingsOrigin, (req, res) => {
   try {
     if (limited('pk:' + req.ip, 10, 15 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many attempts. Please wait a few minutes.' });
     let valid = String(process.env.ADMIN_PASSKEY || '');
     if (!valid && fs.existsSync(SETTINGS_FILE)) valid = String(JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')).passkey || '');
     if (!valid) return res.status(401).json({ success: false, error: 'Passkey sign-in is turned off. Use your account.' });
     if (!safeEqual(req.body?.passkey ?? '', valid)) return res.status(401).json({ success: false, error: 'Incorrect passkey' });
-    setAdminSession(req, res);
+    setAdminSession(req, res, { email: 'Shared passkey', role: 'admin' });
     res.json({ success: true });
   } catch { res.status(500).json({ error: 'Verification failed' }); }
 });
 
-app.post('/api/admin/login', async (req, res) => {
+app.post('/api/admin/login', requireSettingsOrigin, async (req, res) => {
   try {
     if (limited('login:' + req.ip, 10, 15 * 60 * 1000)) return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes.' });
     const email = clean(req.body?.email, 255).toLowerCase();
@@ -330,7 +353,7 @@ app.post('/api/admin/login', async (req, res) => {
     if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
 
     await db.execute('UPDATE admin_users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [rows[0].id]);
-    setAdminSession(req, res);
+    setAdminSession(req, res, { email: rows[0].email, role: rows[0].role });
     res.json({ success: true, user: { email: rows[0].email, role: rows[0].role } });
   } catch (error) {
     console.error('Admin login error:', error.message);
@@ -359,14 +382,13 @@ app.get('/api/admin/dashboard',requireAdmin,async(req,res)=>{
 
 app.get('/api/admin/session',requireAdmin,async(req,res)=>{
   try {
-    const email=String(process.env.ADMIN_EMAIL||'').trim().toLowerCase();
     // Existing admin session is server-validated; no secrets returned.
     res.setHeader('Cache-Control','no-store');
-    res.json({authenticated:true,user:{email,role:'admin'}});
+    res.json({authenticated:true,user:req.adminUser});
   }catch{res.status(503).json({error:'Session unavailable'});}
 });
 
-app.post('/api/admin/logout', (req, res) => {
+app.post('/api/admin/logout', requireSettingsOrigin, (req, res) => {
   const t = parseCookies(req).admin_session;
   if (t) ADMIN_SESSIONS.delete(t);
   res.setHeader('Set-Cookie', 'admin_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
@@ -412,8 +434,13 @@ app.get('/api/rest/v1/:resource', async (req, res, next) => {
   const limit = Number.isFinite(requested) ? Math.min(max, Math.max(1, requested)) : max;
   const order = String(req.query.order || '').endsWith('.asc') ? 'ASC' : 'DESC';
   try {
+    let fields = def.fields;
+    if (resource === 'testimonies') {
+      const [columns] = await db.execute('SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?', [def.table, 'show_name']);
+      fields = fields.replace('id, name,', columns.length ? "id, IF(show_name = 1, name, 'Anonymous') AS name," : "id, 'Anonymous' AS name,");
+    }
     const [rows] = await db.query(
-      `SELECT ${def.fields} FROM \`${def.table}\` ${def.where} ORDER BY created_at ${order} LIMIT ${limit}`
+      `SELECT ${fields} FROM \`${def.table}\` ${def.where} ORDER BY created_at ${order} LIMIT ${limit}`
     );
     res.setHeader('Cache-Control', 'public, max-age=30');
     res.json(rows);
@@ -423,8 +450,27 @@ app.get('/api/rest/v1/:resource', async (req, res, next) => {
   }
 });
 
+// Signed form tokens match the age rules used by the PHP host.
+const formSecret = randomBytes(32);
+const signFormTime = ts => createHmac('sha256', formSecret).update(`form|${ts}`).digest('hex').slice(0, 32);
+app.get('/api/form-token', (req, res) => {
+  const ts = String(Math.floor(Date.now() / 1000));
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ token: `${ts}.${signFormTime(ts)}` });
+});
+function publicFormGuard(req, res, next) {
+  if (req.body?.website) return res.sendStatus(201);
+  const token = req.body?._ft;
+  const match = typeof token === 'string' && token.match(/^(\d{9,11})\.([a-f0-9]{32})$/);
+  const age = match ? Math.floor(Date.now() / 1000) - Number(match[1]) : -1;
+  if (!match || age < 2 || age > 14400 || !safeEqual(match[2], signFormTime(match[1]))) {
+    return res.status(400).json({ error: 'Please refresh the page and try again.' });
+  }
+  next();
+}
+
 // ---------- public forms (same field names the website sends) ----------
-app.post('/api/rest/v1/prayer_requests', async (req, res) => {
+app.post('/api/rest/v1/prayer_requests', publicFormGuard, async (req, res) => {
   try {
     if (limited('prayer:' + req.ip, 20, 3600 * 1000)) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     const b = req.body || {};
@@ -448,7 +494,7 @@ app.post('/api/rest/v1/prayer_requests', async (req, res) => {
   }
 });
 
-app.post('/api/rest/v1/connect_requests', async (req, res) => {
+app.post('/api/rest/v1/connect_requests', publicFormGuard, async (req, res) => {
   try {
     if (limited('connect:' + req.ip, 20, 3600 * 1000)) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     const b = req.body || {};
@@ -468,6 +514,45 @@ app.post('/api/rest/v1/connect_requests', async (req, res) => {
   } catch (error) {
     console.error('Contact message error:', error.message);
     res.status(500).json({ error: 'Unable to save contact message' });
+  }
+});
+
+// Compatibility for the existing dashboard's prayer and visitor management controls.
+// The PHP host uses the same action names, but stores different row shapes.
+app.post('/api/functions/v1/manage-content', requireAdmin, requireSettingsOrigin, async (req, res) => {
+  const action = req.body?.action;
+  const payload = req.body?.payload || {};
+  const id = String(payload.id || '');
+  try {
+    if (action === 'list_prayer_requests' || action === 'list_connect_requests') {
+      const prayer = action === 'list_prayer_requests';
+      const table = prayer ? 'prayer_requests' : 'connect_requests';
+      const [rows] = await db.query(`SELECT * FROM ${table} ORDER BY created_at DESC LIMIT 500`);
+      return res.json({ requests: rows.map(row => prayer ? {
+        id: String(row.id), name: row.name, contact: [row.email, row.phone].filter(Boolean).join(' / '),
+        request: row.request, is_private: Boolean(row.is_private), is_read: Boolean(row.is_read),
+        follow_up: row.follow_up, admin_note: row.admin_note, created_at: row.created_at
+      } : {
+        id: String(row.id), name: row.name, email: row.email, phone: row.phone,
+        kind: row.subject, note: row.message, is_contacted: row.status === 'handled', created_at: row.created_at
+      }) });
+    }
+    const definitions = {
+      mark_prayer_request_read: ['prayer_requests', 'UPDATE prayer_requests SET is_read = ? WHERE id = ?', [payload.is_read !== false ? 1 : 0, id]],
+      set_prayer_followup: ['prayer_requests', 'UPDATE prayer_requests SET follow_up = ?, admin_note = ?, is_read = 1 WHERE id = ?',
+        [['new', 'in_progress', 'done'].includes(payload.follow_up) ? payload.follow_up : 'new', clean(payload.admin_note, 1000) || null, id]],
+      delete_prayer_request: ['prayer_requests', 'DELETE FROM prayer_requests WHERE id = ?', [id]],
+      mark_connect_contacted: ['connect_requests', 'UPDATE connect_requests SET status = ? WHERE id = ?', [payload.is_contacted !== false ? 'handled' : 'new', id]],
+      delete_connect_request: ['connect_requests', 'DELETE FROM connect_requests WHERE id = ?', [id]]
+    };
+    const def = definitions[action];
+    if (!def) return res.status(501).json({ error: 'This content module requires the PHP backend; it is not connected on this Node host.' });
+    if (!/^[1-9][0-9]{0,18}$/.test(id)) return res.status(400).json({ error: 'Invalid request ID' });
+    await db.execute(def[1], def[2]);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Submission action failed:', err.code || err.message);
+    res.status(503).json({ error: 'Unable to manage submissions' });
   }
 });
 
@@ -610,7 +695,7 @@ function requireMembershipOrigin(req,res,next){
   if(!origin||!host)return res.status(403).json({error:'Origin required'});
   try {
     const parsed=new URL(origin);
-    if(parsed.host!==host || (req.secure && parsed.protocol!=='https:'))return res.status(403).json({error:'Origin mismatch'});
+    if(!['http:', 'https:'].includes(parsed.protocol) || parsed.host!==host || (req.secure && parsed.protocol!=='https:'))return res.status(403).json({error:'Origin mismatch'});
   }catch{return res.status(403).json({error:'Invalid origin'});}
   next();
 }
@@ -671,7 +756,8 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 app.get('/{*splat}', (req, res) => {
   // Missing files and dotfiles are a real 404; page-like URLs get the homepage.
   if (path.extname(req.path) || /(^|\/)\./.test(req.path)) return res.status(404).type('text/plain').send('Not found');
-  res.sendFile(path.join(__dirname, 'index.html'));
+  if (req.path === '/') return res.sendFile(path.join(__dirname, 'index.html'));
+  res.status(404).type('text/plain').send('Page not found');
 });
 
 // Express error handler: never leak stack traces, never hang on bad JSON.

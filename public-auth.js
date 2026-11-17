@@ -117,7 +117,7 @@ export function createPublicAccountRouter(db) {
       else await connection.execute("UPDATE public_accounts SET email_verified_at=UTC_TIMESTAMP() WHERE id=? AND status='pending'",[rows[0].account_id]);
       await connection.execute("UPDATE public_auth_tokens SET consumed_at=UTC_TIMESTAMP() WHERE token_hash=?",[digest(token)]);
       await connection.commit();
-      res.type('text/plain').send('Email verified. You can now sign in.');
+      res.type('text/plain').send(policyRows[0].approval_mode==='automatic' ? 'Email verified. You can now sign in.' : 'Email verified. Your account is awaiting administrator approval.');
     } catch(err){await connection.rollback();console.error('Email verification failed:',err.code||err.message);res.status(503).type('text/plain').send('Verification temporarily unavailable');}
     finally{connection.release();}
   });

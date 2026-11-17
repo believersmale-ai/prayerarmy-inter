@@ -1162,8 +1162,8 @@
     @media (max-width: 900px) {
       .dash-two { grid-template-columns: 1fr; }
     }
-    @media (max-width: 760px) {
-      /* Phone: the menu becomes a slide-in drawer instead of a long scrolling strip */
+    @media (max-width: 1050px) {
+      /* Compact screens: the menu becomes a slide-in drawer instead of a long scrolling strip */
       .menu-fab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--admin-line); background: rgba(255,255,255,.06); color: #fff; font: 700 13px inherit; cursor: pointer; }
       .sidebar { position: fixed !important; z-index: 200; top: 0; left: 0; bottom: 0; width: min(84vw, 320px) !important; height: auto !important; flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; transform: translateX(-102%); transition: transform .28s ease; background: #0c1322 !important; padding-top: 18px; }
       body.drawer-open .sidebar { transform: none; }
@@ -2603,6 +2603,15 @@
     const verify=document.getElementById('membership-email-verification');
     const applications=document.getElementById('membership-applications');
     async function load() {
+      if (!window.__paiAdminReady) return;
+      if (!isNodeAdminSession()) {
+        status.textContent='Membership approvals are not available on this website yet.';
+        document.getElementById('membership-refresh').disabled=true;
+        save.disabled=true;
+        return;
+      }
+      save.disabled=false;
+      document.getElementById('membership-refresh').disabled=false;
       try {
         const response=await fetch('/api/admin/membership/configuration',{credentials:'same-origin'});
         if(!response.ok)throw Error(response.status===401?'Sign in to manage membership approvals':'Membership configuration unavailable (check migration 002)');
@@ -2653,7 +2662,7 @@
     document.getElementById('membership-refresh').addEventListener('click',loadApplications);
     mode.addEventListener('change',()=>{if(mode.value==='automatic')verify.checked=true;});
     load();
-    document.addEventListener('click',event=>{if(event.target.closest('#auth-screen button'))setTimeout(load,900);});
+    document.addEventListener('pai:admin-ready',load);
   })();
   </script>
 </body>

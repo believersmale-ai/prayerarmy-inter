@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test tests/*.test.mjs",
+    "test:database": "node tests/database.integration.mjs"
   },
   "dependencies": {
     "express": "^5.3.0",

@@ -270,7 +270,7 @@ const showToast = (msg, isSuccess = true) => {
   if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast-notice ${isSuccess ? 'success' : ''}`;
-  toast.innerHTML = `<span>${isSuccess ? '✓' : 'ℹ'}</span> <div>${msg}</div>`;
+  toast.innerHTML = `<span>${isSuccess ? '✓' : 'ℹ'}</span> <div>${escapeHtml(msg)}</div>`;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
@@ -354,8 +354,8 @@ const updateCountdown = () => $$('.countdown[data-start]').forEach(tickCountdown
 // Only ever turn admin-entered links into http(s) / in-page links
 // Links typed into the admin panel: allow http(s), mailto, tel, #anchors and relative paths only.
 const safeHref = (u) => {
-  const v = String(u || '').trim();
-  if (!v) return '';
+  const v = String(u || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  if (!v || v.startsWith('//') || v.includes('\\')) return '';
   const scheme = v.match(/^([a-z][a-z0-9+.-]*):/i);
   if (scheme && !['http', 'https', 'mailto', 'tel'].includes(scheme[1].toLowerCase())) return '';
   return v;
@@ -1056,7 +1056,7 @@ const applySettings = (s) => {
     if (isLive) {
       hBtnSecondary.innerHTML = '<span class="pulse" style="background:#e53e3e"></span> Watch Live Now';
     } else {
-      hBtnSecondary.innerHTML = s.hero?.btnSecondaryText || 'Watch Live';
+      hBtnSecondary.textContent = s.hero?.btnSecondaryText || 'Watch Live';
     }
     // Always keeps visitors on-site: jumps to the Live section, which plays
     // the broadcast inline rather than sending anyone to an external tab.

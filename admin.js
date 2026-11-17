@@ -74,8 +74,14 @@ const ensureFreshToken = async (force = false) => {
 };
 
 // Every call to an server call gets a fresh token; one retry if the server says it expired.
-const swapToken = (init, from, to) =>
-  (from && init && typeof init.body === 'string') ? { ...init, body: init.body.split(from).join(to) } : init;
+const swapToken = (init, from, to) => {
+  if (!from || !init || typeof init.body !== 'string') return init;
+  try {
+    const body = JSON.parse(init.body);
+    for (const key of ['passkey', 'currentPasskey']) if (body[key] === from) body[key] = to;
+    return { ...init, body: JSON.stringify(body) };
+  } catch { return init; }
+};
 window.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : (input && input.url) || '';
   if (!url.includes('/functions/v1/')) return _origFetch(input, init);
@@ -421,8 +427,10 @@ authForm?.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Signing in...';
 
   try {
+    const runtimeResponse = await _origFetch(`${SUPABASE_URL}/runtime`, { cache: 'no-store' });
+    if (!runtimeResponse.ok) throw Error('Could not identify the hosting backend');
+    const nodeProbe = (await runtimeResponse.json()).backend === 'node';
     if (authMode === 'account') {
-      const nodeProbe=await _origFetch(`${SUPABASE_URL}/health/db`,{cache:'no-store'}).then(r=>r.ok).catch(()=>false);
       if(nodeProbe){
         const res=await _origFetch(`${SUPABASE_URL}/admin/login`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:emailInput.value.trim().toLowerCase(),password:accountPwInput.value})});
         const body=await res.json().catch(()=>({}));
@@ -450,12 +458,19 @@ authForm?.addEventListener('submit', async (e) => {
       showToast('Signed in', 'success');
     } else {
       const passkey = passkeyInput.value.trim();
-      const res = await fetch(`${EDGE_BASE}/verify-passkey`, {
+      const res = await fetch(nodeProbe ? `${SUPABASE_URL}/verify-passkey` : `${EDGE_BASE}/verify-passkey`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
         body: JSON.stringify({ passkey })
       });
       if (res.ok) {
+        if (nodeProbe) {
+          clearSession();
+          sessionStorage.setItem(NODE_SESSION_KEY, 'true');
+          passkeyInput.value = '';
+          await showDashboard();
+          return;
+        }
         sessionStorage.setItem('pai_manager_authenticated', 'true');
         localStorage.setItem('pai_manager_authenticated', 'true');
         storeBoth('pai_manager_mode', 'passkey');
@@ -1593,12 +1608,13 @@ const loadMedia = async () => {
         ...item,url:'/'+String(item.url).replace(/^\//,''),isUpload:true
       })));
     }else{
+    await ensureFreshToken();
     const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/media`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        Authorization: `Bearer ${getPasskey()}`
       },
       body: JSON.stringify({ prefix: '', limit: 500, sortBy: { column: 'created_at', order: 'desc' } })
     });

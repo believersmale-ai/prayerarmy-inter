@@ -25,3 +25,8 @@
 .tab-view .view-header-text h2{font-size:clamp(25px,3vw,36px)!important}
 @media(max-width:850px){.ux-workspace-bar{margin-bottom:15px}.ux-quick-links{width:100%;overflow-x:auto;flex-wrap:nowrap}.ux-quick-link{white-space:nowrap}.main-area{padding:16px!important}}
 @media(prefers-reduced-motion:reduce){.ux-group-heading::after{transition:none}}
+
+/* Keep media controls and constrained flex children within tablet cards. */
+.main-area,.app-body,#settings-form{min-width:0}
+.media-tabs,.media-btn-row{flex-wrap:wrap}
+.ux-task[hidden],.ux-quick-link[hidden]{display:none!important}

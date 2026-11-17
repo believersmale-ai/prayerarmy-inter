@@ -4,13 +4,38 @@
 // auth/v1, storage/v1); this file answers them from MySQL and the uploads folder.
 define('PAI_API', true);
 require __DIR__ . '/lib.php';
+require __DIR__ . '/agent.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $path = trim((string)preg_replace('#^.*?/api/#', '', (string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), 1), '/');
 
 try {
+    // Apache preserves the original URL when rewriting pages and ErrorDocument requests.
+    $publicPath = parse_url($_SERVER['REDIRECT_URL'] ?? $_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if (!str_starts_with((string)$publicPath, '/api/')) {
+        if ($publicPath === '/mcp') a_mcp();
+        if (!in_array($method, ['GET', 'HEAD'], true)) fail('Method not allowed', 405);
+        switch ($publicPath) {
+            case '/robots.txt': a_robots();
+            case '/llms.txt': a_llms();
+            case '/sitemap.xml': sitemap_xml();
+            case '/podcast.xml': podcast_feed();
+            case '/.well-known/mcp/server-card.json': a_server_card();
+            case '/': case '/index.html': a_page('home', false);
+        }
+        if (preg_match('#^/(index|about|contact|privacy|terms)(\.md)?$#', (string)$publicPath, $page)) {
+            a_page($page[1] === 'index' ? 'home' : $page[1], !empty($page[2]));
+        }
+        a_not_found();
+    }
     if ($method === 'OPTIONS') { http_response_code(204); exit; }
 
+    if ($path === 'runtime' && $method === 'GET') out(['backend' => 'php']);
+    if ($path === 'settings' && $method === 'GET') {
+        $settings = site_settings();
+        unset($settings['notifications'], $settings['passkey']);
+        out($settings ?: new stdClass());
+    }
     if ($path === 'rest/v1/rpc/increment_prayed' && $method === 'POST') rpc_increment_prayed();
     elseif (preg_match('#^rest/v1/([a-z_]+)$#', $path, $m)) {
         if ($method === 'GET') rest_get($m[1]);
@@ -164,9 +189,11 @@ function rpc_increment_prayed(): void {
     $counted = false;
     if ($voter !== '' && !q('SELECT 1 FROM wall_votes WHERE prayer_id = ? AND voter = ?', [$id, $voter])->fetch()
         && (int)q('SELECT COUNT(*) c FROM wall_votes WHERE prayer_id = ? AND ip = ? AND created_at > ?', [$id, $ip, gmdate('Y-m-d H:i:s', time() - 86400)])->fetch()['c'] < 5) {
-        q('INSERT IGNORE INTO wall_votes (prayer_id, voter, ip, created_at) VALUES (?,?,?,?)', [$id, $voter, $ip, now()]);
-        q('UPDATE wall_prayers SET prayed_count = prayed_count + 1 WHERE id = ?', [$id]);
-        $counted = true;
+        $insert = q('INSERT IGNORE INTO wall_votes (prayer_id, voter, ip, created_at) VALUES (?,?,?,?)', [$id, $voter, $ip, now()]);
+        if ($insert->rowCount() === 1) {
+            q('UPDATE wall_prayers SET prayed_count = prayed_count + 1 WHERE id = ?', [$id]);
+            $counted = true;
+        }
     }
     $n = (int)q('SELECT prayed_count FROM wall_prayers WHERE id = ?', [$id])->fetch()['prayed_count'];
     out(['counted' => $counted, 'prayed_count' => $n]);
@@ -213,6 +240,7 @@ function auth_route(string $what, string $method): void {
         $pw = body()['password'] ?? '';
         if (!is_string($pw) || mb_strlen($pw) < 10) fail('Use at least 10 characters', 422);
         q('UPDATE admin_users SET password_hash = ? WHERE id = ?', [password_hash($pw, PASSWORD_DEFAULT), $u['user_id']]);
+        q('DELETE FROM sessions WHERE user_id = ? AND access_hash <> ?', [$u['user_id'], hash('sha256', credential())]);
         out(['id' => $u['user_id'], 'email' => $u['email']]);
     }
     fail('Not found', 404);
@@ -513,7 +541,7 @@ function safe_link(string $u): string {
     $u = preg_replace('/[\x00-\x1F\x7F]/u', '', trim($u)) ?? '';
     if ($u === '') return '';
     if (preg_match('/^([a-z][a-z0-9+.\-]*):/i', $u, $m)) return in_array(strtolower($m[1]), ['http', 'https', 'mailto', 'tel'], true) ? $u : '';
-    return str_starts_with($u, '//') ? '' : $u;
+    return str_starts_with($u, '//') || str_contains($u, '\\') ? '' : $u;
 }
 
 /** Keep the page layout well-formed: known shape, length limits, safe links. */
@@ -559,6 +587,7 @@ function fn_save_settings(): void {
    MEDIA  (uploads folder)
    ===================================================================== */
 function storage_list(): void {
+    require_perm('media');
     $dir = uploads_dir();
     $rows = [];
     foreach (scandir($dir) ?: [] as $f) {
@@ -636,8 +665,8 @@ function public_search(): void {
         }
     }
     foreach (is_array($st['announcements'] ?? null) ? $st['announcements'] : [] as $a) {
-        if (empty($a['published'])) continue;
-        if (!empty($a['expires']) && strtotime((string)$a['expires']) && strtotime((string)$a['expires']) < $now) continue;
+        if (empty($a['published']) || (!empty($a['date']) && $a['date'] > gmdate('Y-m-d'))) continue;
+        if (!empty($a['expires']) && strtotime((string)$a['expires']) && (string)$a['expires'] < gmdate('Y-m-d')) continue;
         if ($hit($a['title'] ?? '') || $hit($a['body'] ?? '')) {
             $res[] = ['type' => 'announcement', 'title' => (string)$a['title'], 'text' => mb_substr((string)($a['body'] ?? ''), 0, 140), 'url' => '/#announcements', 'meta' => ''];
         }
@@ -657,22 +686,6 @@ function public_search(): void {
         if ($hit($label) || $hit($title) || $hit($text)) $res[] = ['type' => 'ministry', 'title' => $label, 'text' => mb_substr(trim($title . ' ' . $text), 0, 140), 'url' => $url, 'meta' => ''];
     }
     out(['query' => $qstr, 'results' => array_slice($res, 0, 20)]);
-}
-
-function sitemap_xml(): void {
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' ? 'https' : 'http';
-    $origin = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-    $x = fn($s) => htmlspecialchars((string)$s, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-    $urls = [[$origin . '/', gmdate('Y-m-d'), '1.0'], [$origin . '/privacy', null, '0.3'], [$origin . '/terms', null, '0.3']];
-    foreach (q('SELECT id, created_at FROM messages ORDER BY created_at DESC LIMIT 500')->fetchAll() as $r) {
-        $urls[] = [$origin . '/?m=' . $r['id'], substr($r['created_at'], 0, 10), '0.6'];
-    }
-    header('Content-Type: application/xml; charset=utf-8');
-    header('Cache-Control: public, max-age=3600');
-    echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-    foreach ($urls as [$loc, $mod, $pri]) echo '<url><loc>' . $x($loc) . '</loc>' . ($mod ? '<lastmod>' . $x($mod) . '</lastmod>' : '') . '<priority>' . $pri . '</priority></url>';
-    echo '</urlset>';
-    exit;
 }
 
 /* =====================================================================
