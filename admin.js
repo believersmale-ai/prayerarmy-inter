@@ -2797,12 +2797,23 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
       if(isNodeAdminSession()){
         const response=await _origFetch(`${SUPABASE_URL}/admin/dashboard`,{credentials:'same-origin',cache:'no-store'});
         if(!response.ok)throw Error('Dashboard unavailable ('+response.status+')');
-        const {counts}=await response.json();
+        const {counts,activity=[]}=await response.json();
         const cards=[];
         if(counts.prayer_requests!==undefined)cards.push(card(counts.prayer_requests,'Prayer requests','view-requests'));
         if(counts.visitor_enquiries!==undefined)cards.push(card(counts.visitor_enquiries,'Visitor enquiries','view-connect'));
         if(counts.member_applications!==undefined)cards.push(card(counts.member_applications,'Pending member accounts','view-dashboard'));
         box.innerHTML=cards.length?'<div class="dash-grid">'+cards.join('')+'</div><p class="muted-note">Overview shows available records in the staging database. Other modules will appear as their APIs are connected.</p>':'<p class="muted-note">No dashboard record sources are available yet. Check the staging database tables.</p>';
+        const previous=document.getElementById('ux-recent-activity');if(previous)previous.remove();
+        const recent=document.createElement('section');recent.id='ux-recent-activity';recent.className='ux-recent-activity';
+        const heading=document.createElement('h3');heading.className='ux-section-title';heading.textContent='Recent account activity';recent.appendChild(heading);
+        if(!activity.length){const empty=document.createElement('p');empty.className='muted-note';empty.textContent='No recent account audit events available.';recent.appendChild(empty);}
+        else{const list=document.createElement('ul');list.className='ux-activity-list';activity.forEach(entry=>{
+          const li=document.createElement('li'),action=document.createElement('span'),time=document.createElement('time');
+          action.textContent=String(entry.action||'Account activity').replace(/_/g,' ');
+          const date=new Date(entry.at);time.textContent=Number.isNaN(date.getTime())?'':date.toLocaleString();
+          li.append(action,time);list.appendChild(li);
+        });recent.appendChild(list);}
+        box.appendChild(recent);
         const w=document.getElementById('dash-welcome');
         if(w)w.textContent='Welcome, '+(me?.name||me?.email||'Administrator')+'. These figures are from available staging records.';
         return;
