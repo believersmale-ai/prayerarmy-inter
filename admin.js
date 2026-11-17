@@ -1141,6 +1141,7 @@ const populateForm = (s) => {
   $('#field-manager-passkey').value = '';
   $('#field-manager-passkey').placeholder = 'Leave blank to keep current passkey';
 
+  window.dispatchEvent(new CustomEvent('pai:hero-settings-loaded',{detail:{hero:s.hero||{}}}));
   // Page Builder
   loadLayoutState(s); layoutBoxEvents(); renderLayoutEditor(); wirePageText(); renderPageText();
 };
@@ -1168,7 +1169,10 @@ const collectFormData = () => {
       btnSecondaryLink: $('#field-hero-btn-secondary-link').value.trim(),
       btnVisitText: $('#field-hero-btn-visit-text').value.trim(),
       btnVisitLink: $('#field-hero-btn-visit-link').value.trim(),
-      bgImage: $('#field-hero-bg').value.trim()
+      bgImage: $('#field-hero-bg').value.trim(),
+      slides: window.paiHeroSlidesDraft?.slides || currentSettings?.hero?.slides || [],
+      sliderEnabled: window.paiHeroSlidesDraft?.enabled ?? currentSettings?.hero?.sliderEnabled ?? true,
+      slideDuration: window.paiHeroSlidesDraft?.duration || currentSettings?.hero?.slideDuration || 7
     },
     about: {
       eyebrow: $('#field-about-eyebrow').value.trim(),
