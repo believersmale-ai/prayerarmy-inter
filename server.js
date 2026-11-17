@@ -258,6 +258,35 @@ app.get('/api/admin/publishing-health', ...staff.permit('settings'), async (req,
   }
 });
 
+// Bundled media visibility is stored in MySQL; hiding never deletes source files.
+// Migration 005 is created non-destructively during normal database setup.
+app.get('/api/admin/hidden-assets', ...staff.permit('media'), async(req,res)=>{
+  try {
+    const [rows]=await db.execute('SELECT filename FROM site_hidden_assets ORDER BY filename');
+    res.setHeader('Cache-Control','no-store');
+    res.json({filenames:rows.map(row=>row.filename)});
+  }catch(err){
+    console.error('Hidden assets list:',err.code||err.message);
+    res.status(503).json({error:'Hidden media storage unavailable. Check migration 005.'});
+  }
+});
+app.put('/api/admin/hidden-assets/:filename', ...staff.permit('media'),requireSettingsOrigin,async(req,res)=>{
+  const filename=String(req.params.filename||'');
+  if(!filename||filename.length>255||filename==='.'||filename==='..'||/[\\/\\\\\\x00-\\x1f]/.test(filename)||filename.startsWith('.')){
+    return res.status(400).json({error:'Invalid bundled media filename'});
+  }
+  if(typeof req.body?.hidden!=='boolean')return res.status(400).json({error:'hidden must be true or false'});
+  try{
+    if(req.body.hidden)await db.execute('INSERT IGNORE INTO site_hidden_assets (filename) VALUES (?)',[filename]);
+    else await db.execute('DELETE FROM site_hidden_assets WHERE filename=?',[filename]);
+    res.setHeader('Cache-Control','no-store');
+    res.json({success:true,filename,hidden:req.body.hidden});
+  }catch(err){
+    console.error('Hidden assets update:',err.code||err.message);
+    res.status(503).json({error:'Unable to save media visibility. Check migration 005.'});
+  }
+});
+
 // ---------- settings ----------
 // Persistent settings: MySQL is authoritative. The bundled JSON is used only to
 // initialise an empty staging settings row, never to overwrite an existing row.
@@ -563,6 +592,10 @@ async function startServer() {
   // The website must come up even if the database is down or misconfigured.
   try {
     await ensureTables();
+    await db.query(`CREATE TABLE IF NOT EXISTS site_hidden_assets (
+      filename VARCHAR(255) NOT NULL PRIMARY KEY,
+      hidden_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
     const legacySeed = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
     const legacy = String(process.env.ADMIN_PASSKEY || legacySeed.passkey || '');
     await store.initialize({ ...(legacy ? { legacyEnabled: true, passkeyHash: await hashPassword(legacy) } : {}), ...(legacySeed.notifications && typeof legacySeed.notifications === 'object' ? { notifications: legacySeed.notifications } : {}) });
