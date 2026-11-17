@@ -513,6 +513,15 @@ sidebarButtons.forEach(btn => {
    3. SETTINGS DATA & DOM POPULATION
    ========================================================================= */
 const loadSettings = async () => {
+  if(isNodeAdminSession()){
+    try{
+      const response=await _origFetch(`${SUPABASE_URL}/settings`,{cache:'no-store'});
+      if(!response.ok)throw Error('Settings unavailable');
+      currentSettings=await response.json();
+      populateForm(currentSettings);
+    }catch(err){showToast(err.message,'error');}
+    return;
+  }
   let defaults = {};
   try {
     const defaultsRes = await fetch('/site-settings.json', { cache: 'no-store' });
@@ -1896,15 +1905,23 @@ const saveSettings = async (showNotification = true) => {
   }
   const data = collectFormData();
   const newPasskey = $('#field-manager-passkey')?.value.trim();
+  if(isNodeAdminSession() && newPasskey){
+    showToast('Changing the shared passkey is not available through this Node admin session. Clear that field before saving.', 'error');
+    return;
+  }
   btnSaveAll.disabled = true;
   btnSaveAll.innerHTML = '<span>⏳</span> Saving...';
 
   try {
-    const res = await fetch(`${EDGE_BASE}/save-settings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify({ passkey: getPasskey(), settings: data })
-    });
+    const res = isNodeAdminSession()
+      ? await _origFetch(`${SUPABASE_URL}/settings`,{
+          method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(data)
+        })
+      : await fetch(`${EDGE_BASE}/save-settings`, {
+          method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY},
+          body:JSON.stringify({passkey:getPasskey(),settings:data})
+        });
 
     if (res.ok) {
       currentSettings = data;
