@@ -889,3 +889,63 @@ footer.footer-reimagined{background:#f4f0e6;color:#182334;padding:0;overflow:hid
  .footer-reimagined .footer-bottom{align-items:flex-start}
 }
 @media(prefers-reduced-motion:reduce){.footer-reimagined .footer-primary-action{transition:none}}
+
+/* Cohesive photographic section art direction, using existing church photography.
+   Light sections use an opaque ivory wash for readable dark text; dark sections
+   retain deep navy overlays. No glass cards or new image dependencies. */
+:root{--section-gap-desktop:84px;--section-gap-tablet:66px;--section-gap-mobile:48px}
+#quick-links,#announcements,#verse,#about,#foundation,#sermons,#live,#events,#gallery,#prayer,#prayer-wall,#testimonies,#connect,#give,#locations,#contact,.footer-reimagined{
+  background-repeat:no-repeat;
+  background-position:center center;
+  background-size:cover;
+}
+#quick-links{background-image:linear-gradient(rgba(246,243,235,.92),rgba(246,243,235,.94)),url('assets/images/FB_IMG_1790280179177.jpg')}
+#announcements{background-image:linear-gradient(rgba(248,245,237,.94),rgba(248,245,237,.94)),url('assets/images/FB_IMG_1790280315271.jpg')}
+#verse{background-image:linear-gradient(rgba(15,22,35,.83),rgba(15,22,35,.88)),url('assets/images/FB_IMG_1790281497257.jpg')}
+#about{background-image:linear-gradient(rgba(250,248,242,.95),rgba(250,248,242,.95)),url('assets/images/FB_IMG_1790280179177.jpg')}
+#foundation{background-image:linear-gradient(rgba(247,243,233,.94),rgba(247,243,233,.96)),url('assets/images/statement-of-faith.jpg')}
+#sermons{background-image:linear-gradient(rgba(10,17,30,.92),rgba(10,17,30,.94)),url('assets/images/FB_IMG_1790281517479.jpg')}
+#live{background-image:linear-gradient(rgba(10,17,30,.65),rgba(10,17,30,.82)),url('assets/images/FB_IMG_1790281482379.jpg')}
+#events{background-image:linear-gradient(rgba(250,248,242,.94),rgba(250,248,242,.96)),url('assets/images/FB_IMG_1790280315271.jpg')}
+#gallery{background-image:linear-gradient(rgba(9,16,29,.91),rgba(9,16,29,.93)),url('assets/images/FB_IMG_1790281547438.jpg')}
+#prayer{background-image:linear-gradient(rgba(247,243,233,.95),rgba(247,243,233,.96)),url('assets/images/FB_IMG_1790280284954.jpg')}
+#prayer-wall{background-image:linear-gradient(rgba(249,246,238,.95),rgba(249,246,238,.96)),url('assets/images/FB_IMG_1790280370618.jpg')}
+#testimonies{background-image:linear-gradient(rgba(250,248,242,.95),rgba(250,248,242,.96)),url('assets/images/FB_IMG_1790280357636.jpg')}
+#connect{background-image:linear-gradient(rgba(246,242,233,.94),rgba(246,242,233,.96)),url('assets/images/FB_IMG_1790280306826.jpg')}
+#give{background-image:linear-gradient(rgba(12,20,34,.87),rgba(12,20,34,.91)),url('assets/images/FB_IMG_1790281497257.jpg')}
+#locations{background-image:linear-gradient(rgba(249,246,239,.95),rgba(249,246,239,.95)),url('assets/images/FB_IMG_1790280376981.jpg')}
+#contact{background-image:linear-gradient(rgba(9,16,29,.93),rgba(9,16,29,.94)),url('assets/images/FB_IMG_1790281482379.jpg')}
+footer.footer-reimagined{background-image:linear-gradient(rgba(244,240,230,.94),rgba(244,240,230,.96)),url('assets/images/FB_IMG_1790280179177.jpg')}
+footer.footer-reimagined .footer-base{background:#121b29}
+
+/* Compact, consistent section rhythm. Preserve cards and forms as solid surfaces. */
+.section{padding-top:var(--section-gap-desktop);padding-bottom:var(--section-gap-desktop)}
+.about{padding-top:var(--section-gap-desktop)}
+.announcements{padding-top:var(--section-gap-desktop);padding-bottom:var(--section-gap-desktop)}
+.live-section{min-height:480px;padding:var(--section-gap-desktop) 0}
+#give{padding-top:var(--section-gap-desktop);padding-bottom:var(--section-gap-desktop)}
+#quick-links{padding-top:28px;padding-bottom:28px}
+.section-head{margin-bottom:34px}
+.past-events{margin-top:48px}
+.contact-social-card{margin-top:24px}
+.footer-reimagined .footer-main{padding-top:62px;padding-bottom:44px}
+.footer-reimagined .footer-directory{padding-top:22px}
+.footer-reimagined .footer-signature{padding-top:16px;padding-bottom:10px}
+@media(max-width:900px){
+ .section,.announcements{padding-top:var(--section-gap-tablet);padding-bottom:var(--section-gap-tablet)}
+ .about{padding-top:var(--section-gap-tablet)}
+ .live-section{min-height:420px;padding:var(--section-gap-tablet) 0}
+ #give{padding-top:var(--section-gap-tablet);padding-bottom:var(--section-gap-tablet)}
+ .footer-reimagined .footer-main{padding-top:52px;padding-bottom:36px}
+}
+@media(max-width:600px){
+ .section,.announcements{padding-top:var(--section-gap-mobile);padding-bottom:var(--section-gap-mobile)}
+ .about{padding-top:var(--section-gap-mobile)}
+ .live-section{min-height:0;padding:var(--section-gap-mobile) 0}
+ #give{padding-top:var(--section-gap-mobile);padding-bottom:var(--section-gap-mobile)}
+ #quick-links{padding-top:16px;padding-bottom:16px}
+ .section-head{margin-bottom:24px}
+ .past-events{margin-top:30px}
+ .contact-social-card{margin-top:18px}
+ .footer-reimagined .footer-main{padding-top:42px;padding-bottom:32px}
+}
