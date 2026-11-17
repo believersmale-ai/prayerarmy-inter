@@ -2561,7 +2561,13 @@
               <option value="manual">Manual — administrator approval</option>
               <option value="automatic">Automatic — after verification</option>
             </select>
+            <label for="membership-email-verification" style="display:block;margin-top:12px"><input type="checkbox" id="membership-email-verification" checked> Require email verification (turn off for manual approval without email service)</label>
             <button type="button" id="membership-policy-save" class="btn-primary" style="margin-left:8px">Save approval policy</button>
+            <div style="margin-top:20px;border-top:1px solid var(--panel-border);padding-top:16px">
+              <h3 style="margin-bottom:8px">Pending member applications</h3>
+              <button type="button" class="btn-primary" id="membership-refresh">Refresh applications</button>
+              <div id="membership-applications" style="margin-top:12px;display:grid;gap:10px" aria-live="polite">Sign in to view pending applications.</div>
+            </div>
             <p id="membership-policy-status" role="status" style="margin-top:10px;color:var(--text-muted)">Loading policy…</p>
           </section>
         </form>
@@ -2590,23 +2596,58 @@
     const mode=document.getElementById('membership-approval-mode');
     const status=document.getElementById('membership-policy-status');
     const save=document.getElementById('membership-policy-save');
+    const verify=document.getElementById('membership-email-verification');
+    const applications=document.getElementById('membership-applications');
     async function load() {
       try {
         const response=await fetch('/api/admin/membership/configuration',{credentials:'same-origin'});
         if(!response.ok)throw Error(response.status===401?'Sign in to manage membership approvals':'Membership configuration unavailable (check migration 002)');
         const data=await response.json();
         mode.value=data.approvalMode;
+        verify.checked=data.requireEmailVerification;
+        await loadApplications();
         status.textContent='Current policy: '+(data.approvalMode==='manual'?'Manual approval':'Automatic after verification');
       } catch(err){status.textContent=err.message;}
     }
     save.addEventListener('click',async()=>{
       save.disabled=true;status.textContent='Saving…';
       try {
-        const response=await fetch('/api/admin/membership/configuration',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({approvalMode:mode.value})});
+        const response=await fetch('/api/admin/membership/configuration',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({approvalMode:mode.value,requireEmailVerification:verify.checked})});
         if(!response.ok)throw Error('Unable to save approval policy; please sign in and try again');
         status.textContent='Approval policy saved.';
       }catch(err){status.textContent=err.message;}finally{save.disabled=false;}
     });
+    async function loadApplications(){
+      try{
+        const response=await fetch('/api/admin/membership/applications',{credentials:'same-origin'});
+        if(!response.ok)throw Error('Unable to load applications');
+        const data=await response.json();
+        applications.replaceChildren();
+        if(!data.applications.length){applications.textContent='No pending applications.';return;}
+        for(const member of data.applications){
+          const row=document.createElement('div');
+          row.style.cssText='padding:12px;border:1px solid var(--panel-border);border-radius:6px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between';
+          const info=document.createElement('span');
+          info.textContent=member.display_name+' · '+member.email+(member.email_verified_at?' · Verified':' · Email unverified');
+          row.append(info);
+          for(const decision of ['approve','reject']){
+            const btn=document.createElement('button');btn.type='button';btn.className='btn-primary';btn.textContent=decision==='approve'?'Approve':'Reject';
+            btn.addEventListener('click',async()=>{
+              if(!confirm((decision==='approve'?'Approve ':'Reject ')+member.display_name+'?'))return;
+              btn.disabled=true;
+              try{
+                const response=await fetch('/api/admin/membership/applications/'+encodeURIComponent(member.id)+'/decision',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});
+                if(!response.ok){const error=await response.json();throw Error(error.error||'Unable to save decision');}
+                await loadApplications();status.textContent='Member '+decision+'d.';
+              }catch(err){status.textContent=err.message;btn.disabled=false;}
+            });row.append(btn);
+          }
+          applications.append(row);
+        }
+      }catch(err){applications.textContent=err.message;}
+    }
+    document.getElementById('membership-refresh').addEventListener('click',loadApplications);
+    mode.addEventListener('change',()=>{if(mode.value==='automatic')verify.checked=true;});
     load();
     document.addEventListener('click',event=>{if(event.target.closest('#auth-screen button'))setTimeout(load,900);});
   })();
