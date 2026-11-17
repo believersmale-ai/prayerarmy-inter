@@ -1287,7 +1287,7 @@ const applySettings = (s) => {
   }
 
   const cl = $('#contact-lines'), lines = [];
-  if (s.contact?.address) lines.push(escapeHtml(s.contact.address));
+  // Headquarters address is already shown above; do not duplicate it.
   if (s.contact?.phone) lines.push(`<a href="tel:${escapeHtml(s.contact.phone.replace(/[^\d+]/g, ''))}">${escapeHtml(s.contact.phone)}</a>`);
   if (s.contact?.whatsapp) lines.push(`<a href="https://wa.me/${s.contact.whatsapp.replace(/\D/g, '')}" target="_blank" rel="noopener">WhatsApp: ${escapeHtml(s.contact.whatsapp)}</a>`);
   if (s.contact?.email) lines.push(`<a href="mailto:${escapeHtml(s.contact.email)}">${escapeHtml(s.contact.email)}</a>`);
