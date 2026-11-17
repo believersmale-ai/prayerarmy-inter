@@ -100,7 +100,7 @@ registerBundledMediaVisibility(app,{db,staff,sameOrigin,imagesDir:IMAGES_DIR});
 // package files, docs or migrations.
 const PUBLIC_FILES = ['index.html', 'admin.html', 'member-register.html', 'privacy.html', 'terms.html', 'styles.css', 'template.css',
   'script.js', 'site-extras.js', 'agent-tools.js', 'admin.js', 'admin-ux.js', 'admin-dashboard.js',
-  'admin-ux.css', 'admin-dashboard.css', 'admin-media-posts.js', 'public-media-posts.js', 'media-posts.css', 'public-polish.css', 'robots.txt'];
+  'admin-ux.css', 'admin-dashboard.css', 'admin-media-posts.js', 'public-media-posts.js', 'media-posts.css', 'public-polish.css', 'hero-slides.css', 'admin-hero-slides.js', 'public-hero-slides.js', 'robots.txt'];
 for (const f of PUBLIC_FILES) {
   app.get('/' + f, (req, res) => {
     if (f === 'admin.html') { res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive'); }
