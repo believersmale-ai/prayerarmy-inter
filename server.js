@@ -259,26 +259,50 @@ function requireSettingsOrigin(req,res,next){
   next();
 }
 // ---------- settings ----------
-app.get('/api/settings', (req, res) => {
-  try {
-    const data = fs.existsSync(SETTINGS_FILE) ? JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8')) : {};
-    delete data.passkey;
-    delete data.notifications; // internal notification settings are not public
-    res.setHeader('Cache-Control', 'no-store');
-    res.json(data);
-  } catch { res.status(500).json({ error: 'Failed to read settings' }); }
+// Persistent settings: MySQL is authoritative. The bundled JSON is used only to
+// initialise an empty staging settings row, never to overwrite an existing row.
+async function getStoredSettings() {
+  const [rows] = await db.execute('SELECT settings_json, revision FROM site_settings_store WHERE id=1 LIMIT 1');
+  if(rows.length)return {settings:JSON.parse(rows[0].settings_json),revision:Number(rows[0].revision)};
+  const seed=fs.existsSync(SETTINGS_FILE)?JSON.parse(fs.readFileSync(SETTINGS_FILE,'utf8')):{};
+  if(!seed||typeof seed!=='object'||Array.isArray(seed))throw Error('Invalid seed settings');
+  delete seed.passkey;
+  await db.execute('INSERT IGNORE INTO site_settings_store (id,settings_json,revision) VALUES (1,?,1)',[JSON.stringify(seed)]);
+  const [stored]=await db.execute('SELECT settings_json,revision FROM site_settings_store WHERE id=1');
+  return {settings:JSON.parse(stored[0].settings_json),revision:Number(stored[0].revision)};
+}
+app.get('/api/settings',async(req,res)=>{
+  try{
+    const {settings,revision}=await getStoredSettings();
+    const publicSettings={...settings};delete publicSettings.passkey;delete publicSettings.notifications;
+    res.setHeader('Cache-Control','no-store');
+    res.setHeader('X-Settings-Revision',String(revision));
+    res.json(publicSettings);
+  }catch(err){
+    console.error('Persistent settings read failed:',err.code||err.message);
+    res.status(503).json({error:'Website settings database unavailable; apply migration 003'});
+  }
 });
-
-app.post('/api/settings', requireAdmin, requireSettingsOrigin, (req, res) => {
-  try {
-    const next = req.body;
-    if (!next || typeof next !== 'object' || Array.isArray(next)) return res.status(400).json({ error: 'Settings must be a JSON object' });
-    delete next.passkey;
-    const tmp = SETTINGS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf-8');
-    fs.renameSync(tmp, SETTINGS_FILE); // atomic: a crash can never leave half a file
-    res.json({ success: true, settings: next });
-  } catch { res.status(500).json({ error: 'Failed to save settings' }); }
+app.post('/api/settings',requireAdmin,requireSettingsOrigin,async(req,res)=>{
+  try{
+    const next=req.body;
+    if(!next||typeof next!=='object'||Array.isArray(next))return res.status(400).json({error:'Settings must be a JSON object'});
+    // Only public website settings are accepted, never admin credentials.
+    const cleanSettings={...next};delete cleanSettings.passkey;delete cleanSettings.notifications;
+    const json=JSON.stringify(cleanSettings);
+    if(Buffer.byteLength(json,'utf8')>8*1024*1024)return res.status(413).json({error:'Settings too large'});
+    const expected=Number(req.get('If-Match-Settings-Revision'));
+    if(!Number.isSafeInteger(expected)||expected<1)return res.status(428).json({error:'Reload settings before saving'});
+    const [result]=await db.execute('UPDATE site_settings_store SET settings_json=?,revision=revision+1 WHERE id=1 AND revision=?',[json,expected]);
+    if(!result.affectedRows)return res.status(409).json({error:'Settings changed since you opened this page. Reload before saving.'});
+    const {settings,revision}=await getStoredSettings();
+    res.setHeader('Cache-Control','no-store');
+    res.setHeader('X-Settings-Revision',String(revision));
+    res.json({success:true,settings,revision});
+  }catch(err){
+    console.error('Persistent settings write failed:',err.code||err.message);
+    res.status(503).json({error:'Settings could not be saved to MySQL; check migration 003'});
+  }
 });
 
 // ---------- admin sign-in ----------
