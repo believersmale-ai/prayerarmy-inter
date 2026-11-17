@@ -7,11 +7,6 @@ const scrypt = promisify(scryptCb);
 const digest = token => createHash('sha256').update(token).digest();
 const normalize = value => String(value ?? '').trim();
 const publicView = row => ({ id: String(row.id), displayName: row.display_name, email: row.email, roles: row.roles || [] });
-const passwordHash = async password => {
-  const salt = randomBytes(16).toString('hex');
-  const hash = await scrypt(password, salt, 64);
-  return `scrypt:${salt}:${hash.toString('hex')}`;
-};
 const checkPassword = async (password, encoded) => {
   const parts = String(encoded || '').split(':');
   if (parts.length !== 3 || parts[0] !== 'scrypt' || !/^[0-9a-f]{32}$/.test(parts[1]) || !/^[0-9a-f]{128}$/.test(parts[2])) return false;
@@ -51,24 +46,10 @@ export function createPublicAccountRouter(db) {
     if (hits.length>20) return res.status(429).json({error:'Too many requests; try later'});
     next();
   };
-  router.post('/register',throttle,async(req,res)=>{
-    // Registration remains disabled until a verified email delivery provider is configured.
-    if (process.env.PAI_PUBLIC_REGISTRATION_ENABLED !== 'true' || process.env.PAI_PUBLIC_EMAIL_VERIFIED_WORKFLOW_READY !== 'true')
-      return res.status(503).json({error:'Registration is not open yet'});
-    const email=normalize(req.body?.email).toLowerCase();
-    const name=normalize(req.body?.displayName), password=req.body?.password;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length>254 || name.length<2 || name.length>150 || typeof password!=='string' || password.length<12 || password.length>128)
-      return res.status(400).json({error:'Invalid registration details'});
-    try {
-      const hash=await passwordHash(password);
-      await db.execute('INSERT INTO public_accounts (email,password_hash,display_name,status) VALUES (?,?,?,?)',[email,hash,name,'pending']);
-      // Delivery of verification links is a prerequisite to enabling this route.
-      res.status(202).json({message:'Check your email for account verification'});
-    } catch(err){
-      if (err.code==='ER_DUP_ENTRY') return res.status(202).json({message:'Check your email for account verification'});
-      console.error('Public registration error:',err.code||err.message);
-      res.status(503).json({error:'Registration temporarily unavailable'});
-    }
+  // Do not accept registrations before email verification delivery is implemented.
+  // A pending account without a delivered verification link cannot be activated.
+  router.post('/register',throttle,(req,res)=>{
+    res.status(503).json({error:'Registration is not open yet'});
   });
   router.post('/login',throttle,async(req,res)=>{
     const email=normalize(req.body?.email).toLowerCase(),password=req.body?.password;
