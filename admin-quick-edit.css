@@ -1,0 +1,17 @@
+/* Quick Edit Website: straightforward accessible content controls */
+#view-quick-edit .qe-intro{padding:16px 20px;margin:16px 0 20px;background:#182538;border-left:3px solid #d8b650;border-radius:7px;color:#e5eaf1;line-height:1.7}
+#view-quick-edit .qe-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:9px 18px;align-items:end;margin:18px 0 24px}
+#view-quick-edit .qe-toolbar label{font-size:13px;font-weight:700;color:#d5b66a}
+#view-quick-edit input,#view-quick-edit select,#view-quick-edit textarea{box-sizing:border-box;max-width:100%;width:100%;background:#0b1525;border:1px solid #41506a;border-radius:7px;color:#f6f8fc;padding:12px 13px;font:inherit;min-height:44px}
+#view-quick-edit input:focus,#view-quick-edit select:focus,#view-quick-edit textarea:focus{outline:2px solid #e3bd55;outline-offset:2px}
+#view-quick-edit .qe-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+#view-quick-edit .qe-field{min-width:0;background:#101c2e;border:1px solid #30405a;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:9px}
+#view-quick-edit .qe-field label{color:#f4e1a2;font-size:14px;font-weight:700;line-height:1.4}
+#view-quick-edit .qe-field small{color:#9faec5;font-size:12px;overflow-wrap:anywhere}
+#view-quick-edit .qe-field textarea{min-height:96px;resize:vertical}
+#view-quick-edit .qe-field.qe-checkbox input{width:22px;height:22px;min-height:0}
+#view-quick-edit .qe-jump{align-self:flex-start;border:0;background:none;color:#c6d3e6;font-size:12px;cursor:pointer;text-decoration:underline;padding:4px 0}
+#view-quick-edit .qe-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:24px 0 40px}
+#view-quick-edit #qe-status{color:#e6c874;font-size:13px}
+#view-quick-edit .qe-empty{padding:24px;border:1px dashed #506079;border-radius:8px;color:#d2d9e5;grid-column:1/-1}
+@media(max-width:760px){#view-quick-edit .qe-toolbar,#view-quick-edit .qe-fields{grid-template-columns:minmax(0,1fr)}}
