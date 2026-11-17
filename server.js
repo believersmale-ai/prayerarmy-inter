@@ -20,6 +20,7 @@ import { randomUUID, randomBytes, createHash, scrypt as scryptCallback, timingSa
 import { promisify } from 'util';
 import multer from 'multer';
 import db from './database.js';
+import { createPublicAccountRouter } from './public-auth.js';
 
 const scrypt = promisify(scryptCallback);
 const __filename = fileURLToPath(import.meta.url);
@@ -538,6 +539,9 @@ app.delete('/api/media/:filename', requireAdmin, (req, res) => {
     res.json({ success: true, message: 'File deleted' });
   } catch { res.status(500).json({ error: 'Failed to delete file' }); }
 });
+
+// Public account routes are feature-flagged; no schema changes run automatically.
+app.use('/api/public', createPublicAccountRouter(db));
 
 // ---------- fallbacks (must stay last) ----------
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
