@@ -1,0 +1,6 @@
+-- Migration 005: non-destructive hidden bundled media visibility
+-- Safe to run repeatedly on the existing Prayer Army MySQL database.
+CREATE TABLE IF NOT EXISTS site_hidden_assets (
+  filename VARCHAR(255) NOT NULL PRIMARY KEY,
+  hidden_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
