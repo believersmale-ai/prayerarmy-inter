@@ -1924,6 +1924,7 @@ const saveSettings = async (showNotification = true) => {
     showToast('Changing the shared passkey is not available through this Node admin session. Clear that field before saving.', 'error');
     return;
   }
+  document.dispatchEvent(new CustomEvent('pai:settings-save',{detail:{state:'saving'}}));
   btnSaveAll.disabled = true;
   btnSaveAll.innerHTML = '<span>⏳</span> Saving...';
 
@@ -1939,6 +1940,7 @@ const saveSettings = async (showNotification = true) => {
         });
 
     if (res.ok) {
+      document.dispatchEvent(new CustomEvent('pai:settings-save',{detail:{state:'saved'}}));
       currentSettings = data;
       // Also cache locally as an offline fallback for the public site
       localStorage.setItem('pai_site_settings', JSON.stringify(data));
@@ -1962,9 +1964,11 @@ const saveSettings = async (showNotification = true) => {
       }
     } else {
       const body = await res.json().catch(() => ({}));
+      document.dispatchEvent(new CustomEvent('pai:settings-save',{detail:{state:'error'}}));
       showToast(body.error || 'Failed to save settings to server', 'error');
     }
   } catch (err) {
+    document.dispatchEvent(new CustomEvent('pai:settings-save',{detail:{state:'error'}}));
     showToast('Network error while saving settings', 'error');
   } finally {
     btnSaveAll.disabled = false;
