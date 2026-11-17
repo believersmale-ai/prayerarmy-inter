@@ -1990,16 +1990,21 @@ const loadTestimonies = async () => {
     });
     if (!res.ok) throw 0;
     const rows = await res.json();
-    if (!rows.length) {
-      testimoniesList.innerHTML = '<p class="messages-empty" style="color:var(--soft)">No testimonies yet. Be the first to share what God has done for you.</p>';
+    if (!Array.isArray(rows) || !rows.length) {
+      // The submission CTA remains visible below; do not render an empty card/list.
+      testimoniesList.replaceChildren();
+      testimoniesList.hidden = true;
       return;
     }
+    testimoniesList.hidden = false;
     testimoniesList.innerHTML = rows.map((t) => `
       <figure class="testimony-card">
         <blockquote>${escapeHtml(t.testimony)}</blockquote>
         <figcaption><strong>${escapeHtml(t.name)}</strong>${t.location ? escapeHtml(t.location) : ''}</figcaption>
       </figure>`).join('');
   } catch {
+    // A failed request is not evidence that no testimonies exist.
+    testimoniesList.hidden = false;
     testimoniesList.innerHTML = '<p class="messages-empty" style="color:var(--soft)">Testimonies could not load right now.</p>';
   }
 };
