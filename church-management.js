@@ -75,6 +75,11 @@ const view = (row) =>
         "version",
         "record_version",
         "member_count",
+        "capacity",
+        "filled_count",
+        "served_count",
+        "declined_count",
+        "no_show_count",
         "roster_count",
         "present",
         "late",
@@ -1568,13 +1573,502 @@ export function createChurchManagement(store, staff) {
       res.json({ group: view(await getGroup(id)) });
     }),
   );
+  const SHIFT_STATES = ["scheduled", "completed", "cancelled"];
+  const VOLUNTEER_STATUSES = [
+    "assigned",
+    "confirmed",
+    "declined",
+    "served",
+    "no_show",
+    "removed",
+  ];
+  const reserved = (status) =>
+    ["assigned", "confirmed", "served", "no_show"].includes(status);
+  const reservationSql = "('assigned','confirmed','served','no_show')";
+  const shiftColumns =
+    "s.*,g.name AS group_name,g.archived_at AS group_archived_at";
+  const assignmentStats = `SELECT shift_id,SUM(status IN ${reservationSql}) AS filled_count,SUM(status='served') AS served_count,SUM(status='declined') AS declined_count,SUM(status='no_show') AS no_show_count FROM church_volunteer_assignments GROUP BY shift_id`;
+  const getShift = (id, c) =>
+    one(
+      `SELECT ${shiftColumns},COALESCE(a.filled_count,0) filled_count,COALESCE(a.served_count,0) served_count,COALESCE(a.declined_count,0) declined_count,COALESCE(a.no_show_count,0) no_show_count FROM church_volunteer_shifts s JOIN church_groups g ON g.id=s.group_id LEFT JOIN (${assignmentStats}) a ON a.shift_id=s.id WHERE s.id=?`,
+      [id],
+      c,
+    );
+  const shiftData = (body) => {
+    const b = object(body);
+    for (const key of ["starts_at", "ends_at"]) {
+      check(typeof b[key] === "string", 400, "Enter a shift date and time");
+      dateOnly(b[key].slice(0, 10), "Shift date");
+      check(
+        /T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(
+          b[key],
+        ),
+        400,
+        "Enter a valid shift time and timezone",
+      );
+    }
+    const starts_at = instant(b.starts_at, "Shift start"),
+      ends_at = instant(b.ends_at, "Shift end");
+    check(
+      starts_at >= "1900-01-01" &&
+        ends_at > starts_at &&
+        new Date(ends_at + "Z") - new Date(starts_at + "Z") <= 7 * 864e5,
+      400,
+      "Choose an end after the start, with a shift lasting up to seven days",
+    );
+    check(
+      Number.isSafeInteger(b.capacity) && b.capacity >= 1 && b.capacity <= 500,
+      400,
+      "Choose between 1 and 500 volunteer places",
+    );
+    return {
+      group_id: idOf(b.group_id),
+      title: required(b.title, 200, "Shift title"),
+      role_label: required(b.role_label, 120, "Volunteer role"),
+      location: optional(b.location, 200),
+      instructions: optional(b.instructions, 2000),
+      starts_at,
+      ends_at,
+      capacity: b.capacity,
+    };
+  };
+  const schedulerWrite = (fn) =>
+    transaction(async (c) => {
+      const mutex = await one(
+        "SELECT id FROM church_schedule_lock WHERE id=1 FOR UPDATE",
+        [],
+        c,
+      );
+      check(mutex, 503, "Volunteer scheduling is not initialized");
+      return fn(c);
+    });
+  const shiftForWrite = async (id, body, c) => {
+    const s = await one(
+      "SELECT * FROM church_volunteer_shifts WHERE id=? FOR UPDATE",
+      [id],
+      c,
+    );
+    check(s, 404, "Shift not found");
+    check(
+      Number(s.version) === revision(object(body)),
+      409,
+      "This shift changed. Reopen it before saving",
+    );
+    const g = await one(
+      "SELECT * FROM church_groups WHERE id=? FOR UPDATE",
+      [s.group_id],
+      c,
+    );
+    return { s, g };
+  };
+  const checkOverlap = async (memberId, shift, c) => {
+    const other = await one(
+      `SELECT s.title FROM church_volunteer_assignments a JOIN church_volunteer_shifts s ON s.id=a.shift_id WHERE a.member_id=? AND a.status IN ${reservationSql} AND s.state<>'cancelled' AND s.id<>? AND s.starts_at<? AND s.ends_at>? LIMIT 1`,
+      [memberId, shift.id, shift.ends_at, shift.starts_at],
+      c,
+    );
+    check(
+      !other,
+      409,
+      `This person already has an overlapping shift${other ? ": " + other.title : ""}`,
+    );
+  };
+  const checkShiftReservations = async (shift, c) => {
+    const rows = await query(
+      `SELECT member_id FROM church_volunteer_assignments WHERE shift_id=? AND status IN ${reservationSql}`,
+      [shift.id],
+      c,
+    );
+    check(
+      rows.length <= Number(shift.capacity),
+      409,
+      "Capacity cannot be lower than the reserved places",
+    );
+    for (const row of rows) await checkOverlap(row.member_id, shift, c);
+  };
+  router.get(
+    "/shifts",
+    permit("members"),
+    route(async (req, res) => {
+      const { page, limit } = pageOf(req.query),
+        conditions = ["1=1"],
+        args = [];
+      if (req.query.state) {
+        check(
+          SHIFT_STATES.includes(req.query.state),
+          400,
+          "Invalid shift state",
+        );
+        conditions.push("s.state=?");
+        args.push(req.query.state);
+      }
+      if (req.query.group_id) {
+        conditions.push("s.group_id=?");
+        args.push(idOf(req.query.group_id));
+      }
+      if (req.query.search) {
+        conditions.push(
+          "(s.title LIKE ? OR s.role_label LIKE ? OR g.name LIKE ?)",
+        );
+        args.push(...Array(3).fill(like(req.query.search)));
+      }
+      if (req.query.from || req.query.to) {
+        check(
+          req.query.from && req.query.to,
+          400,
+          "Choose both start and end dates",
+        );
+        const { from, to } = reportRange(req.query);
+        conditions.push("s.starts_at>=? AND s.starts_at<?");
+        args.push(from, to);
+      }
+      const where = conditions.join(" AND ");
+      const rows = await query(
+        `SELECT ${shiftColumns},COALESCE(a.filled_count,0) filled_count,COALESCE(a.served_count,0) served_count,COALESCE(a.declined_count,0) declined_count,COALESCE(a.no_show_count,0) no_show_count FROM church_volunteer_shifts s JOIN church_groups g ON g.id=s.group_id LEFT JOIN (${assignmentStats}) a ON a.shift_id=s.id WHERE ${where} ORDER BY s.starts_at DESC,s.id LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        args,
+      );
+      res.json({
+        shifts: rows.map(view),
+        total: count(
+          (
+            await one(
+              `SELECT COUNT(*) n FROM church_volunteer_shifts s JOIN church_groups g ON g.id=s.group_id WHERE ${where}`,
+              args,
+            )
+          ).n,
+        ),
+        page,
+        limit,
+      });
+    }),
+  );
+  router.post(
+    "/shifts",
+    permit("members"),
+    route(async (req, res) => {
+      const data = shiftData(req.body),
+        id = randomUUID();
+      await schedulerWrite(async (c) => {
+        const g = await one(
+          "SELECT * FROM church_groups WHERE id=? FOR UPDATE",
+          [data.group_id],
+          c,
+        );
+        check(g, 404, "Group not found");
+        check(
+          !g.archived_at,
+          409,
+          "Restore this group before scheduling a shift",
+        );
+        await query(
+          "INSERT INTO church_volunteer_shifts(id,group_id,title,role_label,location,instructions,starts_at,ends_at,capacity,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())",
+          [id, ...Object.values(data)],
+          c,
+        );
+        await audit(req, "shift", id, "shift.created", Object.keys(data), c);
+      });
+      res.status(201).json({ shift: view(await getShift(id)) });
+    }),
+  );
+  router.get(
+    "/shifts/:id",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        s = await getShift(id);
+      check(s, 404, "Shift not found");
+      const { page, limit } = pageOf(req.query);
+      const assignments = await query(
+        `SELECT m.id,m.first_name,m.last_name,m.preferred_name,m.archived_at,m.membership_status,a.status,a.assigned_at,a.updated_at,gm.left_at AS group_left_at FROM church_volunteer_assignments a JOIN church_members m ON m.id=a.member_id LEFT JOIN church_group_members gm ON gm.group_id=? AND gm.member_id=m.id WHERE a.shift_id=? AND a.status<>'removed' ORDER BY m.last_name,m.first_name,m.id LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        [s.group_id, id],
+      );
+      res.json({
+        shift: view(s),
+        assignments: assignments.map(memberView),
+        total: count(
+          (
+            await one(
+              "SELECT COUNT(*) n FROM church_volunteer_assignments WHERE shift_id=? AND status<>'removed'",
+              [id],
+            )
+          ).n,
+        ),
+        page,
+        limit,
+      });
+    }),
+  );
+  router.get(
+    "/shifts/:id/candidates",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        s = await getShift(id);
+      check(s, 404, "Shift not found");
+      check(
+        s.state === "scheduled" && !s.group_archived_at,
+        409,
+        "Reopen the shift and restore its group before assigning people",
+      );
+      const { page, limit } = pageOf(req.query),
+        args = [id, s.group_id],
+        where = [
+          "gm.group_id=?",
+          "gm.left_at IS NULL",
+          "m.archived_at IS NULL",
+          "(a.status IS NULL OR a.status IN ('declined','removed'))",
+        ];
+      if (req.query.search) {
+        where.push(
+          "CONCAT_WS(' ',m.first_name,m.last_name,m.preferred_name) LIKE ?",
+        );
+        args.push(like(req.query.search));
+      }
+      const from = `FROM church_group_members gm JOIN church_members m ON m.id=gm.member_id LEFT JOIN church_households h ON h.id=m.household_id LEFT JOIN church_volunteer_assignments a ON a.member_id=m.id AND a.shift_id=? WHERE ${where.join(" AND ")}`;
+      const rows = await query(
+        `SELECT m.id,m.first_name,m.last_name,m.preferred_name,m.email,h.name AS household_name,gm.role ${from} ORDER BY m.last_name,m.first_name,m.id LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        args,
+      );
+      res.json({
+        members: rows.map(memberView),
+        total: count((await one("SELECT COUNT(*) n " + from, args)).n),
+        page,
+        limit,
+      });
+    }),
+  );
+  router.put(
+    "/shifts/:id",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        data = shiftData(req.body);
+      await schedulerWrite(async (c) => {
+        const { s, g } = await shiftForWrite(id, req.body, c);
+        check(
+          s.state === "scheduled",
+          409,
+          "Reopen this shift before editing it",
+        );
+        check(
+          !g.archived_at,
+          409,
+          "Restore this group before editing its shift",
+        );
+        check(
+          s.group_id === data.group_id,
+          400,
+          "A shift cannot be moved to another group",
+        );
+        await checkShiftReservations({ id, ...data }, c);
+        await query(
+          "UPDATE church_volunteer_shifts SET title=?,role_label=?,location=?,instructions=?,starts_at=?,ends_at=?,capacity=?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+          [
+            data.title,
+            data.role_label,
+            data.location,
+            data.instructions,
+            data.starts_at,
+            data.ends_at,
+            data.capacity,
+            id,
+          ],
+          c,
+        );
+        await audit(
+          req,
+          "shift",
+          id,
+          "shift.updated",
+          Object.keys(data).filter((k) => k !== "group_id"),
+          c,
+        );
+      });
+      res.json({ shift: view(await getShift(id)) });
+    }),
+  );
+  router.post(
+    "/shifts/:id/state",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        b = object(req.body);
+      check(SHIFT_STATES.includes(b.state), 400, "Choose a valid shift state");
+      await schedulerWrite(async (c) => {
+        const { s, g } = await shiftForWrite(id, b, c);
+        check(
+          s.state === "scheduled" || b.state === "scheduled",
+          409,
+          "Reopen this shift before changing its state",
+        );
+        if (b.state === "scheduled") {
+          check(
+            !g.archived_at,
+            409,
+            "Restore this group before reopening its shift",
+          );
+          await checkShiftReservations(s, c);
+        }
+        await query(
+          "UPDATE church_volunteer_shifts SET state=?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+          [b.state, id],
+          c,
+        );
+        await audit(req, "shift", id, "shift.state", ["state:" + b.state], c);
+      });
+      res.json({ shift: view(await getShift(id)) });
+    }),
+  );
+  router.put(
+    "/shifts/:id/assignments/:memberId",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        memberId = idOf(req.params.memberId),
+        b = object(req.body);
+      check(
+        VOLUNTEER_STATUSES.includes(b.status),
+        400,
+        "Choose a valid volunteer status",
+      );
+      await schedulerWrite(async (c) => {
+        const { s, g } = await shiftForWrite(id, b, c);
+        check(
+          s.state === "scheduled",
+          409,
+          "Reopen this shift before changing assignments",
+        );
+        const m = await one(
+          "SELECT id,archived_at FROM church_members WHERE id=? FOR UPDATE",
+          [memberId],
+          c,
+        );
+        check(m, 404, "Member not found");
+        const old = await one(
+          "SELECT * FROM church_volunteer_assignments WHERE shift_id=? AND member_id=?",
+          [id, memberId],
+          c,
+        );
+        if (reserved(b.status)) {
+          check(
+            !g.archived_at && !m.archived_at,
+            409,
+            "Restore the group and member before assigning them",
+          );
+          if (!old || !reserved(old.status)) {
+            const membership = await one(
+              "SELECT * FROM church_group_members WHERE group_id=? AND member_id=? AND left_at IS NULL",
+              [s.group_id, memberId],
+              c,
+            );
+            check(
+              membership,
+              409,
+              "Add this person to the group roster before assigning them",
+            );
+            const filled = count(
+              (
+                await one(
+                  `SELECT COUNT(*) n FROM church_volunteer_assignments WHERE shift_id=? AND status IN ${reservationSql}`,
+                  [id],
+                  c,
+                )
+              ).n,
+            );
+            check(filled < Number(s.capacity), 409, "This shift is full");
+          }
+          await checkOverlap(memberId, s, c);
+        } else
+          check(
+            old && old.status !== "removed",
+            404,
+            "Volunteer assignment not found",
+          );
+        if (old?.status === b.status) return;
+        await query(
+          "INSERT INTO church_volunteer_assignments(shift_id,member_id,status,assigned_at,updated_at) VALUES (?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE status=VALUES(status),updated_at=UTC_TIMESTAMP()",
+          [id, memberId, b.status],
+          c,
+        );
+        await query(
+          "UPDATE church_volunteer_shifts SET version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+          [id],
+          c,
+        );
+        await audit(
+          req,
+          "shift",
+          id,
+          "shift.assignment",
+          ["member:" + memberId, "status:" + b.status],
+          c,
+        );
+      });
+      res.json({ shift: view(await getShift(id)) });
+    }),
+  );
+  router.get(
+    "/shifts/:id/export",
+    permit("members"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        s = await getShift(id);
+      check(s, 404, "Shift not found");
+      const rows = await query(
+        "SELECT CONCAT_WS(' ',m.first_name,m.last_name) AS name,a.status,m.archived_at FROM church_volunteer_assignments a JOIN church_members m ON m.id=a.member_id WHERE a.shift_id=? AND a.status<>'removed' ORDER BY m.last_name,m.first_name,m.id LIMIT 10001",
+        [id],
+      );
+      check(rows.length <= 10000, 422, "This roster is too large to export");
+      await audit(req, "shift", id, "shift.export", [], undefined);
+      const fields = [
+        "Shift",
+        "Group",
+        "Role",
+        "Starts (UTC)",
+        "Ends (UTC)",
+        "Location",
+        "Shift state",
+        "Person",
+        "Assignment status",
+        "Archived member",
+      ];
+      res
+        .set(
+          "Content-Disposition",
+          'attachment; filename="church-volunteer-roster.csv"',
+        )
+        .type("text/csv")
+        .send(
+          "\uFEFF" +
+            [
+              fields.map(csvCell).join(","),
+              ...rows.map((r) =>
+                [
+                  s.title,
+                  s.group_name,
+                  s.role_label,
+                  view(s).starts_at,
+                  view(s).ends_at,
+                  s.location,
+                  s.state,
+                  r.name,
+                  r.status,
+                  r.archived_at ? "Yes" : "No",
+                ]
+                  .map(csvCell)
+                  .join(","),
+              ),
+            ].join("\r\n"),
+        );
+    }),
+  );
   router.get(
     "/activity",
     permit("members"),
     route(async (req, res) => {
       const { page, limit } = pageOf(req.query);
       const rows = await query(
-        `SELECT a.*,COALESCE(p.display_name,u.email,IF(a.actor_id IS NULL,'Shared passkey','Former staff')) AS actor_name,CASE WHEN m.id IS NOT NULL THEN CONCAT_WS(' ',m.first_name,m.last_name) ELSE COALESCE(h.name,s.title,g.name) END AS record_name FROM church_activity a LEFT JOIN node_staff_profiles p ON p.user_id COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN admin_users u ON CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN church_members m ON m.id=a.entity_id AND a.entity_type IN ('member','attendance') LEFT JOIN church_households h ON h.id=a.entity_id AND a.entity_type='household' LEFT JOIN church_sessions s ON s.id=a.entity_id AND a.entity_type='session' LEFT JOIN church_groups g ON g.id=a.entity_id AND a.entity_type='group' ORDER BY a.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        `SELECT a.*,COALESCE(p.display_name,u.email,IF(a.actor_id IS NULL,'Shared passkey','Former staff')) AS actor_name,CASE WHEN m.id IS NOT NULL THEN CONCAT_WS(' ',m.first_name,m.last_name) ELSE COALESCE(h.name,s.title,g.name,vs.title) END AS record_name FROM church_activity a LEFT JOIN node_staff_profiles p ON p.user_id COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN admin_users u ON CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN church_members m ON m.id=a.entity_id AND a.entity_type IN ('member','attendance') LEFT JOIN church_households h ON h.id=a.entity_id AND a.entity_type='household' LEFT JOIN church_sessions s ON s.id=a.entity_id AND a.entity_type='session' LEFT JOIN church_groups g ON g.id=a.entity_id AND a.entity_type='group' LEFT JOIN church_volunteer_shifts vs ON vs.id=a.entity_id AND a.entity_type='shift' ORDER BY a.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
       );
       res.json({
         activity: rows.map((r) => ({
@@ -1591,6 +2085,7 @@ export function createChurchManagement(store, staff) {
     for (const migration of [
       "006_church_management.sql",
       "007_church_groups.sql",
+      "008_church_volunteers.sql",
     ]) {
       const sql = await readFile(
         new URL("./migrations/" + migration, import.meta.url),

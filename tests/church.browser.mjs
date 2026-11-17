@@ -1,3 +1,4 @@
+import { runVolunteerBrowser } from "./volunteers.browser.mjs";
 import assert from "node:assert/strict";
 import mysql from "mysql2/promise";
 import { chromium } from "playwright";
@@ -368,6 +369,7 @@ try {
     .getByRole("button", { name: "Welcome team", exact: true })
     .waitFor();
   await noOverflow("Groups");
+  await runVolunteerBrowser({ page, context, base, nav, close, noOverflow });
   await nav("activity");
   await page.locator(".activity-item").first().waitFor();
   await noOverflow("Activity");
@@ -424,6 +426,14 @@ try {
     (await context.request.get(base + "/api/church/groups")).status(),
     403,
   );
+  assert.equal(
+    await page.locator("#church-nav [data-view=volunteers]").isVisible(),
+    false,
+  );
+  assert.equal(
+    (await context.request.get(base + "/api/church/shifts")).status(),
+    403,
+  );
   await nav("attendance");
   await page.locator("#sessions-table [data-action=register]").first().click();
   await page.locator("[data-attendance]").first().waitFor();
@@ -441,7 +451,7 @@ try {
   assert.deepEqual(failures, []);
   await context.close();
   console.log(
-    "PASS church browser: ministries/small groups/leader rosters/archives, real member/household CRUD, CSV preview/import, XSS escaping, timezone scheduling, attendance save/lock, reports/download, archive/restore, responsive views, logout clearing and usher privacy",
+    "PASS church browser: volunteer shifts/assignments/outcomes/conflicts, ministries/small groups/leader rosters/archives, real member/household CRUD, CSV preview/import, XSS escaping, timezone scheduling, attendance save/lock, reports/download, archive/restore, responsive views, logout clearing and usher privacy",
   );
 } catch (error) {
   console.error(logs.slice(-4000));

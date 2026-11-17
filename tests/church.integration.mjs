@@ -1,3 +1,4 @@
+import { runVolunteerIntegration } from "./volunteers.integration.mjs";
 import assert from "node:assert/strict";
 import mysql from "mysql2/promise";
 import { randomUUID } from "node:crypto";
@@ -759,6 +760,7 @@ try {
     (a) => a.action === "group.updated",
   );
   assert.equal(ga.record_name, "Welcome team");
+  const volunteerShiftId = await runVolunteerIntegration({ church, roles, db });
   await new Promise((resolve) => {
     server.once("exit", resolve);
     server.kill();
@@ -770,6 +772,14 @@ try {
   assert.equal(r.data.session.guest_count, 4);
   assert.equal((await church(groupPath)).data.total, 2);
   assert.equal((await church(groupPath)).data.group.name, "Welcome team");
+  assert.equal(
+    (await church("/shifts/" + volunteerShiftId)).data.shift.title,
+    "=Morning welcome",
+  );
+  assert.equal(
+    (await church("/shifts/" + volunteerShiftId)).data.assignments.length,
+    1,
+  );
   const oversized = Array.from({ length: 5001 }, () => [
     randomUUID(),
     "Report bound fixture",
@@ -783,7 +793,7 @@ try {
   );
   await church("/reports/attendance" + range, { expected: 422 });
   console.log(
-    "PASS church integration: groups/leader rosters/concurrency/archives, roles/privacy, members/households, account links, atomic imports, concurrent attendance, history, reports, exports and restart persistence",
+    "PASS church integration: volunteer scheduling/conflicts/capacity, groups/leader rosters/concurrency/archives, roles/privacy, members/households, account links, atomic imports, concurrent attendance, history, reports, exports and restart persistence",
   );
 } catch (error) {
   console.error(logs.slice(-4000));

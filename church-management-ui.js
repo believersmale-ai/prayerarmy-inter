@@ -45,6 +45,14 @@
       "Organize ministries, small groups and their leaders.",
     ],
     group: ["Group roster", "Connect people with a ministry or small group."],
+    volunteers: [
+      "Ready to serve together.",
+      "Schedule ministry shifts and connect volunteers with a place to serve.",
+    ],
+    shift: [
+      "Volunteer shift",
+      "Plan the roster and record each person’s service status.",
+    ],
     activity: [
       "A clear record of changes.",
       "See who updated church records and when.",
@@ -63,6 +71,7 @@
     excused: "Excused",
     absent: "Absent",
     unmarked: "Unmarked",
+    completed: "Completed",
   };
   const state = {
     me: null,
@@ -75,6 +84,10 @@
     groups: { search: "", kind: "", archived: false, page: 1 },
     group: null,
     groupPage: 1,
+    volunteers: { search: "", state: "scheduled", from: "", to: "", page: 1 },
+    shift: null,
+    shiftPage: 1,
+    shiftAssignments: [],
     session: null,
     pending: new Map(),
     rows: [],
@@ -148,6 +161,16 @@
     state.group = null;
     state.groups = { search: "", kind: "", archived: false, page: 1 };
     state.groupPage = 1;
+    state.volunteers = {
+      search: "",
+      state: "scheduled",
+      from: "",
+      to: "",
+      page: 1,
+    };
+    state.shift = null;
+    state.shiftAssignments = [];
+    state.shiftPage = 1;
     state.pending.clear();
     state.member = null;
     state.household = null;
@@ -249,6 +272,9 @@
     if (e.target.closest("form")) modalDirty = true;
   });
   function actionsFor(view) {
+    if (view === "volunteers")
+      return button("+ Create shift", "new-shift", "", "primary");
+    if (view === "shift") return button("← All volunteer shifts", "volunteers");
     if (view === "groups")
       return button("+ Add group", "new-group", "", "primary");
     if (view === "group") return button("← All groups", "groups");
@@ -283,9 +309,11 @@
         b.dataset.view ===
         (view === "register"
           ? "attendance"
-          : view === "group"
-            ? "groups"
-            : view);
+          : view === "shift"
+            ? "volunteers"
+            : view === "group"
+              ? "groups"
+              : view);
       b.classList.toggle("active", selected);
       if (selected) b.setAttribute("aria-current", "page");
       else b.removeAttribute("aria-current");
@@ -302,6 +330,8 @@
       else if (view === "activity") await activity();
       else if (view === "groups") await groups();
       else if (view === "group") await groupDetail();
+      else if (view === "volunteers") await volunteers();
+      else if (view === "shift") await shiftDetail();
     } catch (e) {
       if (state.me) {
         status(e.message);
@@ -316,6 +346,9 @@
     }
   }
   async function refresh() {
+    if (!state.me) return;
+    if (state.view === "volunteers") return shiftRows();
+    if (state.view === "shift") return shiftDetail();
     if (state.view === "groups") return groupRows();
     if (state.view === "group") return groupDetail();
     if (!state.me) return;
@@ -776,6 +809,11 @@
       `<div class="card-content"><p class="muted">Open and closed sessions in your selected date range. Unmarked records are shown separately from absent records.</p><div class="report-metrics">${metric("Recorded attendances", s.totalAttendance, "Present + late + unnamed guests", "✓")}${metric("Service sessions", s.sessions, "Cancelled sessions excluded", "▥")}${metric("Late arrivals", s.late, "Included in attendance totals", "◷")}${metric("Unnamed guests", s.guests, "Recorded by session staff", "↗")}</div></div>${data.sessions.length ? `<div class="table-scroll"><table><thead><tr><th>Service</th><th>Date</th><th>Present</th><th>Late</th><th>Guests</th><th>Excused</th><th>Absent</th><th>Unmarked</th></tr></thead><tbody>${data.sessions.map((r) => `<tr><td>${esc(r.title)}<small>${esc(labels[r.state])}</small></td><td class="nowrap">${esc(dateTime(r.starts_at))}</td>${["present", "late", "guest_count", "excused", "absent", "unmarked"].map((k) => `<td>${Number(r[k])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : empty("No sessions in this date range", "Choose another date range, or open a service register to begin recording attendance.")}`;
   }
   const actionLabels = {
+    "shift.created": "Volunteer shift created",
+    "shift.updated": "Volunteer shift updated",
+    "shift.state": "Volunteer shift state changed",
+    "shift.assignment": "Volunteer assignment updated",
+    "shift.export": "Volunteer roster exported",
     "group.created": "Group created",
     "group.updated": "Group details updated",
     "group.archived": "Group archived",
@@ -936,6 +974,290 @@
     };
     await find();
   }
+  const volunteerLabel = (status) =>
+    ({
+      assigned: "Assigned",
+      confirmed: "Confirmed",
+      declined: "Declined",
+      served: "Served",
+      no_show: "No show",
+    })[status] || status;
+  const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const shiftQuery = () => {
+    const f = state.volunteers,
+      q = new URLSearchParams({
+        page: f.page,
+        limit: 25,
+        search: f.search,
+        state: f.state,
+      });
+    if (f.from || f.to) {
+      if (!f.from || !f.to)
+        throw Error("Choose both dates, or clear both date fields.");
+      const end = new Date(f.to + "T00:00:00");
+      end.setDate(end.getDate() + 1);
+      q.set("from", new Date(f.from + "T00:00:00").toISOString());
+      q.set("to", end.toISOString());
+    }
+    return q;
+  };
+  async function volunteers() {
+    const f = state.volunteers;
+    $("#page-content").innerHTML =
+      `<article class="card"><form id="shift-filters" class="toolbar"><label class="search">Search shifts<input type="search" name="search" maxlength="100" value="${esc(f.search)}" placeholder="Shift, role or group"></label><label>State<select name="state"><option value="">All shifts</option>${["scheduled", "completed", "cancelled"].map((v) => `<option value="${v}" ${f.state === v ? "selected" : ""}>${esc(labels[v])}</option>`).join("")}</select></label>${field("From date", "from", f.from, "date")}${field("Through date", "to", f.to, "date")}<button type="submit" class="button">Apply filters</button></form><p class="muted shift-timezone">Dates and times use ${esc(timezone())}. Date filters select shifts by start time.</p><div id="shifts-table"></div></article>`;
+    $("#shift-filters").onsubmit = async (e) => {
+      e.preventDefault();
+      Object.assign(f, Object.fromEntries(new FormData(e.currentTarget)), {
+        page: 1,
+      });
+      try {
+        status("");
+        await shiftRows();
+      } catch (e) {
+        status(e.message);
+      }
+    };
+    await shiftRows();
+  }
+  async function shiftRows() {
+    const q = shiftQuery(),
+      token = ++request,
+      d = await api("/shifts?" + q);
+    if (token !== request || !$("#shifts-table")) return;
+    $("#shifts-table").innerHTML = d.shifts.length
+      ? `<div class="table-scroll"><table><thead><tr><th>Shift / group</th><th>When</th><th>Volunteer role</th><th>Places reserved</th><th>State</th><th></th></tr></thead><tbody>${d.shifts.map((s) => `<tr><td><button type="button" class="text-button" data-action="shift" data-id="${s.id}">${esc(s.title)}</button><small>${esc(s.group_name)}${s.group_archived_at ? " · Archived group" : ""}</small></td><td>${esc(dateTime(s.starts_at))}<small>Until ${esc(dateTime(s.ends_at))}</small></td><td>${esc(s.role_label)}</td><td>${s.filled_count} / ${s.capacity}${s.state === "cancelled" ? " (released)" : ""}</td><td>${badge(s.state)}</td><td>${button("Open shift →", "shift", `data-id="${s.id}"`, "small")}</td></tr>`).join("")}</tbody></table></div>${pagination(d)}`
+      : empty(
+          "No volunteer shifts found",
+          "Create a shift for a ministry or small group, or adjust your filters.",
+        );
+  }
+  async function shiftDetail() {
+    if (!state.me || !state.shift) return;
+    const token = ++request,
+      d = await api(
+        `/shifts/${state.shift.id}?page=${state.shiftPage}&limit=25`,
+      );
+    if (token !== request || state.view !== "shift") return;
+    const s = (state.shift = d.shift),
+      open = s.state === "scheduled";
+    $("#page-content").innerHTML =
+      `<article class="card"><div class="card-heading"><div><h3>${esc(s.title)}</h3><p class="muted">${esc(s.group_name)} · ${esc(s.role_label)} ${badge(s.state)}</p></div><div class="actions">${open ? (!s.group_archived_at ? button("Edit shift", "edit-shift") + button("+ Assign person", "assign-volunteer", "", "primary") : "") + button("Complete shift", "shift-state", 'data-state="completed"') + button("Cancel shift", "shift-state", 'data-state="cancelled"', "danger") : button("Reopen shift", "shift-state", 'data-state="scheduled"')}${button("↓ Export roster", "export-shift")}</div></div><dl class="profile-details"><div><dt>Starts</dt><dd>${esc(dateTime(s.starts_at))}</dd></div><div><dt>Ends</dt><dd>${esc(dateTime(s.ends_at))}</dd></div><div><dt>Timezone</dt><dd>${esc(timezone())}</dd></div><div><dt>Location</dt><dd>${esc(s.location || "Not recorded")}</dd></div></dl><p>${esc(s.instructions || "No instructions recorded.")}</p>${s.group_archived_at ? '<p class="error-text">This group is archived. Existing assignments are preserved. Restore the group before scheduling or adding people.</p>' : ""}<div class="report-metrics">${metric("Reserved places", s.filled_count, `Capacity: ${s.capacity}`)}${metric("Served", s.served_count, "Recorded by staff")}${metric("Declined", s.declined_count, "Does not reserve a place")}${metric("No shows", s.no_show_count, "Recorded by staff")}</div><p class="muted">Assigned, confirmed, served and no-show records reserve places and prevent overlapping assignments. Declined and removed records release places. ${s.state === "cancelled" ? "This shift is cancelled; its reservations are released." : ""} Shift records are separate from service attendance.</p>${d.assignments.length ? `<div class="table-scroll"><table><thead><tr><th>Person</th><th>Assignment status</th><th>Last updated</th><th></th></tr></thead><tbody>${d.assignments.map((m) => `<tr><td>${person(m)}${m.archived_at ? "<small>Archived member</small>" : ""}${m.group_left_at ? "<small>Left group roster</small>" : ""}</td><td>${esc(volunteerLabel(m.status))}</td><td>${esc(dateTime(m.updated_at))}</td><td><div class="actions">${open ? button("Update status", "volunteer-status", `data-id="${m.id}"`, "small") + button("Remove", "remove-volunteer", `data-id="${m.id}"`, "small danger") : ""}</div></td></tr>`).join("")}</tbody></table></div>${pagination(d)}` : empty("No people assigned", "Choose people from this group’s member roster to cover the shift.")}</article>`;
+    state.shiftAssignments = d.assignments;
+  }
+  async function shiftForm(record = null) {
+    const r = record || {},
+      start = new Date();
+    start.setMinutes(0, 0, 0);
+    start.setHours(start.getHours() + 1);
+    const end = new Date(start.getTime() + 2 * 36e5);
+    modal(
+      record ? "Edit volunteer shift" : "Create volunteer shift",
+      `<form id="shift-form"><div class="form-grid">${field("Shift title *", "title", r.title, "text", 'required maxlength="200"')}${field("Volunteer role *", "role_label", r.role_label, "text", 'required maxlength="120" placeholder="e.g. Welcome team"')}${record ? `<label>Group<input value="${esc(r.group_name)}" disabled></label>` : `<label>Find group<input id="shift-group-search" type="search" maxlength="100" placeholder="Search current groups"><select id="shift-group-picker" name="group_id" required><option value="">Loading groups…</option></select></label>`}${field("Start time *", "starts_at", localInput(r.starts_at || start), "datetime-local", "required")}${field("End time *", "ends_at", localInput(r.ends_at || end), "datetime-local", "required")}${field("Volunteer places *", "capacity", r.capacity || 1, "number", 'required min="1" max="500" step="1"')}${field("Location", "location", r.location, "text", 'maxlength="200"')}<label>Instructions<textarea name="instructions" maxlength="2000" rows="4">${esc(r.instructions || "")}</textarea></label></div><p class="muted">Times are entered in ${esc(timezone())}. Assign people after creating the shift. Changing times checks all existing assignments for overlaps.</p><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button type="submit" class="button primary">${record ? "Save shift" : "Create shift"}</button></div></form>`,
+    );
+    const token = modalRequest;
+    let searchSeq = 0,
+      chosen = null;
+    if (!record) {
+      const find = async () => {
+        if (token !== modalRequest) return;
+        const seq = ++searchSeq,
+          picker = $("#shift-group-picker"),
+          selected = picker.value;
+        const d = await api(
+          "/groups?limit=100&search=" +
+            encodeURIComponent($("#shift-group-search").value),
+        );
+        if (token !== modalRequest || seq !== searchSeq) return;
+        const all = [...d.groups];
+        if (chosen?.id === selected && !all.some((g) => g.id === selected))
+          all.unshift(chosen);
+        picker.innerHTML =
+          '<option value="">Choose a current group</option>' +
+          all
+            .map((g) => `<option value="${g.id}">${esc(g.name)}</option>`)
+            .join("");
+        picker.value = selected;
+        picker.onchange = () => {
+          chosen = all.find((g) => g.id === picker.value);
+        };
+      };
+      $("#shift-group-search").oninput = debounce(async () => {
+        try {
+          await find();
+        } catch (e) {
+          if (token === modalRequest) $("#form-error").textContent = e.message;
+        }
+      });
+      try {
+        await find();
+      } catch (e) {
+        if (token === modalRequest) $("#form-error").textContent = e.message;
+      }
+      if (token !== modalRequest) return;
+    }
+    $("#shift-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.currentTarget,
+        b = $("button[type=submit]", f);
+      b.disabled = true;
+      try {
+        const data = Object.fromEntries(new FormData(f));
+        data.capacity = Number(data.capacity);
+        data.starts_at = new Date(data.starts_at).toISOString();
+        data.ends_at = new Date(data.ends_at).toISOString();
+        if (record) {
+          data.version = r.version;
+          data.group_id = r.group_id;
+        }
+        const d = await api("/shifts" + (record ? "/" + r.id : ""), {
+          method: record ? "PUT" : "POST",
+          body: data,
+        });
+        if (token !== modalRequest || !state.me) return;
+        modalDirty = false;
+        closeModal();
+        state.shift = d.shift;
+        state.shiftPage = 1;
+        await navigate("shift");
+        toast(record ? "Shift updated" : "Volunteer shift created");
+      } catch (e) {
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = e.message;
+      } finally {
+        b.disabled = false;
+      }
+    };
+  }
+  async function assignVolunteer() {
+    const s = state.shift;
+    modal(
+      "Assign a volunteer",
+      `<p class="muted">Choose a current member of ${esc(s.group_name)}. Add people to the group roster first if they are missing.</p><form id="volunteer-find"><label>Search group members<input type="search" id="volunteer-search" maxlength="100" placeholder="Enter a name"></label><button class="button" type="submit">Find people</button></form><form id="volunteer-form"><label>Person<select name="member_id" id="volunteer-picker" required><option value="">Loading people…</option></select></label><p id="volunteer-match-count" class="muted"></p><div class="actions"><button type="button" id="volunteer-prev" class="button small">← Previous matches</button><button type="button" id="volunteer-next" class="button small">Next matches →</button></div><label>Assignment status<select name="status"><option value="assigned">Assigned</option><option value="confirmed">Confirmed</option></select></label><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button type="submit" class="button primary">Assign person</button></div></form>`,
+    );
+    const token = modalRequest;
+    let seq = 0,
+      page = 1;
+    const find = async () => {
+      if (token !== modalRequest) return;
+      $("#volunteer-picker").disabled = true;
+      $("#volunteer-picker").innerHTML =
+        '<option value="">Loading people…</option>';
+      $("#volunteer-form button[type=submit]").disabled = true;
+      const n = ++seq,
+        search = $("#volunteer-search").value,
+        d = await api(
+          `/shifts/${s.id}/candidates?limit=25&page=${page}&search=${encodeURIComponent(search)}`,
+        );
+      if (token !== modalRequest || n !== seq) return;
+      $("#volunteer-picker").innerHTML =
+        '<option value="">Choose a person</option>' +
+        d.members
+          .map(
+            (m) =>
+              `<option value="${m.id}">${esc(m.name)}${m.email || m.household_name ? " · " + esc(m.email || m.household_name) : ""}</option>`,
+          )
+          .join("");
+      $("#volunteer-match-count").textContent =
+        `${d.total} eligible people. Page ${page} of ${Math.max(1, Math.ceil(d.total / 25))}. Availability is checked when you assign them.`;
+      $("#volunteer-picker").disabled = false;
+      $("#volunteer-form button[type=submit]").disabled = !d.members.length;
+      $("#volunteer-prev").disabled = page <= 1;
+      $("#volunteer-next").disabled = page * 25 >= d.total;
+    };
+    const load = async () => {
+      try {
+        await find();
+      } catch (e) {
+        if (token === modalRequest) $("#form-error").textContent = e.message;
+      }
+    };
+    $("#volunteer-find").onsubmit = (e) => {
+      e.preventDefault();
+      page = 1;
+      load();
+    };
+    $("#volunteer-prev").onclick = () => {
+      page = Math.max(1, page - 1);
+      load();
+    };
+    $("#volunteer-next").onclick = () => {
+      page++;
+      load();
+    };
+    $("#volunteer-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.currentTarget,
+        b = $("button[type=submit]", f);
+      b.disabled = true;
+      try {
+        const data = Object.fromEntries(new FormData(f));
+        await api(`/shifts/${s.id}/assignments/${data.member_id}`, {
+          method: "PUT",
+          body: { version: s.version, status: data.status },
+        });
+        if (token !== modalRequest || !state.me) return;
+        modalDirty = false;
+        closeModal();
+        await shiftDetail();
+        toast("Volunteer assigned");
+      } catch (e) {
+        if (token === modalRequest) $("#form-error").textContent = e.message;
+      } finally {
+        b.disabled = false;
+      }
+    };
+    await load();
+  }
+  function volunteerStatus(id) {
+    const s = state.shift,
+      m = state.shiftAssignments.find((m) => m.id === id);
+    if (!m) return;
+    modal(
+      "Update volunteer status",
+      `<p>${esc(m.name)}</p><form id="volunteer-status-form"><label>Assignment status<select name="status">${[
+        "assigned",
+        "confirmed",
+        "declined",
+        "served",
+        "no_show",
+      ]
+        .filter(
+          (v) =>
+            v === m.status ||
+            (!m.archived_at && !s.group_archived_at) ||
+            v === "declined",
+        )
+        .map(
+          (v) =>
+            `<option value="${v}" ${v === m.status ? "selected" : ""}>${esc(volunteerLabel(v))}</option>`,
+        )
+        .join(
+          "",
+        )}</select></label><p class="muted">Staff record confirmation and service outcomes here. Declining releases the place for another volunteer.</p><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button type="submit" class="button primary">Save status</button></div></form>`,
+    );
+    const token = modalRequest;
+    $("#volunteer-status-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.currentTarget,
+        b = $("button[type=submit]", f);
+      b.disabled = true;
+      try {
+        await api(`/shifts/${s.id}/assignments/${id}`, {
+          method: "PUT",
+          body: { version: s.version, status: new FormData(f).get("status") },
+        });
+        if (token !== modalRequest || !state.me) return;
+        modalDirty = false;
+        closeModal();
+        await shiftDetail();
+        toast("Volunteer status updated");
+      } catch (e) {
+        if (token === modalRequest) $("#form-error").textContent = e.message;
+      } finally {
+        b.disabled = false;
+      }
+    };
+  }
   async function activity() {
     const token = request,
       data = await api("/activity?page=" + state.page + "&limit=25");
@@ -1064,6 +1386,55 @@
     };
   }
   async function handle(action, el) {
+    if (action === "volunteers") return navigate("volunteers");
+    if (action === "shift") {
+      state.shift = { id: el.dataset.id };
+      state.shiftPage = 1;
+      return navigate("shift");
+    }
+    if (action === "new-shift") return shiftForm();
+    if (action === "edit-shift") return shiftForm(state.shift);
+    if (action === "assign-volunteer") return assignVolunteer();
+    if (action === "volunteer-status") return volunteerStatus(el.dataset.id);
+    if (action === "export-shift")
+      return download(
+        `/shifts/${state.shift.id}/export`,
+        "church-volunteer-roster.csv",
+      );
+    if (action === "remove-volunteer") {
+      if (
+        !confirm(
+          "Remove this volunteer from the shift? Their assignment history will be retained.",
+        )
+      )
+        return;
+      await api(`/shifts/${state.shift.id}/assignments/${el.dataset.id}`, {
+        method: "PUT",
+        body: { version: state.shift.version, status: "removed" },
+      });
+      return shiftDetail();
+    }
+    if (action === "shift-state") {
+      if (
+        !confirm(
+          {
+            scheduled:
+              "Reopen this shift? All reserved assignments will be checked for conflicts.",
+            completed:
+              "Complete this shift and lock its roster? Record service outcomes before completing.",
+            cancelled:
+              "Cancel this shift? Assignments will be preserved and their reservations released.",
+          }[el.dataset.state],
+        )
+      )
+        return;
+      await api(`/shifts/${state.shift.id}/state`, {
+        method: "POST",
+        body: { version: state.shift.version, state: el.dataset.state },
+      });
+      return shiftDetail();
+    }
+
     if (action === "groups") return navigate("groups");
     if (action === "group") {
       state.group = { id: el.dataset.id };
@@ -1152,6 +1523,14 @@
     if (action === "page") {
       if (state.view === "register" && !discardMarks()) return;
       const step = Number(el.dataset.step);
+      if (state.view === "volunteers") {
+        state.volunteers.page += step;
+        return shiftRows();
+      }
+      if (state.view === "shift") {
+        state.shiftPage += step;
+        return shiftDetail();
+      }
       if (state.view === "groups") {
         state.groups.page += step;
         return groupRows();
@@ -1311,6 +1690,7 @@
       e.preventDefault();
       if (el.dataset.action === "commit-import") return;
       Promise.resolve(handle(el.dataset.action, el)).catch((error) => {
+        if (!state.me) return;
         toast(error.message);
         status(error.message);
         if ($("#edit-dialog").open) {
