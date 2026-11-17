@@ -949,3 +949,10 @@ footer.footer-reimagined .footer-base{background:#121b29}
  .contact-social-card{margin-top:18px}
  .footer-reimagined .footer-main{padding-top:42px;padding-bottom:32px}
 }
+
+/* Homepage privacy: private prayer forms and public wall are not shown here.
+   Keep markup and handlers for a future dedicated, access-controlled route. */
+#prayer[hidden],#prayer-wall[hidden],#testimonies-list[hidden],
+#quick-links a[hidden],.footer-reimagined a[hidden]{display:none!important}
+#quick-links .quick-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:700px){#quick-links .quick-grid{grid-template-columns:1fr}}
