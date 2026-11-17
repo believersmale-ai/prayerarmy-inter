@@ -1,0 +1,29 @@
+name: Production readiness checks
+
+on:
+  push:
+    branches:
+      - audit/hostinger-production-readiness
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check server.js
+          node --check database.js
+          node --check script.js
+          node --check admin.js
+          node --check scripts/smoke-production.mjs
+          node --check scripts/smoke-content.mjs
+      - name: Confirm no deployment or secrets access
+        run: echo "Syntax checks only; this workflow does not connect to production or deploy."
