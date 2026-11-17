@@ -467,15 +467,21 @@ app.get('/api/media', ...staff.permit('media'), (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to retrieve media files' }); }
 });
 
-app.delete('/api/media/:filename', ...staff.permit('media'), requireSettingsOrigin, (req, res) => {
+app.delete('/api/media/:filename', ...staff.permit('media'), requireSettingsOrigin, async (req, res) => {
   try {
     const filename = req.params.filename;
     if (!filename || filename !== path.basename(filename) || filename.startsWith('.')) return res.status(400).json({error:'Invalid filename'});
     const target = path.join(UPLOAD_DIR, filename);
     if (!fs.existsSync(target)) return res.status(404).json({ error: 'File not found in uploads' });
+    // Remove the public gallery record first. If the database is unavailable,
+    // refuse deletion rather than leaving a published caption pointing to a missing file.
+    await db.execute('DELETE FROM site_media_posts WHERE filename=?',[filename]);
     fs.unlinkSync(target);
-    res.json({ success: true, message: 'File deleted' });
-  } catch { res.status(500).json({ error: 'Failed to delete file' }); }
+    res.json({ success: true, message: 'Upload and its gallery publication record deleted' });
+  } catch (err) {
+    console.error('Media deletion failed:',err.code||err.message);
+    res.status(503).json({ error: 'Could not delete upload safely; check media database and storage' });
+  }
 });
 
 const requireMembershipOrigin = sameOrigin;
