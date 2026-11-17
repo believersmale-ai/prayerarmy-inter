@@ -1963,12 +1963,23 @@ const saveSettings = async (showNotification = true) => {
       if(isNodeAdminSession()){
         const saved=await res.json();
         if(!saved.success||!Number.isSafeInteger(saved.revision))throw Error('Save was not confirmed by the database');
-        nodeSettingsRevision=saved.revision;
+        // Verify a fresh database read before announcing publication.
+        const check=await _origFetch(`${SUPABASE_URL}/settings`,{credentials:'same-origin',cache:'no-store'});
+        if(!check.ok)throw Error('Saved, but could not verify the public website settings. Refresh and check before editing again.');
+        const readBack=await check.json();
+        const readRevision=Number(check.headers.get('X-Settings-Revision'));
+        if(readRevision!==saved.revision)throw Error('The settings revision changed during verification. Reload before editing further.');
+        // The public endpoint intentionally omits internal settings.
+        for(const key of ['general','hero','about','live','event','events','sermons','content','contact','gallery']){
+          if(Object.hasOwn(saved.settings||{},key)&&JSON.stringify(readBack[key])!==JSON.stringify(saved.settings[key]))
+            throw Error('The website settings did not match the saved version for '+key+'. Please reload.');
+        }
+        nodeSettingsRevision=readRevision;
       }
       document.dispatchEvent(new CustomEvent('pai:settings-save',{detail:{state:'saved'}}));
       currentSettings = data;
-      // Also cache locally as an offline fallback for the public site
-      localStorage.setItem('pai_site_settings', JSON.stringify(data));
+      // Keep preview-only data out of the public website's fallback path.
+      localStorage.removeItem('pai_site_settings');
 
       // If a new passkey was typed, change it as a separate, explicit step
       if (newPasskey) {
