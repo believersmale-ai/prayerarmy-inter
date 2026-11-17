@@ -540,6 +540,16 @@ app.delete('/api/media/:filename', requireAdmin, (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to delete file' }); }
 });
 
+// Sensitive membership actions require a same-origin browser request.
+function requireMembershipOrigin(req,res,next){
+  const origin=req.get('origin'),host=req.get('host');
+  if(!origin||!host)return res.status(403).json({error:'Origin required'});
+  try {
+    const parsed=new URL(origin);
+    if(parsed.host!==host || (req.secure && parsed.protocol!=='https:'))return res.status(403).json({error:'Origin mismatch'});
+  }catch{return res.status(403).json({error:'Invalid origin'});}
+  next();
+}
 // Membership approval policy: protected by the existing staff admin session.
 app.get('/api/admin/membership/configuration', requireAdmin, async(req,res)=>{
   try {
@@ -549,13 +559,44 @@ app.get('/api/admin/membership/configuration', requireAdmin, async(req,res)=>{
     res.json({approvalMode:rows[0].approval_mode,requireEmailVerification:Boolean(rows[0].require_email_verification)});
   } catch(err){console.error('Membership configuration read:',err.code||err.message);res.status(503).json({error:'Membership configuration unavailable'});}
 });
-app.put('/api/admin/membership/configuration', requireAdmin, async(req,res)=>{
-  const mode=req.body?.approvalMode;
-  if(!['manual','automatic'].includes(mode))return res.status(400).json({error:'Invalid approval mode'});
+app.put('/api/admin/membership/configuration', requireAdmin, requireMembershipOrigin, async(req,res)=>{
+  const mode=req.body?.approvalMode, verify=req.body?.requireEmailVerification;
+  if(!['manual','automatic'].includes(mode) || typeof verify!=='boolean')return res.status(400).json({error:'Invalid membership settings'});
+  if(mode==='automatic' && !verify)return res.status(400).json({error:'Automatic approval requires email verification'});
   try {
-    await db.execute('UPDATE membership_configuration SET approval_mode=? WHERE id=1',[mode]);
-    res.json({success:true,approvalMode:mode});
+    await db.execute('UPDATE membership_configuration SET approval_mode=?,require_email_verification=? WHERE id=1',[mode,verify?1:0]);
+    res.json({success:true,approvalMode:mode,requireEmailVerification:verify});
   } catch(err){console.error('Membership configuration save:',err.code||err.message);res.status(503).json({error:'Membership configuration unavailable'});}
+});
+
+// Staff-only pending member review. No password hashes or auth tokens are returned.
+app.get('/api/admin/membership/applications',requireAdmin,async(req,res)=>{
+  try {
+    const [rows]=await db.execute("SELECT a.id,a.display_name,a.email,a.status,a.email_verified_at,a.created_at FROM public_accounts a INNER JOIN public_account_roles r ON r.account_id=a.id AND r.role='member' WHERE a.status='pending' ORDER BY a.created_at ASC LIMIT 200");
+    res.setHeader('Cache-Control','no-store');
+    res.json({applications:rows.map(r=>({...r,id:String(r.id)}))});
+  }catch(err){console.error('Membership applications read:',err.code||err.message);res.status(503).json({error:'Applications unavailable'});}
+});
+app.post('/api/admin/membership/applications/:id/decision',requireAdmin,requireMembershipOrigin,async(req,res)=>{
+  const id=req.params.id,decision=req.body?.decision;
+  if(!/^[1-9][0-9]{0,18}$/.test(id)||!['approve','reject'].includes(decision))return res.status(400).json({error:'Invalid decision'});
+  const connection=await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [config]=await connection.execute('SELECT require_email_verification FROM membership_configuration WHERE id=1');
+    const [rows]=await connection.execute("SELECT a.id,a.email_verified_at FROM public_accounts a INNER JOIN public_account_roles r ON r.account_id=a.id AND r.role='member' WHERE a.id=? AND a.status='pending' FOR UPDATE",[id]);
+    if(!rows.length){await connection.rollback();return res.status(404).json({error:'Pending member not found'});}
+    if(!config.length){await connection.rollback();return res.status(503).json({error:'Membership settings unavailable'});}
+    if(decision==='approve' && config[0].require_email_verification && !rows[0].email_verified_at){
+      await connection.rollback();return res.status(409).json({error:'Email verification required before approval'});
+    }
+    await connection.execute('UPDATE public_accounts SET status=? WHERE id=?',[decision==='approve'?'active':'closed',id]);
+    await connection.execute('INSERT INTO public_audit_events (action,subject_type,subject_id,metadata_json) VALUES (?,?,?,?)',
+      ['membership.'+decision,'public_account',id,JSON.stringify({via:'staff_admin_portal'})]);
+    await connection.commit();
+    res.json({success:true,decision});
+  }catch(err){await connection.rollback();console.error('Membership decision:',err.code||err.message);res.status(503).json({error:'Unable to update application'});}
+  finally{connection.release();}
 });
 
 // Public account routes are feature-flagged; no schema changes run automatically.
