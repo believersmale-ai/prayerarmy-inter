@@ -4,7 +4,7 @@
  const form=document.getElementById('settings-form'),save=document.getElementById('btn-save-all');
  if(!dashboard||!body||!form||!save)return;
  const intro=document.createElement('div');intro.className='ux-dashboard-intro';
- intro.innerHTML='<div><span class="ux-eyebrow">MANAGEMENT OVERVIEW</span><h3>Welcome to your workspace</h3><p>Review church activity and open the tools you need. Counts reflect available staging records only.</p></div>';
+ intro.innerHTML='<div><span class="ux-eyebrow">MANAGEMENT OVERVIEW</span><h3>Welcome to your workspace</h3><p>Review church activity and open the tools you need. Counts reflect your website records.</p></div>';
  const shortcuts=document.createElement('div');shortcuts.className='ux-dashboard-shortcuts';
  const tasks=[['📡','Manage livestream','view-live','Update broadcast details'],['📖','Sermons & videos','view-messages','Manage messages'],['📅','Events & programs','view-events','Edit upcoming services'],['📣','Announcements','view-announcements','Publish church news'],['📁','Media library','view-media','Upload and organize files'],['👥','Member approvals','view-team','Review membership tools']];
  tasks.forEach(([icon,name,view,description])=>{
@@ -29,7 +29,7 @@
    });
  });
  const title=document.createElement('h3');title.className='ux-section-title';title.textContent='Quick actions';
- const note=document.createElement('p');note.className='ux-dashboard-note';note.textContent='Some tools are still being connected to the staging backend. Review the result of each save before relying on it.';
+ const note=document.createElement('p');note.className='ux-dashboard-note';note.textContent='Changes are published when you save. Review your edits before publishing.';
  intro.append(title,shortcuts,note);
  body.before(intro);
  const metricsTitle=document.createElement('h3');metricsTitle.className='ux-section-title';metricsTitle.textContent='Church activity';

@@ -148,7 +148,7 @@ function rest_post(string $table): void {
             rate_guard('testimony', 10);
             q('INSERT INTO testimonies (id, name, location, testimony, show_name, created_at) VALUES (?,?,?,?,?,?)',
               [$id, need($b['name'] ?? '', 80, 'Name'), opt($b['location'] ?? '', 80), need($b['testimony'] ?? '', 1500, 'Testimony'),
-               (($b['show_name'] ?? true) === false) ? 0 : 1, now()]);
+               (($b['show_name'] ?? false) === true) ? 1 : 0, now()]);
             notify('onTestimony', 'New testimony awaiting approval', 'A new testimony was submitted and is waiting for approval.');
             break;
 
@@ -182,21 +182,30 @@ function rpc_increment_prayed(): void {
     $id = clean($b['p_id'] ?? '', 36);
     $voter = preg_match('/^[A-Za-z0-9_-]{16,64}$/', (string)($b['p_voter'] ?? '')) ? substr(hash_hmac('sha256', (string)$b['p_voter'], secret()), 0, 32) : '';
     $ip = ip_key();
-    $row = q('SELECT prayed_count FROM wall_prayers WHERE id = ? AND is_approved = 1', [$id])->fetch();
-    if (!$row) out(null);
-    // One "I prayed" per person per request. People on one shared network can still all pray, but
-    // a single address cannot push the number up more than 5 times a day on the same request.
-    $counted = false;
-    if ($voter !== '' && !q('SELECT 1 FROM wall_votes WHERE prayer_id = ? AND voter = ?', [$id, $voter])->fetch()
-        && (int)q('SELECT COUNT(*) c FROM wall_votes WHERE prayer_id = ? AND ip = ? AND created_at > ?', [$id, $ip, gmdate('Y-m-d H:i:s', time() - 86400)])->fetch()['c'] < 5) {
-        $insert = q('INSERT IGNORE INTO wall_votes (prayer_id, voter, ip, created_at) VALUES (?,?,?,?)', [$id, $voter, $ip, now()]);
-        if ($insert->rowCount() === 1) {
-            q('UPDATE wall_prayers SET prayed_count = prayed_count + 1 WHERE id = ?', [$id]);
-            $counted = true;
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        // Serialize votes for this request: concurrent voters share the same daily cap.
+        $row = q('SELECT prayed_count FROM wall_prayers WHERE id = ? AND is_approved = 1 FOR UPDATE', [$id])->fetch();
+        $result = null;
+        if ($row) {
+            $counted = false;
+            if ($voter !== '' && !q('SELECT 1 FROM wall_votes WHERE prayer_id = ? AND voter = ?', [$id, $voter])->fetch()
+                && (int)q('SELECT COUNT(*) c FROM wall_votes WHERE prayer_id = ? AND ip = ? AND created_at > ?', [$id, $ip, gmdate('Y-m-d H:i:s', time() - 86400)])->fetch()['c'] < 5) {
+                $insert = q('INSERT IGNORE INTO wall_votes (prayer_id, voter, ip, created_at) VALUES (?,?,?,?)', [$id, $voter, $ip, now()]);
+                if ($insert->rowCount() === 1) {
+                    q('UPDATE wall_prayers SET prayed_count = prayed_count + 1 WHERE id = ?', [$id]);
+                    $counted = true;
+                }
+            }
+            $result = ['counted' => $counted, 'prayed_count' => (int)$row['prayed_count'] + ($counted ? 1 : 0)];
         }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
     }
-    $n = (int)q('SELECT prayed_count FROM wall_prayers WHERE id = ?', [$id])->fetch()['prayed_count'];
-    out(['counted' => $counted, 'prayed_count' => $n]);
+    out($result);
 }
 
 /* =====================================================================
@@ -424,7 +433,7 @@ function fn_manage_content(): void {
             $id = clean($p['id'] ?? '', 36);
             if ($id === '') fail('id is required', 400);
             q('UPDATE testimonies SET name = ?, location = ?, testimony = ?, show_name = ? WHERE id = ?',
-              [need($p['name'] ?? '', 80, 'Name'), opt($p['location'] ?? '', 80), need($p['testimony'] ?? '', 1500, 'Testimony'), (($p['show_name'] ?? true) === false) ? 0 : 1, $id]);
+              [need($p['name'] ?? '', 80, 'Name'), opt($p['location'] ?? '', 80), need($p['testimony'] ?? '', 1500, 'Testimony'), (($p['show_name'] ?? false) === true) ? 1 : 0, $id]);
             out(['ok' => true]);
         case 'update_wall_prayer':
             $id = clean($p['id'] ?? '', 36);
@@ -572,10 +581,11 @@ function sanitize_layout(array &$s): void {
 }
 
 function fn_save_settings(): void {
-    require_perm('settings');
+    $user = require_perm('settings');
     $s = body()['settings'] ?? null;
     if (!is_array($s)) fail('settings must be an object', 400);
     sanitize_layout($s);
+    if (!in_array('security', $user['permissions'], true)) $s['tracking'] = site_settings()['tracking'] ?? new stdClass();
     unset($s['notifications'], $s['passkey']);
     $json = json_encode($s, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if ($json === false || strlen($json) > 2 * 1024 * 1024) fail('Settings are too large', 413);

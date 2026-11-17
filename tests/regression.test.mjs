@@ -12,7 +12,7 @@ before(async () => {
   // No real database or administrator credentials are used by these routing tests.
   server = spawn(process.execPath, ['server.js'], {
     cwd: new URL('../', import.meta.url),
-    env: { ...process.env, PORT: String(port), DB_HOST: '127.0.0.1', DB_PORT: '1',
+    env: { ...process.env, NODE_ENV: 'production', PORT: String(port), DB_HOST: '127.0.0.1', DB_PORT: '1',
       DB_USER: 'routing_test', DB_PASSWORD: '', DB_NAME: 'routing_test',
       ADMIN_EMAIL: '', ADMIN_INITIAL_PASSWORD: '', ADMIN_PASSKEY: '', ADMIN_FORCE_RESET: '',
       PAI_DATA_DIR: '', PAI_PUBLIC_ACCOUNTS_ENABLED: 'false' },
@@ -51,7 +51,7 @@ test('admin aliases canonicalize trailing slashes', async () => {
   }
 });
 test('missing pages and server sources are real 404s', async () => {
-  for (const path of ['/missing-page', '/server.js', '/database.js', '/api/config.php', '/.git/config']) {
+  for (const path of ['/missing-page', '/server.js', '/database.js', '/node-auth.js', '/node-common.js', '/node-content.js', '/node-pages.js', '/api/config.php', '/.git/config']) {
     assert.equal((await fetch(base + path)).status, 404, path);
   }
 });
@@ -60,13 +60,12 @@ test('private APIs reject anonymous callers', async () => {
     assert.equal((await fetch(base + path)).status, 401, path);
   }
   assert.equal((await fetch(base + '/api/functions/v1/manage-content', { method: 'POST',
-    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list_prayer_requests' }) })).status, 401);
+    headers: { Origin: base.replace('http:', 'https:'), 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list_prayer_requests' }) })).status, 401);
 });
-test('form tokens are signed, uncached, and required by both public forms', async () => {
+test('form protection fails closed when storage is unavailable', async () => {
   const response = await fetch(base + '/api/form-token');
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('cache-control'), 'no-store');
-  assert.match((await response.json()).token, /^\d{9,11}\.[a-f0-9]{32}$/);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).token, undefined);
   for (const resource of ['prayer_requests', 'connect_requests']) {
     const r = await fetch(base + '/api/rest/v1/' + resource, { method: 'POST',
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Test', _ft: '1234567890.' + 'a'.repeat(32) }) });
@@ -86,7 +85,7 @@ test('Apache/PHP public routes and private file protections', { skip: !phpBase }
   for (const path of ['/', '/about', '/contact', '/privacy', '/terms', '/index.md', '/robots.txt', '/llms.txt', '/sitemap.xml', '/.well-known/mcp/server-card.json']) {
     assert.equal((await fetch(phpBase + path, { headers })).status, 200, path);
   }
-  for (const path of ['/api/config.php', '/api/lib.php', '/api/schema.sql', '/server.js', '/.git/config']) {
+  for (const path of ['/api/config.php', '/api/lib.php', '/api/schema.sql', '/server.js', '/node-auth.js', '/tests/database.integration.mjs', '/.git/config']) {
     assert.equal((await fetch(phpBase + path, { headers })).status, 403, path);
   }
   assert.equal((await fetch(phpBase + '/no-such-page', { headers })).status, 404);
@@ -94,4 +93,9 @@ test('Apache/PHP public routes and private file protections', { skip: !phpBase }
   assert.match(md.headers.get('content-type'), /text\/markdown/);
   const media = await fetch(phpBase + '/api/storage/v1/object/list/media', { method: 'POST', headers });
   assert.equal(media.status, 401);
+});
+
+test('runtime reports unavailable initialization without disclosing configuration', async () => {
+  const response=await fetch(base+'/api/runtime');
+  assert.deepEqual(await response.json(),{backend:'node',ready:false,mediaStorageDurable:false});
 });

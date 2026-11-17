@@ -11,7 +11,7 @@ if (!base) throw new Error('Pass the staging URL, e.g. https://staging.example.c
 const origin = new URL(base);
 if (!['https:', 'http:'].includes(origin.protocol)) throw new Error('Expected an HTTP(S) URL');
 const cases = [
-  ['messages', ['id', 'title', 'description', 'link', 'media_url', 'media_type', 'notes_url', 'created_at']],
+  ['messages', ['id', 'title', 'description', 'link', 'media_url', 'media_type', 'notes_url', 'source', 'speaker', 'category', 'thumbnail_url', 'is_featured', 'created_at']],
   ['testimonies', ['id', 'name', 'location', 'testimony', 'created_at']],
   ['wall_prayers', ['id', 'name', 'request', 'prayed_count']]
 ];

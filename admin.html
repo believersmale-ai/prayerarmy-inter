@@ -2603,7 +2603,7 @@
     const verify=document.getElementById('membership-email-verification');
     const applications=document.getElementById('membership-applications');
     async function load() {
-      if (!window.__paiAdminReady) return;
+      if (!window.__paiAdminReady || !can('team')) return;
       if (!isNodeAdminSession()) {
         status.textContent='Membership approvals are not available on this website yet.';
         document.getElementById('membership-refresh').disabled=true;

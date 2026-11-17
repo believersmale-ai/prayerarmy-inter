@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS testimonies (
   location VARCHAR(80) NULL,
   testimony VARCHAR(1500) NOT NULL,
   is_approved TINYINT(1) NOT NULL DEFAULT 0,
-  show_name TINYINT(1) NOT NULL DEFAULT 1,
+  show_name TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
   KEY t_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

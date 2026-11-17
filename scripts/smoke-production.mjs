@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Read-only production smoke checks.
+ * Read-only Node production smoke checks.
  * Usage: node scripts/smoke-production.mjs https://prayerarmyinternational.com
  * Never posts data, logs response bodies or requests private endpoints.
  */
@@ -11,6 +11,13 @@ const origin = new URL(base);
 if (!['http:', 'https:'].includes(origin.protocol)) throw new Error('HTTP(S) base URL required');
 const checks = [
   { path: '/', validate: async (r) => assert.equal(r.status, 200) },
+  { path: '/api/runtime', validate: async (r) => {
+    assert.equal(r.status, 200);
+    const data = await r.json();
+    assert.equal(data.backend, 'node');
+    assert.equal(data.ready, true);
+    if (process.argv.includes('--require-durable-media')) assert.equal(data.mediaStorageDurable, true, 'Production media storage must be durable');
+  } },
   { path: '/api/health/db', validate: async (r) => {
     assert.equal(r.status, 200);
     const data = await r.json();

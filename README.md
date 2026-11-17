@@ -1,4 +1,4 @@
-> **Hosting:** this repository contains both PHP/Apache and Node/MySQL backends. The November 16 audit records a Node deployment; older instructions below describe PHP hosting. Confirm the deployed runtime using `/api/runtime` after this update. See **docs/BUGFIX-VALIDATION-2026-11-17.md** for verified fixes, test commands and remaining Node integration gaps. Follow **HOSTINGER-DEPLOY.md** for the PHP deployment path.
+> **Hosting:** this repository contains both PHP/Apache and Node/MySQL backends. The November 16 audit records a Node deployment; older instructions below describe PHP hosting. Confirm the deployed runtime using `/api/runtime` after this update. The Node modules are now complete; see **docs/NODE-BACKEND-COMPLETION.md** for Node 22 requirements, configuration, validation and hosting status. Follow **HOSTINGER-DEPLOY.md** for the PHP deployment path.
 
 ## Deployment & backend (read this first)
 

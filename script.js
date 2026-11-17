@@ -1641,7 +1641,7 @@ const getPlayable = (url) => {
   if (vm) return { kind: 'vimeo', id: vm[1] };
   if (/(?:facebook\.com|fb\.watch)\//.test(u)) return { kind: 'facebook', url: u };
   if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(u)) return { kind: 'video', url: u };
-  if (/\.(mp3|m4a|wav|ogg|aac)(\?|#|$)/i.test(u)) return { kind: 'audio', url: u };
+  if (/\.(mp3|m4a|wav|ogg|oga|flac|aac)(\?|#|$)/i.test(u)) return { kind: 'audio', url: u };
   return null;
 };
 

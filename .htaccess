@@ -34,7 +34,7 @@ ErrorDocument 404 /api/index.php
 
   # Developer / deployment files must never be downloadable
   RewriteRule ^(supabase|docs|node_modules|tests|scripts)(/|$) - [F,L]
-  RewriteRule ^(server\.js|database\.js|public-auth\.js|package\.json|pnpm-lock\.yaml|metadata\.json|vercel\.json)$ - [F,L]
+  RewriteRule ^(server\.js|database\.js|public-auth\.js|node-(common|auth|content|pages)\.js|package\.json|pnpm-lock\.yaml|metadata\.json|vercel\.json)$ - [F,L]
   RewriteRule \.(md|sql|lock)$ - [F,L]
 </IfModule>
 

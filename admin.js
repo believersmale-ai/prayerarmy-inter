@@ -88,7 +88,7 @@ window.fetch = async (input, init) => {
   if (!isAccountSession()) {
     // Shared-passkey session: no refresh exists, so a 401 means the passkey was turned off or changed.
     const r = await _origFetch(input, init);
-    if (r.status === 401 && getStored('pai_manager_authenticated') === 'true' && !url.endsWith('/verify-passkey')) signOutToLogin('Your session has ended. Please sign in again.');
+    if (r.status === 401 && (isNodeAdminSession() || getStored('pai_manager_authenticated') === 'true') && !url.endsWith('/verify-passkey')) signOutToLogin('Your session has ended. Please sign in again.');
     return r;
   }
   const before = getPasskey();
@@ -324,8 +324,8 @@ const loadMe = async () => {
       const res=await _origFetch(`${SUPABASE_URL}/admin/session`,{credentials:'same-origin',cache:'no-store'});
       if(!res.ok)return {error:'Your admin session has expired. Sign in again.'};
       const body=await res.json();
-      me={role:'owner',email:body.user.email,name:body.user.email,via:'node',permissions:['settings','media','messages','care','analytics','team','security']};
-      legacyEnabled=false;
+      me=body.user;
+      legacyEnabled=!!body.legacy_enabled;
       return {me};
     }catch{return {error:'Could not reach the server. Please reload.',network:true};}
   }
@@ -435,6 +435,7 @@ authForm?.addEventListener('submit', async (e) => {
         const res=await _origFetch(`${SUPABASE_URL}/admin/login`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:emailInput.value.trim().toLowerCase(),password:accountPwInput.value})});
         const body=await res.json().catch(()=>({}));
         if(!res.ok){authError.textContent=body.error||'Unable to sign in';return;}
+        clearSession();
         sessionStorage.setItem(NODE_SESSION_KEY,'true');
         accountPwInput.value='';
         await showDashboard();
@@ -1623,8 +1624,8 @@ const loadMedia = async () => {
       for (const obj of objects) {
         if (!obj.name) continue;
         const ext = obj.name.split('.').pop().toLowerCase();
-        const isVideo = ['mp4', 'webm', 'mov', 'ogg', 'm4v'].includes(ext);
-        const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'oga', 'flac'].includes(ext);
+        const isVideo = ['mp4', 'webm', 'mov', 'ogv', 'm4v'].includes(ext);
+        const isAudio = ['mp3', 'wav', 'm4a', 'aac', 'oga', 'ogg', 'flac'].includes(ext);
         media.push({
           filename: obj.name,
           url: `/uploads/${encodeURIComponent(obj.name)}`,
@@ -1977,7 +1978,7 @@ const saveSettings = async (showNotification = true) => {
           body: JSON.stringify({ currentPasskey: getPasskey(), newPasskey })
         });
         if (pkRes.ok) {
-          if (!isAccountSession()) setStoredPasskey(newPasskey);
+          if (!isNodeAdminSession() && !isAccountSession()) setStoredPasskey(newPasskey);
           $('#field-manager-passkey').value = '';
           showToast('✓ Changes saved and passkey updated!', 'success');
         } else {
@@ -2077,7 +2078,7 @@ const isPlayableLink = (url) => {
     || /youtube\.com\/(?:playlist|watch)\?[^#]*list=[a-zA-Z0-9_-]+/.test(u)
     || /vimeo\.com\/(?:video\/)?\d+/.test(u)
     || /(?:facebook\.com|fb\.watch)\//.test(u)
-    || /\.(mp4|webm|ogv|mov|m4v|mp3|m4a|wav|ogg|aac)(\?|#|$)/i.test(u);
+    || /\.(mp4|webm|ogv|mov|m4v|mp3|m4a|wav|ogg|oga|flac|aac)(\?|#|$)/i.test(u);
 };
 const askRecordingLink = (current = '') => {
   const v = prompt(
@@ -2099,7 +2100,7 @@ const callManageContent = async (action, payload = {}) => {
 };
 
 // Keep the "attach uploaded media" dropdown in sync with the Media Uploader tab
-const AUDIO_EXT = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga'];
+const AUDIO_EXT = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga', 'flac'];
 const populateMessageMediaSelect = () => {
   refreshEventImageOptions();
   if (!msgMediaSelect) return;
@@ -2818,30 +2819,6 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
     const box = document.getElementById('dash-body');
     if (!box) return;
     try {
-      if(isNodeAdminSession()){
-        const response=await _origFetch(`${SUPABASE_URL}/admin/dashboard`,{credentials:'same-origin',cache:'no-store'});
-        if(!response.ok)throw Error('Dashboard unavailable ('+response.status+')');
-        const {counts,activity=[]}=await response.json();
-        const cards=[];
-        if(counts.prayer_requests!==undefined)cards.push(card(counts.prayer_requests,'Prayer requests','view-requests'));
-        if(counts.visitor_enquiries!==undefined)cards.push(card(counts.visitor_enquiries,'Visitor enquiries','view-connect'));
-        if(counts.member_applications!==undefined)cards.push(card(counts.member_applications,'Pending member accounts','view-dashboard'));
-        box.innerHTML=cards.length?'<div class="dash-grid">'+cards.join('')+'</div><p class="muted-note">Overview shows available records in the staging database. Other modules will appear as their APIs are connected.</p>':'<p class="muted-note">No dashboard record sources are available yet. Check the staging database tables.</p>';
-        const previous=document.getElementById('ux-recent-activity');if(previous)previous.remove();
-        const recent=document.createElement('section');recent.id='ux-recent-activity';recent.className='ux-recent-activity';
-        const heading=document.createElement('h3');heading.className='ux-section-title';heading.textContent='Recent account activity';recent.appendChild(heading);
-        if(!activity.length){const empty=document.createElement('p');empty.className='muted-note';empty.textContent='No recent account audit events available.';recent.appendChild(empty);}
-        else{const list=document.createElement('ul');list.className='ux-activity-list';activity.forEach(entry=>{
-          const li=document.createElement('li'),action=document.createElement('span'),time=document.createElement('time');
-          action.textContent=String(entry.action||'Account activity').replace(/_/g,' ');
-          const date=new Date(entry.at);time.textContent=Number.isNaN(date.getTime())?'':date.toLocaleString();
-          li.append(action,time);list.appendChild(li);
-        });recent.appendChild(list);}
-        box.appendChild(recent);
-        const w=document.getElementById('dash-welcome');
-        if(w)w.textContent='Welcome, '+(me?.name||me?.email||'Administrator')+'. These figures are from available staging records.';
-        return;
-      }
       const { dashboard: d } = await callManageContent('get_dashboard');
       const cards = [];
       if (d.live) cards.push(card(d.live.isLive ? 'LIVE' : 'Offline', 'Livestream status', 'view-live', { hint: d.live.isLive ? d.live.title : 'Not broadcasting', cls: d.live.isLive ? 'live-on' : '' }));

@@ -85,7 +85,7 @@ function migrate(PDO $pdo): void {
         ['messages', 'is_featured', 'TINYINT(1) NOT NULL DEFAULT 0'],
         ['prayer_requests', 'follow_up', "VARCHAR(12) NOT NULL DEFAULT 'new'"],
         ['prayer_requests', 'admin_note', 'VARCHAR(1000) NULL'],
-        ['testimonies', 'show_name', 'TINYINT(1) NOT NULL DEFAULT 1'],
+        ['testimonies', 'show_name', 'TINYINT(1) NOT NULL DEFAULT 0'],
         ['admin_config', 'notify_json', 'TEXT NULL'],
     ];
     foreach ($add as [$t, $c, $def]) {

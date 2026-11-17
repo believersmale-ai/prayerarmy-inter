@@ -23,6 +23,8 @@ async function sendVerification(email,token) {
     host:process.env.PAI_SMTP_HOST,
     port:Number(process.env.PAI_SMTP_PORT || 587),
     secure:Number(process.env.PAI_SMTP_PORT || 587)===465,
+    requireTLS:process.env.NODE_ENV==='production' && Number(process.env.PAI_SMTP_PORT || 587)!==465,
+    connectionTimeout:5000, socketTimeout:10000,
     auth:{user:process.env.PAI_SMTP_USER,pass:process.env.PAI_SMTP_PASS}
   });
   await transport.sendMail({from:process.env.PAI_MAIL_FROM,to:email,subject:'Verify your Prayer Army International account',
@@ -136,7 +138,8 @@ export function createPublicAccountRouter(db) {
       await db.execute('INSERT INTO public_auth_tokens (account_id,token_hash,purpose,expires_at) VALUES (?,?,?,DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY))',[account.id,hash,'session']);
       await db.execute('UPDATE public_accounts SET last_login_at=UTC_TIMESTAMP() WHERE id=?',[account.id]);
       res.setHeader('Set-Cookie',cookie(token,req.secure,604800));
-      res.json({account:publicView(account)});
+      const [roles]=await db.execute('SELECT role FROM public_account_roles WHERE account_id=?',[account.id]);
+      res.json({account:publicView({...account,roles:roles.map(row=>row.role)})});
     } catch(err){console.error('Public login error:',err.code||err.message);res.status(503).json({error:'Login temporarily unavailable'});}
   });
   const current=async(req)=>{

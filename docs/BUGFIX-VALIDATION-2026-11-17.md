@@ -1,5 +1,7 @@
 # Bug fixes and validation — 17 November 2026
 
+> Historical first-pass report. The Node gaps below have since been implemented; see [NODE-BACKEND-COMPLETION.md](NODE-BACKEND-COMPLETION.md) for the current status.
+
 These changes target `audit/hostinger-production-readiness`. All database mutations and browser checks described below used isolated local test databases. No production deployment, database migration, or hosting configuration change was performed.
 
 ## Fixed behavior
