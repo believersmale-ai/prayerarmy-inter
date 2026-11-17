@@ -53,7 +53,7 @@
         <a class="nav-live" href="#live"><span class="nav-live-indicator" id="nav-live-dot" hidden aria-hidden="true"></span><span data-copy-key="navLive">Watch Live</span><span class="sr-only" id="nav-live-sr" hidden> (broadcasting now)</span></a>
         <a href="#events" data-copy-key="navEvents">Events</a>
         <a href="#gallery" data-copy-key="navGallery">Gallery</a>
-        <a href="#prayer" data-copy-key="navPrayer">Prayer</a>
+        <a href="#contact" data-copy-key="navContact">Contact</a>
         <a href="#contact" data-copy-key="navContact">Contact</a>
         <a class="nav-give" href="#give" data-copy-key="navGive">Give</a>
       </nav>
@@ -83,7 +83,7 @@
         <a href="#sermons"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span><div><b id="quick1-title">Latest Sermons</b><small id="quick1-copy">Watch and listen to messages</small></div></a>
         <a href="#live"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg></span><div><b id="quick2-title">Live Services</b><small id="quick2-copy">Join services online</small></div></a>
         <a href="#events"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span><div><b id="quick3-title">Upcoming Events</b><small id="quick3-copy">Discover ministry programs</small></div></a>
-        <a href="#prayer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg></span><div><b id="quick4-title">Prayer Request</b><small id="quick4-copy">Let us pray with you</small></div></a>
+        <a href="#contact"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg></span><div><b id="quick4-title">Prayer Request</b><small id="quick4-copy">Let us pray with you</small></div></a>
       </div>
     </section>
 
@@ -312,7 +312,7 @@
       </div>
     </section>
 
-    <section class="section prayer" id="prayer">
+    <section class="section prayer" id="prayer" hidden aria-hidden="true">
       <div class="container prayer-grid reveal">
         <div class="prayer-copy"><p class="eyebrow dark" id="prayer-eyebrow">WE WOULD LOVE TO PRAY WITH YOU</p><h2 id="prayer-heading">Bring your request.<br><span>Leave it in prayer.</span></h2><p id="prayer-copy">Whether you are seeking direction, strength, healing, provision or simply want someone to stand with you in prayer, submit your request to the ministry.</p></div>
         <form class="prayer-form" id="prayer-form" novalidate>
@@ -334,7 +334,7 @@
       </div>
     </section>
 
-    <section class="section prayer-wall" id="prayer-wall">
+    <section class="section prayer-wall" id="prayer-wall" hidden aria-hidden="true">
       <div class="container reveal">
         <div class="section-head">
           <div><p class="eyebrow dark" id="wall-eyebrow">STAND WITH US</p><h2 id="wall-heading">The <span>prayer wall</span></h2></div>
@@ -361,7 +361,7 @@
           <div><p class="eyebrow dark" id="testimonies-eyebrow">WHAT GOD HAS DONE</p><h2 id="testimonies-heading">Testimonies of <span>God's faithfulness</span></h2></div>
           <p class="section-sub" id="testimonies-copy">Healings, breakthroughs, answered prayers. Read what the Lord is doing in our midst, and share yours.</p>
         </div>
-        <div class="testimonies-grid" id="testimonies-list"><p class="messages-empty" style="color:var(--soft)">Loading testimonies…</p></div>
+        <div class="testimonies-grid" id="testimonies-list" hidden><p class="messages-empty" style="color:var(--soft)">Loading testimonies…</p></div>
         <details class="share-testimony" id="share-testimony">
           <summary class="btn btn-dark"><span data-copy-key="testimonySummary">Share your testimony</span> <span>→</span></summary>
           <form class="prayer-form" id="testimony-form">
@@ -485,11 +485,11 @@
         <span class="footer-small-label">A HOME FOR FAITH &amp; PURPOSE <span aria-hidden="true">✦</span></span>
         <a class="brand footer-brand" aria-label="Prayer Army International" href="#top"><img width="191" height="115" loading="lazy" decoding="async" class="footer-logo" id="site-logo-footer" src="assets/images/prayer-army-logo.png" alt="Prayer Army International"></a>
         <p id="footer-tagline">Raising Generals, Transforming Generations.</p>
-        <a class="footer-primary-action" href="#prayer">Share a prayer request <span aria-hidden="true">↗</span></a>
+        <a class="footer-primary-action" href="#contact">Contact the ministry <span aria-hidden="true">↗</span></a>
       </div>
       <div class="footer-directory">
         <nav class="footer-column" aria-label="Explore"><h4 id="footer-explore-title">Explore</h4><a href="#about" data-copy-key="footerAbout">About</a><a href="#sermons" data-copy-key="footerSermons">Sermons</a><a href="#events" data-copy-key="footerEvents">Events</a><a href="#gallery" data-copy-key="footerGallery">Gallery</a></nav>
-        <nav class="footer-column" aria-label="Connect"><h4 id="footer-connect-title">Connect</h4><a href="#live" data-copy-key="footerLive">Live Stream</a><a href="#prayer" data-copy-key="footerPrayer">Prayer Request</a><a href="#give" data-copy-key="footerGive">Give</a><a href="#contact" data-copy-key="footerContact">Contact</a></nav>
+        <nav class="footer-column" aria-label="Connect"><h4 id="footer-connect-title">Connect</h4><a href="#live" data-copy-key="footerLive">Live Stream</a><a href="#contact" data-copy-key="footerContact">Contact</a><a href="#give" data-copy-key="footerGive">Give</a><a href="#contact" data-copy-key="footerContact">Contact</a></nav>
         <div class="footer-column footer-location"><h4 id="footer-hq-title">Headquarters</h4><p id="footer-hq-address">Upper West Region<br>Ghana</p><p class="muted" id="contact-lines">Reach us through the prayer request form or follow our channels for updates.</p></div>
       </div>
     </div>
