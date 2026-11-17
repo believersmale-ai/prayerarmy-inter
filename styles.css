@@ -848,3 +848,39 @@ button,.btn,.chip-btn,.filter-chip,summary{min-height:44px}
 .footer-legal{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:center}
 .footer-legal a{padding:10px 0;min-height:44px;display:inline-flex;align-items:center}.footer-legal a:hover{color:var(--gold2)}
 @media(prefers-reduced-motion:reduce){.filter-chip,.header-search{transition:none}}
+
+/* Premium ministry footer — one social channel area (contact card), no repeated icons */
+.ministry-footer{background:#080d16;color:#f6f0e5;padding:0 0 24px;position:relative;overflow:hidden}
+.ministry-footer::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(222,179,104,.55),transparent)}
+.ministry-footer .footer-intro{padding-top:70px;padding-bottom:58px;border-bottom:1px solid rgba(232,215,180,.16);display:flex;align-items:flex-end;justify-content:space-between;gap:32px}
+.ministry-footer .footer-eyebrow{display:block;color:#d9b77c;letter-spacing:.2em;font-size:11px;font-weight:700;margin-bottom:18px}
+.ministry-footer .footer-intro h2{margin:0;font:400 clamp(32px,4.1vw,62px)/1.12 var(--serif,Georgia,serif);letter-spacing:-.035em;color:#f9f4eb}
+.ministry-footer .footer-intro h2 em{color:#e6bd77;font-weight:400}
+.ministry-footer .footer-intro-link{display:inline-flex;align-items:center;gap:20px;border:1px solid rgba(227,186,117,.45);border-radius:100px;padding:15px 21px;color:#f6e8d0;white-space:nowrap;text-decoration:none;transition:background .2s,border-color .2s,transform .2s}
+.ministry-footer .footer-intro-link:hover{background:rgba(227,186,117,.1);border-color:#e6bd77;transform:translateY(-2px)}
+.ministry-footer .footer-intro-link span{font-size:21px;color:#e6bd77}
+.ministry-footer .footer-grid{padding-top:58px;grid-template-columns:minmax(230px,1.55fr) repeat(2,minmax(130px,.7fr)) minmax(190px,1fr);gap:clamp(22px,4vw,66px)}
+.ministry-footer .footer-logo{height:82px;max-width:190px;object-fit:contain;object-position:left center;margin-bottom:20px}
+.ministry-footer .footer-identity #footer-tagline{font-size:16px;color:#eee2d1;max-width:270px;line-height:1.6}
+.ministry-footer .footer-identity .footer-identity-note{color:#8f9cad;font-size:13px;line-height:1.7;margin-top:12px}
+.ministry-footer .footer-grid h4{color:#e6bd77;font-size:11px;letter-spacing:.18em;margin-bottom:22px}
+.ministry-footer .footer-grid .footer-column>a{display:block;color:#b8c1cf;margin:0 0 15px;line-height:1.5;text-decoration:none}
+.ministry-footer .footer-grid .footer-column>a:hover{color:#f3cf94}
+.ministry-footer .footer-location p{line-height:1.8;overflow-wrap:anywhere;margin:0 0 14px}
+.ministry-footer .footer-bottom{margin-top:55px;padding-top:23px;border-color:rgba(232,215,180,.15);align-items:center}
+.ministry-footer .footer-legal{gap:8px 18px}
+.ministry-footer .footer-legal a{color:#b8c1cf;text-decoration:none}
+.ministry-footer .footer-legal a:hover{color:#e6bd77}
+@media(max-width:900px){
+ .ministry-footer .footer-intro{padding-top:55px;padding-bottom:45px}
+ .ministry-footer .footer-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:38px}
+}
+@media(max-width:600px){
+ .ministry-footer .footer-intro{display:block;padding-top:48px;padding-bottom:40px}
+ .ministry-footer .footer-intro-link{margin-top:26px;white-space:normal}
+ .ministry-footer .footer-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:32px 22px;padding-top:42px}
+ .ministry-footer .footer-identity,.ministry-footer .footer-location{grid-column:1/-1}
+ .ministry-footer .footer-bottom{margin-top:38px;gap:16px}
+ .ministry-footer .footer-legal{gap:4px 14px}
+}
+@media(prefers-reduced-motion:reduce){.ministry-footer .footer-intro-link{transition:none}}
