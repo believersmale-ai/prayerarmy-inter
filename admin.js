@@ -1505,7 +1505,7 @@ const handleFileUpload = async (files) => {
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     if (f.type.startsWith('image/') || f.type.startsWith('video/') || f.type.startsWith('audio/')) {
-      formData.append('files[]', f);
+      formData.append(isNodeAdminSession() ? 'files' : 'files[]', f);
       count++;
     }
   }
@@ -1515,8 +1515,10 @@ const handleFileUpload = async (files) => {
     return;
   }
 
-  await ensureFreshToken();
-  formData.append('passkey', getPasskey());
+  if(!isNodeAdminSession()){
+    await ensureFreshToken();
+    formData.append('passkey', getPasskey());
+  }
 
   uploadProgressBox.style.display = 'block';
   uploadStatusText.textContent = `Uploading ${count} file(s)...`;
@@ -1525,7 +1527,7 @@ const handleFileUpload = async (files) => {
 
   try {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${EDGE_BASE}/upload-media`);
+    xhr.open('POST', isNodeAdminSession() ? `${SUPABASE_URL}/upload` : `${EDGE_BASE}/upload-media`);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -1580,6 +1582,14 @@ const loadMedia = async () => {
     } catch {}
 
     // 2. Admin-uploaded media in the uploads folder
+    if(isNodeAdminSession()){
+      const response=await _origFetch(`${SUPABASE_URL}/media`,{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw Error('Unable to load uploaded media');
+      const data=await response.json();
+      media.push(...(data.media||[]).filter(item=>item.isUpload).map(item=>({
+        ...item,url:'/'+String(item.url).replace(/^\//,''),isUpload:true
+      })));
+    }else{
     const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/media`, {
       method: 'POST',
       headers: {
@@ -1606,9 +1616,12 @@ const loadMedia = async () => {
       }
     }
 
+    }
+
     // 3. Which bundled Church Assets have been hidden (can't truly delete a
     //    file that's baked into the deploy, so "hiding" is the equivalent)
     try {
+      if(!isNodeAdminSession()){
       const hiddenRes = await fetch(`${EDGE_BASE}/manage-content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
@@ -1618,6 +1631,7 @@ const loadMedia = async () => {
         const { filenames } = await hiddenRes.json();
         const hiddenSet = new Set(filenames || []);
         media.forEach(m => { if (!m.isUpload && hiddenSet.has(m.filename)) m.hidden = true; });
+      }
       }
     } catch {}
 
@@ -1804,11 +1818,12 @@ const renderMediaGrid = () => {
       const restore = () => { btn.disabled = false; btn.innerHTML = label; };
 
       try {
-        const res = await fetch(`${EDGE_BASE}/delete-media`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-          body: JSON.stringify({ passkey: getPasskey(), filename, name: filename, path: filename })
-        });
+        const res = isNodeAdminSession()
+          ? await _origFetch(`${SUPABASE_URL}/media/${encodeURIComponent(filename)}`,{method:'DELETE',credentials:'same-origin'})
+          : await fetch(`${EDGE_BASE}/delete-media`, {
+              method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY},
+              body:JSON.stringify({passkey:getPasskey(),filename,name:filename,path:filename})
+            });
         let data = null;
         try { data = await res.json(); } catch {}
 
