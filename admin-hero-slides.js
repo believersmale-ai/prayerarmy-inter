@@ -18,5 +18,24 @@
  document.getElementById('hero-slide-add-btn').addEventListener('click',()=>{const v=url.value.trim();if(!valid(v)){alert('Enter a valid image or MP4/WebM URL from the Media Uploader.');return}if(slides.length>=60){alert('Maximum 60 slides');return}slides.push({url:v,alt:''});url.value='';render()});
  list.addEventListener('click',e=>{const b=e.target.closest('button[data-act]');if(!b)return;const i=Number(b.closest('[data-i]').dataset.i);if(b.dataset.act==='remove')slides.splice(i,1);else if(b.dataset.act==='up'&&i>0)[slides[i-1],slides[i]]=[slides[i],slides[i-1]];else if(b.dataset.act==='down'&&i<slides.length-1)[slides[i+1],slides[i]]=[slides[i],slides[i+1]];render()});
  list.addEventListener('input',e=>{if(!e.target.matches('.hero-slide-caption'))return;slides[Number(e.target.closest('[data-i]').dataset.i)].alt=e.target.value;sync()});
+ const slidePicker=document.getElementById('hero-slide-media-picker'),logoPicker=document.getElementById('logo-media-picker');
+ const loadChoices=async()=>{
+  if(!slidePicker||!logoPicker)return;
+  try{
+   const response=await fetch('/api/media',{credentials:'same-origin',cache:'no-store'});
+   if(!response.ok)return;
+   const data=await response.json();
+   const items=(data.media||[]).filter(x=>x.isUpload&&valid(x.url));
+   for(const select of [slidePicker,logoPicker]){
+    select.replaceChildren(new Option(select===logoPicker?'Choose uploaded logo image…':'Choose uploaded media…',''));
+    for(const item of items){if(select===logoPicker&&/\\.(mp4|webm)(?:[?#]|$)/i.test(item.url))continue;select.add(new Option(item.filename||item.url,item.url))}
+   }
+  }catch(err){console.warn('Media choices unavailable:',err.message)}
+ };
+ slidePicker?.addEventListener('change',()=>{if(slidePicker.value)url.value=slidePicker.value});
+ logoPicker?.addEventListener('change',()=>{if(logoPicker.value){const field=document.getElementById('field-logo-url');if(field){field.value=logoPicker.value;field.dispatchEvent(new Event('input',{bubbles:true}))}const preview=document.getElementById('logo-preview');if(preview)preview.src=logoPicker.value}});
+ document.addEventListener('pai:media-uploaded',loadChoices);
+ document.addEventListener('pai:admin-ready',loadChoices);
+ loadChoices();
  enabled.addEventListener('change',sync);duration.addEventListener('change',sync);
 })();
