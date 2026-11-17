@@ -190,4 +190,3 @@ The Live section has a real inline video player, not just a link out:
 
 ## Content to confirm with the ministry
 The Mission, Vision, Values, Statement of Faith and "Our Story" text are drafts written for the site. Replace them with the church's official wording before launch. A higher-resolution logo file (the current one is 191×115px) will look sharper on retina screens.
-
