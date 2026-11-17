@@ -2002,10 +2002,12 @@ const loadTestimonies = async () => {
         <blockquote>${escapeHtml(t.testimony)}</blockquote>
         <figcaption><strong>${escapeHtml(t.name)}</strong>${t.location ? escapeHtml(t.location) : ''}</figcaption>
       </figure>`).join('');
-  } catch {
-    // A failed request is not evidence that no testimonies exist.
-    testimoniesList.hidden = false;
-    testimoniesList.innerHTML = '<p class="messages-empty" style="color:var(--soft)">Testimonies could not load right now.</p>';
+  } catch (error) {
+    // Do not expose a technical outage as an oversized empty card on the homepage.
+    // Keep the submission CTA available; record the failure for diagnostics.
+    console.warn('Unable to retrieve approved testimonies:', error);
+    testimoniesList.replaceChildren();
+    testimoniesList.hidden = true;
   }
 };
 loadTestimonies();
