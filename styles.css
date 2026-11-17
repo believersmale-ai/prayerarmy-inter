@@ -956,3 +956,37 @@ footer.footer-reimagined .footer-base{background:#121b29}
 #quick-links a[hidden],.footer-reimagined a[hidden]{display:none!important}
 #quick-links .quick-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:700px){#quick-links .quick-grid{grid-template-columns:1fr}}
+
+/* Compact editorial CTA bands: avoid stretched, nearly empty sections.
+   Content-driven heights; preserve expanded payment options when configured. */
+#give{min-height:0;padding-block:42px}
+#give .container{max-width:1120px}
+#give .give-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:20px 48px}
+#give .give-grid>div:first-child{min-width:0}
+#give .eyebrow{margin-bottom:10px}
+#give h2{font-size:clamp(29px,3.4vw,44px);line-height:1.12;margin:0 0 10px}
+#give #give-info-text{max-width:650px;font-size:15px;line-height:1.65;margin:0}
+#give .give-actions-stack{align-self:center;justify-self:end}
+#give .give-actions-stack .btn{white-space:nowrap}
+#give .pay-grid:not([hidden]){margin-top:26px}
+#give .momo-box:not([hidden]){margin-top:18px}
+#give .pay-note:not([hidden]){margin-top:12px}
+@media(max-width:900px){
+ #give{padding-block:36px}
+ #give .give-grid{gap:18px 28px}
+}
+@media(max-width:680px){
+ #give{padding-block:32px}
+ #give .give-grid{grid-template-columns:1fr;gap:18px}
+ #give .give-actions-stack{justify-self:start}
+ #give #give-info-text{font-size:14px}
+ #give h2{font-size:clamp(28px,7vw,36px)}
+}
+/* Other content-light CTA areas use a consistent, modest rhythm. */
+#verse{min-height:0}
+#quick-links{min-height:0}
+#announcements:not([hidden]){padding-block:clamp(36px,5vw,64px)}
+#testimonies:not([hidden]){padding-block:clamp(42px,6vw,70px)}
+#testimonies .section-head{margin-bottom:24px}
+#testimonies #testimonies-list[hidden]{display:none!important}
+#testimonies #share-testimony{margin-top:0}
