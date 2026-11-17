@@ -1310,6 +1310,7 @@
       <!-- Sidebar Navigation -->
       <aside class="sidebar">
         <div class="nav-group-title">Overview</div>
+        <button type="button" class="sidebar-btn" data-view="view-quick-edit"><span>✏️</span> Quick Edit Website</button>
         <button type="button" class="sidebar-btn active" data-view="view-dashboard">
           <span>🏠</span> Dashboard
         </button>
@@ -1398,6 +1399,14 @@
       <!-- Main Content Panels -->
       <main class="main-area">
         <form id="settings-form">
+
+          <section class="tab-view" id="view-quick-edit">
+            <div class="view-header"><div class="view-header-text"><h2>✏️ Quick Edit Website</h2><p>Choose a page, change its words, links or images, preview, and save. No code or JSON required.</p></div></div>
+            <div class="qe-intro"><strong>Easy editing:</strong> Choose a section, edit below, then use <strong>Save Changes</strong> to publish. Use <strong>Preview</strong> to check first.</div>
+            <div class="qe-toolbar"><label for="qe-section">Website section</label><select id="qe-section"></select><label for="qe-search">Find content</label><input id="qe-search" type="search" placeholder="Search: logo, title, phone, mission, footer…"></div>
+            <div id="qe-fields" class="qe-fields" aria-live="polite"></div>
+            <div class="qe-actions"><button type="button" id="qe-preview" class="btn-live-site">👁 Preview Website</button><button type="button" id="qe-save" class="btn-save-master">💾 Save Changes</button><span id="qe-status" role="status"></span></div>
+          </section>
 
           <!-- 0. DASHBOARD OVERVIEW -->
           <section class="tab-view active" id="view-dashboard">
@@ -2686,5 +2695,7 @@
   </script>
   <script src="admin-media-posts.js" defer></script>
   <script src="admin-hero-slides.js" defer></script>
+  <link rel="stylesheet" href="admin-quick-edit.css">
+  <script src="admin-quick-edit.js" defer></script>
 </body>
 </html>
