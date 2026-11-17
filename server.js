@@ -247,6 +247,17 @@ async function provisionInitialAdmin() {
   console.log(`Initial admin account created for ${email}`);
 }
 
+// Reject cross-origin state-changing settings requests (including missing Origin).
+function requireSettingsOrigin(req,res,next){
+  const origin=req.get('origin');
+  if(!origin)return res.status(403).json({error:'Origin required'});
+  try{
+    const parsed=new URL(origin);
+    if(parsed.host!==req.get('host') || (req.secure && parsed.protocol!=='https:'))
+      return res.status(403).json({error:'Origin mismatch'});
+  }catch{return res.status(403).json({error:'Invalid origin'});}
+  next();
+}
 // ---------- settings ----------
 app.get('/api/settings', (req, res) => {
   try {
@@ -258,7 +269,7 @@ app.get('/api/settings', (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to read settings' }); }
 });
 
-app.post('/api/settings', requireAdmin, (req, res) => {
+app.post('/api/settings', requireAdmin, requireSettingsOrigin, (req, res) => {
   try {
     const next = req.body;
     if (!next || typeof next !== 'object' || Array.isArray(next)) return res.status(400).json({ error: 'Settings must be a JSON object' });
