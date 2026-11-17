@@ -1639,22 +1639,19 @@ const loadMedia = async () => {
 
     }
 
-    // 3. Which bundled Church Assets have been hidden (can't truly delete a
-    //    file that's baked into the deploy, so "hiding" is the equivalent)
+    // Node media visibility is persistent in MySQL.
     try {
-      if(!isNodeAdminSession()){
-      const hiddenRes = await fetch(`${EDGE_BASE}/manage-content`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-        body: JSON.stringify({ action: 'list_hidden_assets' })
-      });
-      if (hiddenRes.ok) {
-        const { filenames } = await hiddenRes.json();
-        const hiddenSet = new Set(filenames || []);
-        media.forEach(m => { if (!m.isUpload && hiddenSet.has(m.filename)) m.hidden = true; });
-      }
-      }
-    } catch {}
+      const hiddenRes = isNodeAdminSession()
+        ? await _origFetch(`${SUPABASE_URL}/admin/hidden-assets`,{credentials:'same-origin',cache:'no-store'})
+        : await fetch(`${EDGE_BASE}/manage-content`,{
+            method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY},
+            body:JSON.stringify({action:'list_hidden_assets'})
+          });
+      if(!hiddenRes.ok)throw Error('Unable to load hidden assets');
+      const {filenames}=await hiddenRes.json();
+      const hiddenSet=new Set(filenames||[]);
+      media.forEach(m=>{if(!m.isUpload&&hiddenSet.has(m.filename))m.hidden=true;});
+    }catch(err){console.warn('Media visibility:',err.message);showToast('Hidden assets unavailable. Check migration 005.','error');}
 
     allMedia = media;
     renderMediaGrid();
@@ -1732,7 +1729,7 @@ const renderMediaGrid = () => {
             <div class="media-btn-row">
               ${isHidden ? `
                 <button type="button" class="btn-media-action btn-unhide-asset" data-filename="${escAttr(item.filename)}">
-                  ↺ Unhide
+                  ↺ Restore
                 </button>
               ` : `
               ${!isAudio ? `
@@ -1760,11 +1757,11 @@ const renderMediaGrid = () => {
               ` : ''}
               ${item.isUpload ? `
                 <button type="button" class="btn-media-action delete btn-del-media" data-filename="${escAttr(item.filename)}">
-                  🗑
+                  🗑 Delete Upload
                 </button>
               ` : `
-                <button type="button" class="btn-media-action delete btn-hide-asset" data-filename="${escAttr(item.filename)}">
-                  🚫 Remove
+                <button type="button" class="btn-media-action btn-hide-asset" data-filename="${escAttr(item.filename)}" ${item.filename.toLowerCase() === "prayer-army-logo.png" ? "disabled title=\"Official church logo is protected\"" : ""}>
+                  ${item.filename.toLowerCase() === "prayer-army-logo.png" ? "🔒 Protected Logo" : "🚫 Hide from Library"}
                 </button>
               `}
               `}
@@ -1874,15 +1871,19 @@ const renderMediaGrid = () => {
   $$('.btn-hide-asset', mediaGridContainer).forEach(btn => {
     btn.addEventListener('click', async () => {
       const filename = btn.dataset.filename;
-      if (!confirm(`Remove "${filename}" from the Media Library?\n\nThis is a bundled site photo, not an upload, so it can't be permanently deleted -- it will just stop appearing anywhere in the library and won't be selectable for Hero/Logo/Faith/Sermon. You can bring it back later from the "Hidden" tab.`)) return;
+      if (!confirm(`Hide "${filename}" from the Media Library? The original file will not be deleted, and you can restore it from the Hidden tab.`)) return;
 
       btn.disabled = true;
       try {
-        const res = await fetch(`${EDGE_BASE}/manage-content`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-          body: JSON.stringify({ passkey: getPasskey(), action: 'hide_asset', payload: { filename } })
-        });
+        const res = isNodeAdminSession()
+          ? await _origFetch(`${SUPABASE_URL}/admin/hidden-assets/${encodeURIComponent(filename)}`,{
+              method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({hidden:true})
+            })
+          : await fetch(`${EDGE_BASE}/manage-content`,{
+              method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY},
+              body:JSON.stringify({passkey:getPasskey(),action:'hide_asset',payload:{filename}})
+            });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data?.error) {
           showToast(data?.error || 'Could not hide this file', 'error');
@@ -1903,11 +1904,15 @@ const renderMediaGrid = () => {
       const filename = btn.dataset.filename;
       btn.disabled = true;
       try {
-        const res = await fetch(`${EDGE_BASE}/manage-content`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-          body: JSON.stringify({ passkey: getPasskey(), action: 'unhide_asset', payload: { filename } })
-        });
+        const res = isNodeAdminSession()
+          ? await _origFetch(`${SUPABASE_URL}/admin/hidden-assets/${encodeURIComponent(filename)}`,{
+              method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({hidden:false})
+            })
+          : await fetch(`${EDGE_BASE}/manage-content`,{
+              method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY},
+              body:JSON.stringify({passkey:getPasskey(),action:'unhide_asset',payload:{filename}})
+            });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data?.error) {
           showToast(data?.error || 'Could not restore this file', 'error');
