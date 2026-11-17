@@ -1017,3 +1017,23 @@ footer.footer-reimagined{background:#f4f0e6!important;background-image:none!impo
  .footer-reimagined .footer-logo{height:66px}
  .footer-reimagined #footer-tagline{font-size:21px}
 }
+
+/* Statement of faith: balanced image and two-column beliefs, no tall blank area. */
+#foundation .faith-block{grid-template-columns:minmax(260px,.78fr) minmax(0,1.22fr);gap:clamp(28px,4vw,58px);margin-top:54px;padding-top:50px;align-items:start}
+#foundation .faith-heading h3{font-size:clamp(32px,3.5vw,46px);margin-bottom:20px}
+#foundation .faith-media{margin-top:18px;max-width:440px}
+#foundation .faith-media img{display:block;width:100%;height:clamp(340px,34vw,500px);aspect-ratio:auto;object-fit:cover;object-position:center 62%}
+#foundation .faith-copy{columns:2;column-gap:26px;column-rule:0}
+#foundation .faith-copy p{font-size:14.5px;line-height:1.7;margin:0 0 15px;break-inside:avoid}
+@media(max-width:1000px){
+ #foundation .faith-block{grid-template-columns:minmax(230px,.8fr) minmax(0,1.2fr);gap:30px}
+ #foundation .faith-copy{columns:1}
+ #foundation .faith-media img{height:420px}
+}
+@media(max-width:760px){
+ #foundation .faith-block{grid-template-columns:1fr;gap:28px;margin-top:40px;padding-top:38px}
+ #foundation .faith-media{max-width:520px}
+ #foundation .faith-media img{height:auto;aspect-ratio:5/4;object-position:center 56%}
+ #foundation .faith-copy{columns:1}
+ #foundation .faith-copy p{font-size:15px;margin-bottom:13px}
+}
