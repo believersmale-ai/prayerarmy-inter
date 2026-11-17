@@ -1037,3 +1037,61 @@ footer.footer-reimagined{background:#f4f0e6!important;background-image:none!impo
  #foundation .faith-copy{columns:1}
  #foundation .faith-copy p{font-size:15px;margin-bottom:13px}
 }
+
+/* Site-wide proportion audit (2026-11): content-led heights and balanced grids.
+   These rules follow legacy and redesign layers, without modifying JS or forms. */
+:root{--content-gap:clamp(22px,3.2vw,52px)}
+#about .about-grid{gap:var(--content-gap);align-items:start}
+#about .about-photo{max-width:100%;align-self:start}
+#about .about-photo img{display:block;aspect-ratio:4/4.1;max-height:590px;object-fit:cover}
+#about .about-stats{margin-block:22px;gap:14px}
+#foundation .foundation-grid{gap:16px}
+#foundation .foundation-card{min-height:0;padding:clamp(22px,2.7vw,34px)}
+#foundation .foundation-card h3{margin-bottom:12px}
+#foundation .story-grid{margin-top:42px;gap:18px;align-items:start}
+#foundation .story-card,#foundation .founder-card{min-height:0}
+#sermons .sermon-grid{gap:var(--content-gap);align-items:start}
+#sermons .messages-archive{margin-top:38px;padding-top:30px}
+#sermons .messages-list{gap:16px}
+#sermons .messages-empty{min-height:0;padding:22px}
+#live.live-section{min-height:0;padding-block:clamp(48px,6vw,76px)}
+#live .live-content{gap:var(--content-gap);align-items:center}
+#events .events-grid{gap:var(--content-gap);align-items:start}
+#events .event-poster{min-height:0;aspect-ratio:4/4.5}
+#events .event-poster img{height:100%;width:100%;object-fit:cover}
+#events .event-photo-stack{min-height:0;aspect-ratio:5/4}
+#events .weekly{margin-top:42px}
+#events .weekly-grid{gap:14px}
+#events .past-events{margin-top:36px}
+#gallery .gallery-grid{grid-template-rows:clamp(170px,17vw,240px) clamp(170px,17vw,240px);gap:12px}
+#testimonies .testimonies-grid{gap:16px;margin-bottom:22px}
+#connect .connect-grid{gap:var(--content-gap)}
+#contact .contact-grid{gap:16px;margin-top:24px}
+#contact .contact-social-card{padding:22px 26px;margin-top:22px}
+#locations .locations-grid{gap:16px}
+#announcements[hidden],#verse[hidden],#locations[hidden],#prayer[hidden],#prayer-wall[hidden],#testimonies-list[hidden]{display:none!important}
+@media(max-width:900px){
+ #about .about-grid,#sermons .sermon-grid,#live .live-content,#events .events-grid{gap:28px}
+ #about .about-photo{max-width:580px}
+ #about .about-photo img{aspect-ratio:5/4;max-height:450px}
+ #events .event-poster{aspect-ratio:5/4}
+ #events .event-photo-stack{aspect-ratio:16/10}
+ #gallery .gallery-grid{grid-template-rows:repeat(3,clamp(170px,26vw,230px))}
+ #foundation .story-grid{margin-top:32px}
+}
+@media(max-width:600px){
+ #about .about-grid,#sermons .sermon-grid,#live .live-content,#events .events-grid{gap:22px}
+ #about .about-photo img{aspect-ratio:5/4;max-height:340px}
+ #about .about-stats{margin-block:18px}
+ #foundation .foundation-grid{gap:12px}
+ #foundation .foundation-card{padding:24px 20px}
+ #foundation .story-grid{margin-top:26px}
+ #sermons .messages-archive{margin-top:26px;padding-top:22px}
+ #events .event-poster{aspect-ratio:4/3}
+ #events .event-photo-stack{aspect-ratio:4/3}
+ #events .weekly{margin-top:28px}
+ #events .past-events{margin-top:26px}
+ #gallery .gallery-grid{grid-template-rows:repeat(3,190px);gap:9px}
+ #contact .contact-grid{margin-top:18px}
+ #contact .contact-social-card{padding:18px;margin-top:18px}
+}
