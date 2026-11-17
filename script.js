@@ -1122,12 +1122,40 @@ const applySettings = (s) => {
     const ytId = extractYouTubeId(liveUrl);
     const isDirectVideo = ['.mp4', '.webm', '.mov', '.ogg'].some(ext => liveUrl.toLowerCase().endsWith(ext));
 
+    // Keep playback controls accessible after the preview thumbnail disappears.
+    // YouTube uses its iframe Player API; direct video uses native HTMLMediaElement.
+    let playbackPaused = false;
+    let playbackToggle = liveFrame.querySelector('.live-pause-toggle');
+    if (!playbackToggle) {
+      playbackToggle = document.createElement('button');
+      playbackToggle.type = 'button';
+      playbackToggle.className = 'live-pause-toggle';
+      playbackToggle.hidden = true;
+      liveFrame.appendChild(playbackToggle);
+    }
+    const updatePlaybackToggle = () => {
+      playbackToggle.textContent = playbackPaused ? '▶ Resume' : 'Ⅱ Pause';
+      playbackToggle.setAttribute('aria-label', playbackPaused ? 'Resume broadcast playback' : 'Pause broadcast playback');
+      playbackToggle.setAttribute('aria-pressed', String(playbackPaused));
+    };
+    playbackToggle.onclick = () => {
+      const player = liveFrame.querySelector('iframe, video');
+      if (!player) return;
+      playbackPaused = !playbackPaused;
+      if (player.tagName === 'VIDEO') {
+        if (playbackPaused) player.pause();
+        else player.play().catch(() => { playbackPaused = true; updatePlaybackToggle(); });
+      } else {
+        player.contentWindow?.postMessage(JSON.stringify({event:'command',func:playbackPaused?'pauseVideo':'playVideo',args:[]}), 'https://www.youtube.com');
+      }
+      updatePlaybackToggle();
+    };
     const startPlayback = () => {
       if (liveFrame.classList.contains('is-playing')) return;
       let player;
       if (ytId) {
         player = document.createElement('iframe');
-        player.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`;
+        player.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
         player.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
         player.allowFullscreen = true;
         player.title = s.live?.title || 'Live broadcast';
@@ -1143,6 +1171,9 @@ const applySettings = (s) => {
         return;
       }
       liveFrame.appendChild(player);
+      playbackPaused = false;
+      updatePlaybackToggle();
+      playbackToggle.hidden = false;
       liveFrame.classList.add('is-playing');
     };
 
