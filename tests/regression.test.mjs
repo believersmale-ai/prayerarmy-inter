@@ -103,5 +103,5 @@ test('runtime reports unavailable initialization without disclosing configuratio
 test('church workspace assets load and personal records require staff authentication', async () => {
   const shell=await fetch(base+'/church');assert.equal(shell.status,200);assert.match(shell.headers.get('x-robots-tag'),/noindex/);assert.equal(shell.headers.get('cache-control'),'no-store');
   for(const path of ['/church-management-ui.js','/church-management.css'])assert.equal((await fetch(base+path)).status,200,path);
-  for(const path of ['/api/church/groups','/api/church/members','/api/church/households','/api/church/sessions','/api/church/reports/attendance','/api/church/activity'])assert.equal((await fetch(base+path)).status,401,path);
+  for(const path of ['/api/church/shifts','/api/church/groups','/api/church/members','/api/church/households','/api/church/sessions','/api/church/reports/attendance','/api/church/activity'])assert.equal((await fetch(base+path)).status,401,path);
 });

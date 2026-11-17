@@ -488,6 +488,7 @@ td small {
   color: #ab4545;
 }
 .badge.closed,
+.badge.completed,
 .badge.excused {
   background: #eaf0f7;
   color: #536a89;
@@ -1170,4 +1171,19 @@ label {
   a {
     text-decoration: none;
   }
+}
+
+#shift-filters .search::before {
+  top: 34px;
+}
+#shift-filters > label {
+  flex: 1 1 160px;
+}
+#shift-filters .search {
+  flex: 2 1 230px;
+}
+
+.shift-timezone {
+  margin: 0;
+  padding: 10px 20px;
 }

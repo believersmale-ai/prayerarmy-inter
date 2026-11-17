@@ -2685,7 +2685,7 @@ const ROLE_HELP = {
   editor: 'Website content, events, giving, live status, pictures, sermons and visitor stats. Cannot see private prayer requests or the team list.',
   media: 'Pictures, videos, audio and the sermon archive only.',
   care: 'Private prayer requests, new visitors and volunteers, testimonies and the prayer wall only.',
-  registrar: 'Member directory, households, ministries, small groups, attendance sessions and reports.',
+  registrar: 'Member directory, households, ministries, small groups, volunteer scheduling, attendance sessions and reports.',
   usher: 'Attendance registers and check-in only. No member contact details or directory exports.'
 };
 const showRoleHelp = () => { const el = $('#team-role-help'); if (el) el.textContent = ROLE_HELP[$('#team-role').value] || ''; };

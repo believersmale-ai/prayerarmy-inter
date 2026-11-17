@@ -1,6 +1,6 @@
-# Church management — people, groups and attendance
+# Church management — people, groups, volunteers and attendance
 
-The church-management workspace includes **members, households, ministries/small groups and attendance**. It adds the private staff workspace at **`/church`** to the existing Node 22+/MySQL application. The public website, current media/editor improvements and separate PHP deployment remain in place.
+The church-management workspace includes **members, households, ministries/small groups, volunteer scheduling and attendance**. It adds the private staff workspace at **`/church`** to the existing Node 22+/MySQL application. The public website, current media/editor improvements and separate PHP deployment remain in place.
 
 ## What staff can do
 
@@ -8,6 +8,7 @@ The church-management workspace includes **members, households, ministries/small
 - Organize people into households, record relationships and select a primary contact from that household.
 - Archive and restore members and empty households while retaining their history.
 - Create ministries and small groups, record meeting details, assign member/leader roles and maintain group rosters.
+- Schedule group volunteer shifts, set capacities, assign eligible people, record confirmations and service outcomes, and export shift rosters.
 - Preview/validate/import CSV member lists in batches of up to 500 rows, with duplicate detection and retry protection. Export a filtered directory as CSV.
 - Optionally link a directory record to an already-active registered member account with the same email. Linking does not create, approve, promote or disable public accounts.
 - Create service sessions and open a register. First opening snapshots current non-archived, non-inactive directory records. Registrars can refresh an open roster to include newly added people.
@@ -39,6 +40,24 @@ Use the roster to change roles or remove people. Removed assignments are retaine
 Group lists and rosters are paginated. Search and filter the group list by name, type and archive status. Group edits and roster changes share an optimistic version; concurrent changes return 409 and require reopening the group before retrying. No group messages, recurring events or attendance sessions are created automatically. Meeting details are descriptive text, not a scheduling engine.
 
 `migrations/007_church_groups.sql` adds `church_groups` and `church_group_members`, with foreign keys to the directory. It runs idempotently after migration 006 during Node startup. Existing church records are retained; no production migration was performed while implementing this feature. Ushers and existing editor/media/pastoral-care roles have no new group access.
+
+## Volunteer scheduling
+
+Open **Volunteers** as a system admin or registrar. Create a shift for a current ministry or small group. Enter its title, volunteer role, location, instructions, local start/end times and capacity. A shift can last up to seven days and hold 1–500 people. Its group is fixed after creation; cancel it and create a new shift if it belongs elsewhere. Search current groups when creating a shift; the group picker loads up to 100 matches.
+
+Choose **Assign person** to find people on that group's current roster. The candidate picker has search and pagination. Archived directory members and people already reserving a place on that shift are excluded. Inactive membership status does not by itself remove a person from a ministry or disqualify them from serving. New reservations require a current group-roster assignment and an unarchived person and group.
+
+Staff record **Assigned**, **Confirmed**, **Declined**, **Served** or **No show** statuses. Confirmation is a staff record, not an automatic message or a response from a member portal. Assigned, confirmed, served and no-show records reserve places; declined and removed records release places. Those reserved records also prevent overlapping shifts, including completed historical shifts. Adjacent shifts where one ends exactly as the next starts are allowed. Service outcomes do not mark service attendance or change membership status.
+
+Capacity and overlapping bookings are checked transactionally for assignments, time/capacity edits and reopening. Cross-group bookings for the same person are checked too. All scheduler writes use a database row lock so separate Node processes cannot accept competing bookings simultaneously. A stale shift version returns 409; reopen the shift to review the latest roster before retrying. Repeating an identical status with the current version does not duplicate the assignment or increment its version.
+
+Complete a shift to lock its details and assignments. Staff can explicitly reopen a completed shift to correct it. Cancelling preserves assignments and releases their reservations. Reopening a cancelled shift rechecks every reserved assignment; it is rejected if someone has since been booked elsewhere. A completed/cancelled shift must be reopened before another state change. There is no hard-delete operation.
+
+Archiving a group preserves its shifts. Staff can complete/cancel its scheduled shifts or decline/remove existing assignments; editing, reopening and creating reservations require restoring the group. Archiving a member preserves their assignments and displays an archive label; decline/remove their reservation if needed. Removing someone from a group roster does not silently cancel existing shifts. Their existing reserved assignment can still be updated, but a declined/removed reservation cannot be reactivated until they rejoin the group. No messages or reminder emails are sent by this module.
+
+The schedule has search, state filters and optional date filters. Date filters select shift **start times** in the browser's timezone; choose both dates or leave both blank. The end date includes that entire local calendar day, and the requested interval must be at most 366 days. The list and shift rosters are paginated. Shift exports include UTC times, group, role, state, names, statuses and archived-member flags, with spreadsheet formula protection. They exclude member contact details and instructions. Exports and updates appear in Activity.
+
+`migrations/008_church_volunteers.sql` adds `church_volunteer_shifts`, `church_volunteer_assignments` and the singleton `church_schedule_lock`. It initializes idempotently after migrations 006 and 007 during Node startup. Existing member, group and attendance records are preserved. The existing member-management permission gates every volunteer endpoint; ushers and editor/media/care roles gain no access. No new production migration or deployment was performed while implementing this feature.
 
 ## Data and rules
 
@@ -81,12 +100,12 @@ pnpm run test:database
 
 For an existing Chromium installation, set `CHROMIUM_EXECUTABLE_PATH` when running the browser suite. No live church records, production credentials or external email delivery are used by the church-management tests.
 
-The API suite checks group CRUD, concurrent roster changes, duplicate protection, archive/restore rules and restart persistence, plus role boundaries, date validation, household invariants, version conflicts, concurrent check-ins, all-or-nothing batches, archive history, CSV safety, atomic duplicate imports, account-link protection, reports and persistence after restart.
+The API suite also runs `tests/volunteers.integration.mjs`, checking shift validation, permissions, capacities, competing bookings across groups, time edits, cancellations/reopening, archived people/groups, exports and restart persistence. It checks group CRUD, concurrent roster changes, duplicate protection, archive/restore rules and restart persistence, plus role boundaries, date validation, household invariants, version conflicts, concurrent check-ins, all-or-nothing batches, archive history, CSV safety, atomic duplicate imports, account-link protection, reports and persistence after restart.
 
-The browser suite creates and edits groups, assigns leaders, changes/removes roster assignments, archives/restores groups, tests group filters and mobile layouts, and creates and edits real test records through the UI, assigns a household primary contact, validates/imports a CSV, checks escaped markup, schedules in a non-UTC timezone, records and locks attendance, exports a report, archives/restores a member, checks all major views at 390/768/1440px and verifies logout clearing and usher privacy.
+The browser suite also runs `tests/volunteers.browser.mjs`, exercising shift creation/editing, group-roster assignment, capacity and overlap errors, status changes, completion/cancellation/reopening, exports, date filters, timezone conversion and responsive views. It creates and edits groups, assigns leaders, changes/removes roster assignments, archives/restores groups, tests group filters and mobile layouts, and creates and edits real test records through the UI, assigns a household primary contact, validates/imports a CSV, checks escaped markup, schedules in a non-UTC timezone, records and locks attendance, exports a report, archives/restores a member, checks all major views at 390/768/1440px and verifies logout clearing and usher privacy.
 
 ## Next releases toward the full church-management system
 
-The requested first-priority foundation is covered here. Follow-on modules are separate work: volunteer scheduling and group-specific attendance; pastoral-care cases; giving/funds/pledges/expenses and financial permissions; member self-service and agreed check-in policies; communications and consent preferences; academy/blog integration and organization-specific fields. Financial rules, membership criteria, messaging consent and retention policies should come from the church rather than be inferred by the software.
+The requested first-priority foundation is covered here. Follow-on modules are separate work: group-specific attendance; pastoral-care cases; giving/funds/pledges/expenses and financial permissions; member self-service and agreed check-in policies; communications and consent preferences; academy/blog integration and organization-specific fields. Financial rules, membership criteria, messaging consent and retention policies should come from the church rather than be inferred by the software.
 
 This branch is code for review and staging validation. No production database migration or hosting deployment was performed while building this release.
