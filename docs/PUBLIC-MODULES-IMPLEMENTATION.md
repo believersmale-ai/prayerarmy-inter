@@ -29,3 +29,23 @@ Membership fields, approval policy, branches/groups, guest attendance, check-in 
 
 ## Safety and verification
 Run real-DB tests for duplicate emails, expired/consumed tokens, cross-user access, staff-login regression, and rollback before enabling public signup. Never commit credentials or run schema changes on production without an approved backup.
+
+## Shared account email verification configuration (staging only)
+The SQL migration must be applied to the existing staging database before enabling these endpoints. The developer has not verified the remote database state.
+
+Set the following Hostinger staging environment variables (never commit values):
+```env
+PAI_PUBLIC_ACCOUNTS_ENABLED=true
+PAI_PUBLIC_REGISTRATION_ENABLED=true
+PAI_PUBLIC_BASE_URL=https://staging.prayerarmyinternational.com
+PAI_SMTP_HOST=<your SMTP host>
+PAI_SMTP_PORT=587
+PAI_SMTP_USER=<SMTP username>
+PAI_SMTP_PASS=<SMTP password>
+PAI_MAIL_FROM=<verified sender email>
+```
+Install Node dependencies during deployment (`npm install`). Do not enable registration until a real SMTP sender is configured and verified. If SMTP settings are missing, registration responds 503. The public auth API responds 404 when `PAI_PUBLIC_ACCOUNTS_ENABLED` is not true.
+
+Endpoints: `POST /api/public/register` (displayName,email,password), `GET /api/public/verify-email?token=...`, `POST /api/public/login` (email,password), `GET /api/public/me`, `POST /api/public/logout`. Login and logout require same-origin browser requests; login requires verified active accounts. Email verification tokens are single-use and expire after 24 hours. Registration is not currently exposed through a public website form.
+
+**Security and rollout:** Test with disposable staging accounts; do not enable on production. SMTP delivery and real MySQL migration have not been verified by the developer. Account recovery, resend verification, admin approval, member profiles, and attendance remain pending.
