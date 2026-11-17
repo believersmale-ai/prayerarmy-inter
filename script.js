@@ -1015,8 +1015,16 @@ const applySettings = (s) => {
 
   // Hero Background Media (Image or Video)
   if (heroMedia && s.hero?.bgImage) {
-    const bg = s.hero.bgImage;
-    const isVideo = ['.mp4', '.webm', '.mov', '.ogg'].some(ext => bg.toLowerCase().endsWith(ext));
+    // The church crest is a brand asset, not a full-bleed photograph.
+    // Prevent an accidental logo selection from obscuring the entire homepage.
+    const requestedBg = safeLinkUrl(s.hero.bgImage);
+    const logoPath = String(s.general?.logoUrl || '').split('?')[0].toLowerCase();
+    const bgPath = requestedBg.split('?')[0].toLowerCase();
+    const isBrandLogo = /(?:^|\\/)(?:prayer[-_ ]?army[-_ ]?logo|logo[-_ ]?prayer[-_ ]?army)\\.(?:png|jpe?g|webp|svg)$/i.test(bgPath)
+      || Boolean(logoPath && bgPath === logoPath);
+    const bg = isBrandLogo || !requestedBg ? DEFAULT_SETTINGS.hero.bgImage : requestedBg;
+    heroMedia.classList.toggle('hero-logo-fallback',isBrandLogo);
+    const isVideo = ['.mp4', '.webm', '.mov', '.ogg'].some(ext => bg.toLowerCase().split('?')[0].endsWith(ext));
     if (isVideo) {
       heroMedia.style.backgroundImage = 'none';
       let vid = heroMedia.querySelector('video.hero-bg-video');
