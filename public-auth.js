@@ -3,10 +3,31 @@
 import { Router } from 'express';
 import { randomBytes, createHash, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import nodemailer from 'nodemailer';
 const scrypt = promisify(scryptCb);
 const digest = token => createHash('sha256').update(token).digest();
 const normalize = value => String(value ?? '').trim();
 const publicView = row => ({ id: String(row.id), displayName: row.display_name, email: row.email, roles: row.roles || [] });
+const passwordHash = async password => {
+  const salt = randomBytes(16).toString('hex');
+  const hash = await scrypt(password,salt,64);
+  return `scrypt:${salt}:${hash.toString('hex')}`;
+};
+const mailReady = () => Boolean(process.env.PAI_SMTP_HOST && process.env.PAI_SMTP_USER && process.env.PAI_SMTP_PASS && process.env.PAI_MAIL_FROM && process.env.PAI_PUBLIC_BASE_URL);
+async function sendVerification(email,token) {
+  const base = new URL(process.env.PAI_PUBLIC_BASE_URL);
+  if (base.protocol !== 'https:') throw Error('Public base URL must use HTTPS');
+  const link = new URL('/api/public/verify-email',base);
+  link.searchParams.set('token',token);
+  const transport = nodemailer.createTransport({
+    host:process.env.PAI_SMTP_HOST,
+    port:Number(process.env.PAI_SMTP_PORT || 587),
+    secure:Number(process.env.PAI_SMTP_PORT || 587)===465,
+    auth:{user:process.env.PAI_SMTP_USER,pass:process.env.PAI_SMTP_PASS}
+  });
+  await transport.sendMail({from:process.env.PAI_MAIL_FROM,to:email,subject:'Verify your Prayer Army International account',
+    text:`Please verify your email address using this link (expires in 24 hours):\n${link.href}\nIf you did not register, ignore this email.`});
+}
 const checkPassword = async (password, encoded) => {
   const parts = String(encoded || '').split(':');
   if (parts.length !== 3 || parts[0] !== 'scrypt' || !/^[0-9a-f]{32}$/.test(parts[1]) || !/^[0-9a-f]{128}$/.test(parts[2])) return false;
@@ -46,10 +67,47 @@ export function createPublicAccountRouter(db) {
     if (hits.length>20) return res.status(429).json({error:'Too many requests; try later'});
     next();
   };
-  // Do not accept registrations before email verification delivery is implemented.
-  // A pending account without a delivered verification link cannot be activated.
-  router.post('/register',throttle,(req,res)=>{
-    res.status(503).json({error:'Registration is not open yet'});
+  router.post('/register',throttle,async(req,res)=>{
+    if (!mailReady() || process.env.PAI_PUBLIC_REGISTRATION_ENABLED !== 'true')
+      return res.status(503).json({error:'Registration is not open yet'});
+    const email=normalize(req.body?.email).toLowerCase(),name=normalize(req.body?.displayName),password=req.body?.password;
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length>254 || name.length<2 || name.length>150 ||
+      typeof password!=='string' || password.length<12 || password.length>128)
+      return res.status(400).json({error:'Invalid registration details'});
+    const message={message:'If the address is eligible, a verification email will be sent'};
+    try {
+      const [found]=await db.execute('SELECT id FROM public_accounts WHERE email=? LIMIT 1',[email]);
+      if(found.length) return res.status(202).json(message);
+      const hash=await passwordHash(password),token=randomBytes(32).toString('hex');
+      const connection=await db.getConnection();
+      try {
+        await connection.beginTransaction();
+        const [created]=await connection.execute('INSERT INTO public_accounts (email,password_hash,display_name,status) VALUES (?,?,?,?)',[email,hash,name,'pending']);
+        await connection.execute("INSERT INTO public_auth_tokens (account_id,token_hash,purpose,expires_at) VALUES (?,?,'verify_email',DATE_ADD(UTC_TIMESTAMP(), INTERVAL 24 HOUR))",[created.insertId,digest(token)]);
+        await sendVerification(email,token);
+        await connection.commit();
+      } catch(err){await connection.rollback();throw err;} finally{connection.release();}
+      return res.status(202).json(message);
+    } catch(err) {
+      if(err.code==='ER_DUP_ENTRY')return res.status(202).json(message);
+      console.error('Public registration failed:',err.code||err.message);
+      return res.status(503).json({error:'Registration temporarily unavailable'});
+    }
+  });
+  router.get('/verify-email',throttle,async(req,res)=>{
+    const token=String(req.query.token||'');
+    if(!/^[0-9a-f]{64}$/.test(token))return res.status(400).type('text/plain').send('Invalid verification link');
+    const connection=await db.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows]=await connection.execute("SELECT account_id FROM public_auth_tokens WHERE token_hash=? AND purpose='verify_email' AND consumed_at IS NULL AND expires_at>UTC_TIMESTAMP() FOR UPDATE",[digest(token)]);
+      if(!rows.length){await connection.rollback();return res.status(400).type('text/plain').send('Verification link is invalid or expired');}
+      await connection.execute("UPDATE public_accounts SET status='active',email_verified_at=UTC_TIMESTAMP() WHERE id=? AND status='pending'",[rows[0].account_id]);
+      await connection.execute("UPDATE public_auth_tokens SET consumed_at=UTC_TIMESTAMP() WHERE token_hash=?",[digest(token)]);
+      await connection.commit();
+      res.type('text/plain').send('Email verified. You can now sign in.');
+    } catch(err){await connection.rollback();console.error('Email verification failed:',err.code||err.message);res.status(503).type('text/plain').send('Verification temporarily unavailable');}
+    finally{connection.release();}
   });
   router.post('/login',throttle,async(req,res)=>{
     const email=normalize(req.body?.email).toLowerCase(),password=req.body?.password;
