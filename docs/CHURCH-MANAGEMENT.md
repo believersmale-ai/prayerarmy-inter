@@ -11,6 +11,7 @@ The church-management workspace includes **members, households, ministries/small
 - Schedule group volunteer shifts, set capacities, assign eligible people, record confirmations and service outcomes, and export shift rosters.
 - Preview/validate/import CSV member lists in batches of up to 500 rows, with duplicate detection and retry protection. Export a filtered directory as CSV.
 - Optionally link a directory record to an already-active registered member account with the same email. Linking does not create, approve, promote or disable public accounts.
+- Offer scheduled member self-check-in through `/member`, with approved/linked accounts and staff-issued arrival codes. See [member check-in and portal operations](MEMBER-CHECKIN.md).
 - Create service sessions and open a register. First opening snapshots current non-archived, non-inactive directory records. Registrars can refresh an open roster to include newly added people.
 - Record present, late, excused, absent or unmarked attendance; save a page of changes together; correct marks after explicitly reopening a closed register.
 - Add unnamed guest totals separately from named attendance.
@@ -106,6 +107,6 @@ The browser suite also runs `tests/volunteers.browser.mjs`, exercising shift cre
 
 ## Next releases toward the full church-management system
 
-The requested first-priority foundation is covered here. Follow-on modules are separate work: group-specific attendance; pastoral-care cases; giving/funds/pledges/expenses and financial permissions; member self-service and agreed check-in policies; communications and consent preferences; academy/blog integration and organization-specific fields. Financial rules, membership criteria, messaging consent and retention policies should come from the church rather than be inferred by the software.
+The requested first-priority foundation is covered here. Follow-on modules are separate work: group-specific attendance; pastoral-care cases; giving/funds/pledges/expenses and financial permissions; expanded member self-service and agreed check-in policies; communications and consent preferences; academy/blog integration and organization-specific fields. Financial rules, membership criteria, messaging consent and retention policies should come from the church rather than be inferred by the software.
 
 This branch is code for review and staging validation. No production database migration or hosting deployment was performed while building this release.

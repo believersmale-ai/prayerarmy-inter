@@ -1,0 +1,220 @@
+.portal-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 13px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #dce2e2;
+}
+.portal-tools-label {
+  font:
+    700 10px/1.5 system-ui,
+    sans-serif;
+  letter-spacing: 0.15em;
+  color: #60717b;
+}
+.portal-tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.portal-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #c7d0d4;
+  border-radius: 7px;
+  background: #fff;
+  color: #1c3442;
+  font:
+    650 12px/1.4 system-ui,
+    sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.portal-button:focus-visible,
+.portal-command-item:focus-visible {
+  outline: 3px solid #b08a3d;
+  outline-offset: 3px;
+}
+.portal-button:hover {
+  background: #edf2f2;
+}
+.portal-skip {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 3000;
+  background: #112633;
+  color: #fff;
+  padding: 14px;
+  border-radius: 8px;
+  font: 650 14px system-ui;
+}
+.portal-skip:focus {
+  top: 12px;
+}
+.portal-command {
+  box-sizing: border-box;
+  width: min(94vw, 600px);
+  max-height: 80vh;
+  padding: 22px;
+  border: 1px solid #ccd5d8;
+  border-radius: 14px;
+  background: #fff;
+  color: #182733;
+  box-shadow: 0 20px 80px #0004;
+}
+.portal-command::backdrop {
+  background: #0c1b2b99;
+  backdrop-filter: blur(3px);
+}
+.portal-command-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.portal-command h2 {
+  font: 700 18px/1.4 system-ui;
+  margin: 0;
+}
+.portal-command input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px;
+  font: 16px/1.5 system-ui;
+  background: #fff;
+  color: #182733;
+  border: 1px solid #aabac1;
+  border-radius: 8px;
+}
+.portal-command > p {
+  font: 12px/1.7 system-ui;
+  color: #5e6d75;
+  margin: 12px 0;
+}
+.portal-command-results {
+  display: grid;
+  gap: 5px;
+  max-height: 45vh;
+  overflow: auto;
+}
+.portal-command-item {
+  text-align: left;
+  padding: 14px;
+  border-radius: 7px;
+  border: 0;
+  background: #f3f6f6;
+  color: #182733;
+  font: 600 14px/1.4 system-ui;
+  cursor: pointer;
+  min-height: 44px;
+}
+.portal-command-item:hover,
+.portal-command-item:focus {
+  background: #e4ecef;
+}
+.portal-offline {
+  background: #fff0cb;
+  color: #644315;
+  padding: 14px 18px;
+  border: 1px solid #cba85a;
+  border-radius: 8px;
+  font: 13px/1.6 system-ui;
+}
+.checkin-issued {
+  text-align: center;
+}
+.checkin-issued output {
+  display: block;
+  margin: 22px 0;
+  font-size: clamp(30px, 7vw, 48px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #243f4e;
+}
+.checkin-issued .actions {
+  justify-content: center;
+}
+.checkin-issued p,
+.checkin-guide p {
+  line-height: 1.8;
+}
+.checkin-guide {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 15px;
+}
+.checkin-guide ol {
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.portal-print-sheet {
+  display: none;
+}
+#admin-app .portal-tools {
+  border-color: #3b4b61;
+}
+#admin-app .portal-tools-label {
+  color: #c3cedd;
+}
+#admin-app .portal-button {
+  border-color: #52627c;
+  background: #172338;
+  color: #eaf0f9;
+}
+#admin-app .portal-button:hover {
+  background: #24364f;
+}
+@media (max-width: 650px) {
+  .portal-tools-label {
+    width: 100%;
+  }
+  .portal-tool-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .portal-tool-actions #portal-find {
+    grid-column: 1/-1;
+  }
+  .portal-button {
+    min-height: 44px;
+    font-size: 11px;
+  }
+  .portal-command {
+    padding: 16px;
+  }
+}
+@media print {
+  .portal-tools,
+  .portal-skip,
+  .portal-offline,
+  .portal-command {
+    display: none !important;
+  }
+  body.printing-checkin > * {
+    display: none !important;
+  }
+  body.printing-checkin > .portal-print-sheet {
+    display: block !important;
+    color: #000;
+    font-family: system-ui, sans-serif;
+    padding: 25px;
+    line-height: 1.8;
+  }
+  .portal-print-sheet .portal-print-code {
+    font-size: 70px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    margin: 30px 0;
+  }
+}

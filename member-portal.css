@@ -1,0 +1,227 @@
+body {
+  background: #f5f6f3;
+}
+.member-header {
+  padding: 24px max(5vw, 20px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  gap: 20px;
+}
+.member-brand {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+.member-brand > span:first-child {
+  font-size: 34px;
+  color: #9a762e;
+}
+.member-brand small {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.16em;
+  margin-top: 5px;
+}
+.member-header nav {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 12px;
+}
+.member-header nav a {
+  font-weight: 600;
+}
+#member-main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 50px 24px;
+  outline: none;
+}
+.member-intro {
+  max-width: 740px;
+  margin-bottom: 30px;
+}
+.member-intro h1 {
+  font-family: Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.16;
+  margin: 14px 0;
+}
+.member-intro p {
+  line-height: 1.7;
+}
+.member-card {
+  padding: 28px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
+.member-card h2 {
+  font-family: Georgia, serif;
+  font-weight: 500;
+  margin: 5px 0 12px;
+  font-size: 25px;
+}
+.member-card form {
+  display: grid;
+  gap: 16px;
+  max-width: 480px;
+}
+.member-card label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.member-card input {
+  min-height: 46px;
+  font-size: 16px;
+}
+.member-card p {
+  line-height: 1.65;
+}
+.member-card button {
+  min-height: 44px;
+}
+.member-services {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.member-services .member-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.member-services form {
+  margin-top: auto;
+}
+.member-services dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.member-services dd {
+  margin: 3px 0 0;
+}
+.member-services dt {
+  color: var(--muted);
+}
+.member-services input[name="code"] {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+.member-receipt {
+  background: #e8f3ed;
+  border: 1px solid #b6d7c8;
+  border-radius: 8px;
+  padding: 16px;
+  color: #22583e;
+  line-height: 1.6;
+}
+.member-message {
+  padding: 16px 20px;
+  border-radius: 8px;
+  background: #fff4db;
+  border: 1px solid #e1c488;
+  line-height: 1.7;
+  margin: 0 0 22px;
+}
+.member-help {
+  padding: 26px 0;
+  max-width: 740px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.member-help h2 {
+  color: var(--ink);
+  font-size: 16px;
+}
+.member-help ol {
+  padding-left: 20px;
+}
+.member-help li {
+  padding: 4px 0;
+}
+.member-history {
+  margin-top: 30px;
+}
+.member-history ul {
+  padding: 0;
+  list-style: none;
+}
+.member-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+  font-size: 13px;
+}
+.member-history small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.member-footer {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.member-skip {
+  position: fixed;
+  left: 16px;
+  top: -90px;
+  z-index: 100;
+  background: var(--navy);
+  color: #fff;
+  padding: 12px;
+  border-radius: 6px;
+}
+.member-skip:focus {
+  top: 12px;
+}
+@media (max-width: 650px) {
+  .member-services {
+    grid-template-columns: 1fr;
+  }
+  .member-header {
+    padding: 18px;
+    flex-wrap: wrap;
+  }
+  .member-header nav {
+    width: 100%;
+    justify-content: flex-end;
+    font-size: 11px;
+  }
+  #member-main {
+    padding: 30px 18px;
+  }
+  .member-card {
+    padding: 22px;
+  }
+  .member-header button {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}

@@ -3,6 +3,13 @@ on:
   pull_request:
     paths:
       - "church-management*"
+      - "member-portal*"
+      - "index.html"
+      - "portal-shell*"
+      - "public-auth.js"
+      - "admin*"
+      - "scripts/build-static-preview.mjs"
+      - "vercel.json"
       - "node-*.js"
       - "server.js"
       - "database.js"

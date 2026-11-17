@@ -97,6 +97,7 @@ content.register(app);
 const church = createChurchManagement(store, staff);
 app.use('/api/church', church.router);
 app.get(['/church','/church/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'church-management.html')));
+app.get(['/member','/member/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'member-portal.html')));
 registerMediaPosts(app,{db,staff,sameOrigin,uploadDir:UPLOAD_DIR,mediaTypeOf});
 registerBundledMediaVisibility(app,{db,staff,sameOrigin,imagesDir:IMAGES_DIR});
 
@@ -104,7 +105,7 @@ registerBundledMediaVisibility(app,{db,staff,sameOrigin,imagesDir:IMAGES_DIR});
 // package files, docs or migrations.
 const PUBLIC_FILES = ['index.html', 'admin.html', 'member-register.html', 'privacy.html', 'terms.html', 'styles.css', 'template.css',
   'script.js', 'site-extras.js', 'agent-tools.js', 'admin.js', 'admin-ux.js', 'admin-dashboard.js',
-  'admin-ux.css', 'admin-dashboard.css', 'admin-media-posts.js', 'public-media-posts.js', 'media-posts.css', 'public-polish.css', 'church-management-ui.js', 'church-management.css', 'hero-slides.css', 'footer-fix.css', 'admin-hero-slides.js', 'admin-quick-edit.js', 'admin-quick-edit.css', 'public-hero-slides.js', 'robots.txt'];
+  'admin-ux.css', 'admin-dashboard.css', 'admin-media-posts.js', 'public-media-posts.js', 'media-posts.css', 'public-polish.css', 'church-management-ui.js', 'church-management.css', 'member-portal.js', 'member-portal.css', 'portal-shell.js', 'portal-shell.css', 'hero-slides.css', 'footer-fix.css', 'admin-hero-slides.js', 'admin-quick-edit.js', 'admin-quick-edit.css', 'public-hero-slides.js', 'robots.txt'];
 for (const f of PUBLIC_FILES) {
   app.get('/' + f, (req, res) => {
     if (f === 'admin.html') { res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive'); }
@@ -573,7 +574,7 @@ app.post('/api/admin/membership/applications/:id/decision',...staff.permit('team
 });
 
 // Public account routes remain opt-in; their schema is initialized when enabled.
-app.use('/api/public', createPublicAccountRouter(db));
+app.use('/api/public', createPublicAccountRouter(db,{memberRouter:church.memberRouter}));
 
 // ---------- fallbacks (must stay last) ----------
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
   check,
@@ -49,6 +49,14 @@ const instant = (value, label) => {
       ),
     400,
     `${label} needs a date, time and timezone`,
+  );
+  dateOnly(value.slice(0, 10), label);
+  check(
+    /T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.test(
+      value,
+    ),
+    400,
+    `${label} must be valid`,
   );
   const d = new Date(value);
   check(!Number.isNaN(d.getTime()), 400, `${label} must be valid`);
@@ -115,6 +123,7 @@ const csvCell = (v) => {
 export function createChurchManagement(store, staff) {
   const { query, one, transaction } = store;
   const router = Router();
+  const memberRouter = Router();
   router.use(staff.authorize);
   router.use((req, res, next) => {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
@@ -869,6 +878,17 @@ export function createChurchManagement(store, staff) {
       [id],
       c,
     );
+  // These callbacks contain only transactional SQL; a deadlock rollback is safe to retry.
+  const attendanceTransaction = async (fn) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await transaction(fn);
+      } catch (error) {
+        if (error.code !== "ER_LOCK_DEADLOCK" || attempt >= 4) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 15 * 2 ** attempt));
+      }
+    }
+  };
   const sessionStats = async (id) =>
     view(
       await one(
@@ -949,7 +969,7 @@ export function createChurchManagement(store, staff) {
       );
       await transaction(async (c) => {
         const old = await one(
-          "SELECT version,state FROM church_sessions WHERE id=? FOR UPDATE",
+          "SELECT version,state,starts_at,ends_at FROM church_sessions WHERE id=? FOR UPDATE",
           [id],
           c,
         );
@@ -969,6 +989,15 @@ export function createChurchManagement(store, staff) {
           [...Object.values(data), guests, id],
           c,
         );
+        if (
+          utc(old.starts_at) !== data.starts_at ||
+          utc(old.ends_at) !== data.ends_at
+        )
+          await query(
+            "UPDATE church_checkin_settings SET enabled=0,updated_at=UTC_TIMESTAMP() WHERE session_id=?",
+            [id],
+            c,
+          );
         await audit(
           req,
           "session",
@@ -993,7 +1022,7 @@ export function createChurchManagement(store, staff) {
         400,
         "Choose a valid session state",
       );
-      await transaction(async (c) => {
+      await attendanceTransaction(async (c) => {
         const old = await one(
           "SELECT * FROM church_sessions WHERE id=? FOR UPDATE",
           [id],
@@ -1030,7 +1059,7 @@ export function createChurchManagement(store, staff) {
     permit("attendance_manage"),
     route(async (req, res) => {
       const id = idOf(req.params.id);
-      const added = await transaction(async (c) => {
+      const added = await attendanceTransaction(async (c) => {
         const s = await one(
           "SELECT state FROM church_sessions WHERE id=? FOR UPDATE",
           [id],
@@ -1085,7 +1114,7 @@ export function createChurchManagement(store, staff) {
         }
       }
       const join =
-        "FROM church_roster r JOIN church_members m ON m.id=r.member_id LEFT JOIN church_households h ON h.id=m.household_id LEFT JOIN church_attendance a ON a.session_id=r.session_id AND a.member_id=r.member_id";
+        "FROM church_roster r JOIN church_members m ON m.id=r.member_id LEFT JOIN church_households h ON h.id=m.household_id LEFT JOIN church_attendance a ON a.session_id=r.session_id AND a.member_id=r.member_id LEFT JOIN church_self_checkins ci ON ci.session_id=r.session_id AND ci.member_id=r.member_id";
       const total = count(
         (
           await one(
@@ -1095,7 +1124,7 @@ export function createChurchManagement(store, staff) {
         ).n,
       );
       const rows = await query(
-        `SELECT m.id,m.first_name,m.last_name,m.preferred_name,m.membership_status,m.archived_at,h.name AS household_name,a.status,a.checked_in_at,COALESCE(a.version,0) AS record_version ${join} WHERE ${conditions.join(" AND ")} ORDER BY m.last_name,m.first_name,m.id LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        `SELECT m.id,m.first_name,m.last_name,m.preferred_name,m.membership_status,m.archived_at,h.name AS household_name,a.status,a.checked_in_at,COALESCE(a.version,0) AS record_version,ci.checked_in_at AS self_checked_in_at ${join} WHERE ${conditions.join(" AND ")} ORDER BY m.last_name,m.first_name,m.id LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
         args,
       );
       res.json({
@@ -1143,7 +1172,7 @@ export function createChurchManagement(store, staff) {
           "Reload attendance before saving",
         );
       }
-      const changed = await transaction(async (c) => {
+      const changed = await attendanceTransaction(async (c) => {
         const session = await one(
           "SELECT state FROM church_sessions WHERE id=? FOR UPDATE",
           [id],
@@ -2068,7 +2097,7 @@ export function createChurchManagement(store, staff) {
     route(async (req, res) => {
       const { page, limit } = pageOf(req.query);
       const rows = await query(
-        `SELECT a.*,COALESCE(p.display_name,u.email,IF(a.actor_id IS NULL,'Shared passkey','Former staff')) AS actor_name,CASE WHEN m.id IS NOT NULL THEN CONCAT_WS(' ',m.first_name,m.last_name) ELSE COALESCE(h.name,s.title,g.name,vs.title) END AS record_name FROM church_activity a LEFT JOIN node_staff_profiles p ON p.user_id COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN admin_users u ON CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN church_members m ON m.id=a.entity_id AND a.entity_type IN ('member','attendance') LEFT JOIN church_households h ON h.id=a.entity_id AND a.entity_type='household' LEFT JOIN church_sessions s ON s.id=a.entity_id AND a.entity_type='session' LEFT JOIN church_groups g ON g.id=a.entity_id AND a.entity_type='group' LEFT JOIN church_volunteer_shifts vs ON vs.id=a.entity_id AND a.entity_type='shift' ORDER BY a.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
+        `SELECT a.*,COALESCE(p.display_name,u.email,CASE WHEN a.actor_id IS NULL THEN 'Shared passkey' WHEN a.actor_id LIKE 'member:%' THEN 'Member self check-in' ELSE 'Former staff' END) AS actor_name,CASE WHEN m.id IS NOT NULL THEN CONCAT_WS(' ',m.first_name,m.last_name) ELSE COALESCE(h.name,s.title,g.name,vs.title) END AS record_name FROM church_activity a LEFT JOIN node_staff_profiles p ON p.user_id COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN admin_users u ON CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci=a.actor_id LEFT JOIN church_members m ON m.id=a.entity_id AND a.entity_type IN ('member','attendance') LEFT JOIN church_households h ON h.id=a.entity_id AND a.entity_type='household' LEFT JOIN church_sessions s ON s.id=a.entity_id AND a.entity_type='session' LEFT JOIN church_groups g ON g.id=a.entity_id AND a.entity_type='group' LEFT JOIN church_volunteer_shifts vs ON vs.id=a.entity_id AND a.entity_type='shift' ORDER BY a.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
       );
       res.json({
         activity: rows.map((r) => ({
@@ -2081,11 +2110,305 @@ export function createChurchManagement(store, staff) {
       });
     }),
   );
+  const checkinConfig = async (id) => {
+    const session = await sessionView(id),
+      c = await one(
+        "SELECT enabled,opens_at,closes_at FROM church_checkin_settings WHERE session_id=?",
+        [id],
+      );
+    return {
+      session,
+      configuration: c
+        ? {
+            enabled: Boolean(c.enabled),
+            opens_at: view(c).opens_at,
+            closes_at: view(c).closes_at,
+          }
+        : null,
+      public_accounts_enabled:
+        process.env.PAI_PUBLIC_ACCOUNTS_ENABLED === "true",
+    };
+  };
+  router.get(
+    "/sessions/:id/check-in",
+    permit("attendance_manage"),
+    route(async (req, res) =>
+      res.json(await checkinConfig(idOf(req.params.id))),
+    ),
+  );
+  router.put(
+    "/sessions/:id/check-in",
+    permit("attendance_manage"),
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        b = object(req.body);
+      check(
+        typeof b.enabled === "boolean",
+        400,
+        "Choose whether member check-in is enabled",
+      );
+      let code = null;
+      await transaction(async (c) => {
+        const s = await one(
+          "SELECT * FROM church_sessions WHERE id=? FOR UPDATE",
+          [id],
+          c,
+        );
+        check(s, 404, "Service session not found");
+        check(
+          Number(s.version) === revision(b),
+          409,
+          "This session changed. Reload before configuring check-in",
+        );
+        check(
+          ["scheduled", "open"].includes(s.state),
+          409,
+          "Reopen the register before changing check-in settings",
+        );
+        if (b.enabled) {
+          const opens = instant(b.opens_at, "Check-in opening"),
+            closes = instant(b.closes_at, "Check-in closing");
+          check(
+            closes > opens &&
+              new Date(closes + "Z") - new Date(opens + "Z") <= 24 * 36e5,
+            400,
+            "Check-in needs a window of up to 24 hours",
+          );
+          check(
+            new Date(opens + "Z") >=
+              new Date(s.starts_at.getTime() - 24 * 36e5) &&
+              new Date(closes + "Z") <= s.ends_at,
+            400,
+            "Check-in must open within 24 hours before the service and close by its end",
+          );
+          code = randomBytes(4).toString("hex").toUpperCase();
+          await query(
+            "INSERT INTO church_checkin_settings(session_id,enabled,opens_at,closes_at,code_hash,updated_at) VALUES (?,1,?,?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE enabled=1,opens_at=VALUES(opens_at),closes_at=VALUES(closes_at),code_hash=VALUES(code_hash),updated_at=UTC_TIMESTAMP()",
+            [id, opens, closes, hash(code)],
+            c,
+          );
+        } else
+          await query(
+            "UPDATE church_checkin_settings SET enabled=0,updated_at=UTC_TIMESTAMP() WHERE session_id=?",
+            [id],
+            c,
+          );
+        await query(
+          "UPDATE church_sessions SET version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+          [id],
+          c,
+        );
+        await audit(
+          req,
+          "session",
+          id,
+          b.enabled ? "session.checkin_enabled" : "session.checkin_disabled",
+          ["enabled", "window", "code_rotated"],
+          c,
+        );
+      });
+      res.json({
+        ...(await checkinConfig(id)),
+        ...(code ? { code } : {}),
+        member_path: "/member?session=" + id,
+      });
+    }),
+  );
+  const linkedMember = (accountId, c, lock = false) =>
+    one(
+      "SELECT id,first_name,last_name,preferred_name,membership_status,archived_at FROM church_members WHERE account_id=?" +
+        (lock ? " FOR UPDATE" : ""),
+      [String(accountId)],
+      c,
+    );
+  const eligibleMember = (m) =>
+    m && !m.archived_at && m.membership_status !== "inactive";
+  memberRouter.use(
+    route(async (req, res, next) => {
+      check(
+        req.publicAccount?.roles?.includes("member"),
+        403,
+        "An approved member account is required",
+      );
+      next();
+    }),
+  );
+  memberRouter.get(
+    "/dashboard",
+    route(async (req, res) => {
+      const m = await linkedMember(req.publicAccount.id);
+      if (!eligibleMember(m))
+        return res.json({
+          linked: false,
+          message:
+            "Ask a church registrar to link your approved account to your current member record.",
+          sessions: [],
+          history: [],
+        });
+      const rows = await query(
+        "SELECT s.id,s.title,s.location,s.starts_at,s.ends_at,s.state,c.opens_at,c.closes_at,a.status,a.checked_in_at,(c.opens_at<=UTC_TIMESTAMP() AND c.closes_at>UTC_TIMESTAMP()) AS window_open FROM church_sessions s JOIN church_checkin_settings c ON c.session_id=s.id LEFT JOIN church_attendance a ON a.session_id=s.id AND a.member_id=? WHERE c.enabled=1 AND c.closes_at>UTC_TIMESTAMP() AND s.state IN ('scheduled','open') ORDER BY s.starts_at,s.id LIMIT 101",
+        [m.id],
+      );
+      const history = await query(
+        "SELECT s.id,s.title,s.starts_at,a.status,a.checked_in_at FROM church_attendance a JOIN church_sessions s ON s.id=a.session_id WHERE a.member_id=? ORDER BY s.starts_at DESC,s.id DESC LIMIT 25",
+        [m.id],
+      );
+      res.json({
+        linked: true,
+        member: { name: memberView(m).name },
+        server_time: (
+          await one("SELECT UTC_TIMESTAMP() AS server_now")
+        ).server_now.toISOString(),
+        has_more: rows.length > 100,
+        sessions: rows.slice(0, 100).map((r) => ({
+          ...view(r),
+          window_open: Boolean(Number(r.window_open)),
+          checked_in: ["present", "late"].includes(r.status),
+        })),
+        history: history.map(view),
+      });
+    }),
+  );
+  memberRouter.post(
+    "/sessions/:id/check-in",
+    route(async (req, res) => {
+      const id = idOf(req.params.id),
+        accountId = String(req.publicAccount.id),
+        b = object(req.body);
+      // Counter commits separately so rejected codes cannot roll back their own limit.
+      await query(
+        "INSERT INTO church_checkin_limits(account_id,bucket_started_at,attempts) VALUES (?,UTC_TIMESTAMP(),1) ON DUPLICATE KEY UPDATE attempts=IF(bucket_started_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 15 MINUTE),1,LEAST(attempts+1,13)),bucket_started_at=IF(bucket_started_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 15 MINUTE),UTC_TIMESTAMP(),bucket_started_at)",
+        [accountId],
+      );
+      const limit = await one(
+        "SELECT attempts FROM church_checkin_limits WHERE account_id=?",
+        [accountId],
+      );
+      if (Number(limit.attempts) > 12) {
+        res.set("Retry-After", "900");
+        check(
+          false,
+          429,
+          "Too many check-in attempts. Ask an usher for help or try again in 15 minutes",
+        );
+      }
+      const code = clean(b.code, 32).toUpperCase();
+      check(
+        /^[0-9A-F]{8}$/.test(code),
+        400,
+        "Enter the eight-character check-in code shown at the service",
+      );
+      const receipt = await attendanceTransaction(async (c) => {
+        const s = await one(
+          "SELECT * FROM church_sessions WHERE id=? FOR UPDATE",
+          [id],
+          c,
+        );
+        check(s, 404, "Service not found");
+        const m = await linkedMember(accountId, c, true);
+        check(
+          eligibleMember(m),
+          403,
+          "Ask a registrar to link your account to a current member record",
+        );
+        const config = await one(
+          "SELECT *,UTC_TIMESTAMP() AS server_now FROM church_checkin_settings WHERE session_id=?",
+          [id],
+          c,
+        );
+        check(
+          config?.enabled && ["scheduled", "open"].includes(s.state),
+          409,
+          "Member check-in is closed for this service. Please ask an usher",
+        );
+        check(
+          config.server_now >= config.opens_at &&
+            config.server_now < config.closes_at,
+          409,
+          "Check-in is outside the scheduled window. Please ask an usher",
+        );
+        check(
+          timingSafeEqual(
+            Buffer.from(hash(code)),
+            Buffer.from(config.code_hash),
+          ),
+          403,
+          "That check-in code is not valid. Use the current code shown at the service",
+        );
+        const old = await one(
+          "SELECT * FROM church_attendance WHERE session_id=? AND member_id=? FOR UPDATE",
+          [id, m.id],
+          c,
+        );
+        if (old && ["present", "late"].includes(old.status))
+          return {
+            status: old.status,
+            checked_in_at: view(old).checked_in_at,
+            already_checked_in: true,
+          };
+        check(
+          !old || old.status === "unmarked",
+          409,
+          "A staff attendance mark is already recorded. Please ask an usher to review it",
+        );
+        if (s.state === "scheduled") {
+          await refreshRoster(id, c);
+          await query(
+            "UPDATE church_sessions SET state='open',opened_at=COALESCE(opened_at,UTC_TIMESTAMP()),version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",
+            [id],
+            c,
+          );
+        }
+        await query(
+          "INSERT IGNORE INTO church_roster(session_id,member_id,added_at) VALUES (?,?,UTC_TIMESTAMP())",
+          [id, m.id],
+          c,
+        );
+        const previous = await one(
+            "SELECT checked_in_at FROM church_self_checkins WHERE session_id=? AND member_id=?",
+            [id, m.id],
+            c,
+          ),
+          arrival = previous?.checked_in_at || config.server_now;
+        await query(
+          "INSERT INTO church_attendance(session_id,member_id,status,checked_in_at,recorded_by,recorded_at) VALUES (?,?,'present',?,?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE status='present',checked_in_at=VALUES(checked_in_at),recorded_by=VALUES(recorded_by),recorded_at=UTC_TIMESTAMP(),version=version+1",
+          [id, m.id, arrival, "member:" + accountId],
+          c,
+        );
+        await query(
+          "INSERT IGNORE INTO church_self_checkins(session_id,member_id,account_id,checked_in_at) VALUES (?,?,?,?)",
+          [id, m.id, accountId, arrival],
+          c,
+        );
+        await query(
+          "INSERT INTO church_activity(actor_id,entity_type,entity_id,action,changed_fields,created_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())",
+          [
+            "member:" + accountId,
+            "attendance",
+            m.id,
+            "attendance.self_checkin",
+            JSON.stringify(["session:" + id]),
+          ],
+          c,
+        );
+        return {
+          status: "present",
+          checked_in_at: arrival.toISOString(),
+          already_checked_in: false,
+        };
+      });
+      res.json({
+        receipt: { ...receipt, session_id: id },
+        message: "You are checked in. Welcome!",
+      });
+    }),
+  );
   const initialize = async () => {
     for (const migration of [
       "006_church_management.sql",
       "007_church_groups.sql",
       "008_church_volunteers.sql",
+      "009_church_member_checkin.sql",
     ]) {
       const sql = await readFile(
         new URL("./migrations/" + migration, import.meta.url),
@@ -2099,5 +2422,5 @@ export function createChurchManagement(store, staff) {
         await store.db.query(statement);
     }
   };
-  return { router, initialize };
+  return { router, memberRouter, initialize };
 }

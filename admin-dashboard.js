@@ -22,7 +22,10 @@
    });
    shortcuts.append(b);
  });
+ const churchTask=document.createElement('a');churchTask.className='ux-task';churchTask.href='/church';churchTask.hidden=true;
+ const churchText=document.createElement('span');churchText.className='ux-task-text';const churchTitle=document.createElement('strong');churchTitle.textContent='Church management';const churchDescription=document.createElement('small');churchDescription.textContent='People, groups, volunteers and member check-in';churchText.append(churchTitle,churchDescription);churchTask.append(churchText);shortcuts.prepend(churchTask);
  document.addEventListener('pai:admin-ready',()=>{
+   churchTask.hidden=Boolean(document.getElementById('church-management-link')?.hidden);
    shortcuts.querySelectorAll('[data-view]').forEach(b=>{
      const target=document.querySelector('.sidebar-btn[data-view="'+b.dataset.view+'"]');
      b.hidden=!target || target.style.display==='none';

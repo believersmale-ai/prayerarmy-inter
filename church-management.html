@@ -8,7 +8,8 @@
     <link rel="icon" href="/assets/images/prayer-army-logo.png" />
     <link rel="stylesheet" href="/church-management.css" />
     <script src="/church-management-ui.js" defer></script>
-  </head>
+    <link rel="stylesheet" href="/portal-shell.css">
+</head>
   <body>
     <section id="church-login" class="login-shell" hidden>
       <form id="login-form" class="login-card">
@@ -125,7 +126,7 @@
         <div class="page-heading">
           <div>
             <p class="eyebrow">CHURCH LIFE, TOGETHER</p>
-            <h1 id="page-title">A place for every person.</h1>
+            <h1 id="page-title" tabindex="-1">A place for every person.</h1>
             <p id="page-description" class="muted">
               Keep your member records, households and attendance in one place.
             </p>
@@ -166,5 +167,6 @@
       <div id="dialog-body"></div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  </body>
+    <script src="/portal-shell.js" defer></script>
+</body>
 </html>

@@ -8,10 +8,13 @@ Ministries and small groups are available in the private `/church` workspace und
 
 Volunteer scheduling is available under **Volunteers**: create group shifts, assign people, record service outcomes and export rosters. Capacity and overlapping bookings are checked when assigning, rescheduling and reopening shifts. See [volunteer workflows](docs/CHURCH-MANAGEMENT.md#volunteer-scheduling).
 
+Members can now sign in at **`/member`** and check themselves into a scheduled service during its staff-configured window using the current on-site code. Staff approve/link accounts, issue or print codes from Attendance, and retain control of corrections. Both admin workspaces have a shared keyboard tool finder, portal navigation and refresh/offline feedback. See **[the member check-in guide](docs/MEMBER-CHECKIN.md)** for setup, workflows and tests.
+
+**Vercel is a public-only static preview.** Its build excludes backend/configuration files. Functional church management and member check-in require the Node/MySQL host; a static preview does not include those APIs.
+
 ## Deployment & backend (read this first)
 
-This site deploys to Vercel as a **plain static site**. No server, no build step, no environment
-variables. Everything you edit in the admin panel (`/admin`) is stored in Supabase.
+The Vercel target builds a **public-only static preview**. The active staff/church/member APIs use the configured Node/MySQL deployment. Older Supabase/static instructions below are legacy references; they do not deploy the Node backend.
 
 ### How access works
 - Each person signs in at `/admin` with **their own email and password**. Roles:
