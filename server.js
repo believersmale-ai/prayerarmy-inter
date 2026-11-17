@@ -324,8 +324,13 @@ app.get('/api/admin/dashboard',requireAdmin,async(req,res)=>{
       counts[key]=Number(rows[0].total);
     }catch(err){console.warn('Dashboard count unavailable:',key,err.code||err.message);}
   }
+  const activity=[];
+  try{
+    const [events]=await db.query("SELECT action, created_at FROM public_audit_events ORDER BY created_at DESC LIMIT 6");
+    for(const event of events)activity.push({action:String(event.action||'Account activity'),at:event.created_at});
+  }catch(err){console.warn('Dashboard activity unavailable:',err.code||err.message);}
   res.setHeader('Cache-Control','no-store');
-  res.json({counts});
+  res.json({counts,activity});
 });
 
 app.get('/api/admin/session',requireAdmin,async(req,res)=>{
