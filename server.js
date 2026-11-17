@@ -303,6 +303,15 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
+app.get('/api/admin/session',requireAdmin,async(req,res)=>{
+  try {
+    const email=String(process.env.ADMIN_EMAIL||'').trim().toLowerCase();
+    // Existing admin session is server-validated; no secrets returned.
+    res.setHeader('Cache-Control','no-store');
+    res.json({authenticated:true,user:{email,role:'admin'}});
+  }catch{res.status(503).json({error:'Session unavailable'});}
+});
+
 app.post('/api/admin/logout', (req, res) => {
   const t = parseCookies(req).admin_session;
   if (t) ADMIN_SESSIONS.delete(t);
