@@ -105,14 +105,20 @@ for (const f of PUBLIC_FILES) {
     res.sendFile(path.join(__dirname, f));
   });
 }
-app.get('/site-settings.json', (req, res) => { // never expose a legacy passkey stored in the file
+// Legacy settings URL must read the same authoritative MySQL row as /api/settings.
+app.get('/site-settings.json', async (req, res) => {
   try {
-    const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
-    delete data.passkey;
-    delete data.notifications; // internal notification settings are not public
+    const {settings, revision} = await getStoredSettings();
+    const publicSettings = {...settings};
+    delete publicSettings.passkey;
+    delete publicSettings.notifications;
     res.setHeader('Cache-Control', 'no-store');
-    res.json(data);
-  } catch { res.json({}); }
+    res.setHeader('X-Settings-Revision', String(revision));
+    res.json(publicSettings);
+  } catch (err) {
+    console.error('Legacy settings endpoint read failed:', err.code || err.message);
+    res.status(503).json({error:'Website settings database unavailable'});
+  }
 });
 // Keep public upload URLs stable when media is stored outside the deployed build.
 app.use('/assets/uploads', express.static(UPLOAD_DIR, { index: false, dotfiles: 'ignore', maxAge: '7d', setHeaders: res => res.setHeader('Content-Security-Policy', 'sandbox') }));
