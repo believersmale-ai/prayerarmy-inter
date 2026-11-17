@@ -512,12 +512,15 @@ sidebarButtons.forEach(btn => {
 /* =========================================================================
    3. SETTINGS DATA & DOM POPULATION
    ========================================================================= */
+let nodeSettingsRevision = null;
 const loadSettings = async () => {
   if(isNodeAdminSession()){
     try{
       const response=await _origFetch(`${SUPABASE_URL}/settings`,{cache:'no-store'});
       if(!response.ok)throw Error('Settings unavailable');
       currentSettings=await response.json();
+      nodeSettingsRevision=Number(response.headers.get('X-Settings-Revision'));
+      if(!Number.isSafeInteger(nodeSettingsRevision)||nodeSettingsRevision<1)throw Error('Settings revision unavailable');
       populateForm(currentSettings);
     }catch(err){showToast(err.message,'error');}
     return;
@@ -1931,7 +1934,7 @@ const saveSettings = async (showNotification = true) => {
   try {
     const res = isNodeAdminSession()
       ? await _origFetch(`${SUPABASE_URL}/settings`,{
-          method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+          method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','If-Match-Settings-Revision':String(nodeSettingsRevision||'')},
           body:JSON.stringify(data)
         })
       : await fetch(`${EDGE_BASE}/save-settings`, {
@@ -1940,6 +1943,11 @@ const saveSettings = async (showNotification = true) => {
         });
 
     if (res.ok) {
+      if(isNodeAdminSession()){
+        const saved=await res.json();
+        if(!saved.success||!Number.isSafeInteger(saved.revision))throw Error('Save was not confirmed by the database');
+        nodeSettingsRevision=saved.revision;
+      }
       document.dispatchEvent(new CustomEvent('pai:settings-save',{detail:{state:'saved'}}));
       currentSettings = data;
       // Also cache locally as an offline fallback for the public site
@@ -1969,7 +1977,7 @@ const saveSettings = async (showNotification = true) => {
     }
   } catch (err) {
     document.dispatchEvent(new CustomEvent('pai:settings-save',{detail:{state:'error'}}));
-    showToast('Network error while saving settings', 'error');
+    showToast(err?.message || 'Network error while saving settings', 'error');
   } finally {
     btnSaveAll.disabled = false;
     btnSaveAll.innerHTML = '<span>💾</span> Save Changes';
