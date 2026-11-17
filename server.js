@@ -272,7 +272,7 @@ app.get('/api/admin/hidden-assets', ...staff.permit('media'), async(req,res)=>{
 });
 app.put('/api/admin/hidden-assets/:filename', ...staff.permit('media'),requireSettingsOrigin,async(req,res)=>{
   const filename=String(req.params.filename||'');
-  if(!filename||filename.length>255||filename==='.'||filename==='..'||/[\\/\\\\\\x00-\\x1f]/.test(filename)||filename.startsWith('.')){
+  if(!filename||filename.length>255||filename==='.'||filename==='..'||filename.startsWith('.')||filename.includes('/')||filename.includes(String.fromCharCode(92))||[...filename].some(c=>c.charCodeAt(0)<32)){
     return res.status(400).json({error:'Invalid bundled media filename'});
   }
   if(typeof req.body?.hidden!=='boolean')return res.status(400).json({error:'hidden must be true or false'});
