@@ -1226,6 +1226,7 @@
   @media(max-width:760px){ .card{padding:18px !important;} }
 </style>
   <link rel="stylesheet" href="media-posts.css">
+  <link rel="stylesheet" href="hero-slides.css">
 </head>
 <body>
 
@@ -1681,6 +1682,21 @@
             </div>
 
             <div class="card">
+              <div class="hero-slide-manager" id="hero-slide-manager">
+                <h3 class="card-title">Rotating Hero Gallery</h3>
+                <p>Add as many church photographs or short videos as you need. Drag-free reorder with arrows, choose duration, and publish with the main Save Changes button.</p>
+                <div class="hero-slide-options">
+                  <label><input type="checkbox" id="hero-slider-enabled" checked> Enable automatic rotation</label>
+                  <label>Seconds per slide <input type="number" id="hero-slide-duration" min="4" max="30" value="7"></label>
+                </div>
+                <div id="hero-slide-list" aria-live="polite"></div>
+                <div class="hero-slide-add">
+                  <label for="hero-slide-new-url">Photo or video URL (from Media Uploader)</label>
+                  <input id="hero-slide-new-url" type="url" placeholder="/uploads/church-service.jpg">
+                  <button type="button" id="hero-slide-add-btn" class="btn btn-gold">Add to rotation</button>
+                </div>
+                <small>Use Media Uploader to upload images or MP4/WebM videos, then copy the media URL here. The first slide is displayed initially. Changes publish only when you save.</small>
+              </div>
               <h3 class="card-title">Hero Background Media</h3>
               <div class="form-group">
                 <label for="field-hero-bg">Background Picture or Video URL / Path</label>
@@ -1727,6 +1743,7 @@
                 <div class="form-group" style="flex:1;margin:0;">
                   <label for="field-logo-url">Logo Image URL</label>
                   <input type="text" id="field-logo-url" placeholder="assets/images/prayer-army-logo.png">
+                  <small>Replace the church logo anytime: upload a new image in Media Uploader, copy its URL here, then Save Changes. Existing logos are not deleted.</small>
                 </div>
               </div>
             </div>
@@ -2667,5 +2684,6 @@
   })();
   </script>
   <script src="admin-media-posts.js" defer></script>
+  <script src="admin-hero-slides.js" defer></script>
 </body>
 </html>
