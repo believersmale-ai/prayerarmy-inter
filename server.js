@@ -238,6 +238,24 @@ async function provisionInitialAdmin() {
 }
 
 const requireSettingsOrigin = sameOrigin;
+// Admin-only publishing health check: no credentials or filesystem paths exposed.
+app.get('/api/admin/publishing-health', ...staff.permit('settings'), async (req,res) => {
+  try {
+    const {revision}=await getStoredSettings();
+    const [rows]=await db.execute('SELECT updated_at FROM site_settings_store WHERE id=1');
+    let mediaTableReady=true;
+    try { await db.execute('SELECT id FROM site_media_posts LIMIT 0'); }
+    catch { mediaTableReady=false; }
+    res.setHeader('Cache-Control','no-store');
+    res.json({settingsDatabase:'connected',revision,updatedAt:rows[0]?.updated_at||null,
+      mediaDatabase:mediaTableReady?'connected':'migration_required',
+      mediaStorage:DATA_DIR?'persistent_directory_configured':'deployment_directory_not_persistent'});
+  } catch(err) {
+    console.error('Publishing health check:',err.code||err.message);
+    res.status(503).json({error:'Settings database unavailable'});
+  }
+});
+
 // ---------- settings ----------
 // Persistent settings: MySQL is authoritative. The bundled JSON is used only to
 // initialise an empty staging settings row, never to overwrite an existing row.
