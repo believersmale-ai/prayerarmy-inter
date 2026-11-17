@@ -540,6 +540,24 @@ app.delete('/api/media/:filename', requireAdmin, (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to delete file' }); }
 });
 
+// Membership approval policy: protected by the existing staff admin session.
+app.get('/api/admin/membership/configuration', requireAdmin, async(req,res)=>{
+  try {
+    const [rows]=await db.execute('SELECT approval_mode,require_email_verification FROM membership_configuration WHERE id=1');
+    if(!rows.length)return res.status(503).json({error:'Apply migration 002 first'});
+    res.setHeader('Cache-Control','no-store');
+    res.json({approvalMode:rows[0].approval_mode,requireEmailVerification:Boolean(rows[0].require_email_verification)});
+  } catch(err){console.error('Membership configuration read:',err.code||err.message);res.status(503).json({error:'Membership configuration unavailable'});}
+});
+app.put('/api/admin/membership/configuration', requireAdmin, async(req,res)=>{
+  const mode=req.body?.approvalMode;
+  if(!['manual','automatic'].includes(mode))return res.status(400).json({error:'Invalid approval mode'});
+  try {
+    await db.execute('UPDATE membership_configuration SET approval_mode=? WHERE id=1',[mode]);
+    res.json({success:true,approvalMode:mode});
+  } catch(err){console.error('Membership configuration save:',err.code||err.message);res.status(503).json({error:'Membership configuration unavailable'});}
+});
+
 // Public account routes are feature-flagged; no schema changes run automatically.
 app.use('/api/public', createPublicAccountRouter(db));
 
