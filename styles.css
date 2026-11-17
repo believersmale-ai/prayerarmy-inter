@@ -1147,3 +1147,34 @@ footer.footer-reimagined{background:#f5f1e9!important;background-image:none!impo
  #testimonies .section-sub{max-width:650px}
  #testimonies #share-testimony summary{width:100%;max-width:350px}
 }
+
+/* Compact, balanced Connect section. Scoped to avoid changing prayer/admin forms. */
+#connect{min-height:0!important;padding-block:clamp(36px,4.5vw,64px)!important;background-image:linear-gradient(rgba(246,242,233,.86),rgba(246,242,233,.91)),url('assets/images/FB_IMG_1790280306826.jpg')}
+#connect .prayer-grid{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(28px,4vw,64px);align-items:start}
+#connect .prayer-copy{align-self:start;padding-top:clamp(4px,1.5vw,20px)}
+#connect .prayer-copy h2{font-size:clamp(36px,4.4vw,62px);line-height:1.08;margin-bottom:16px}
+#connect .prayer-copy p:not(.eyebrow){font-size:15.5px;line-height:1.7;max-width:480px;margin:0}
+#connect .prayer-form{padding:clamp(22px,2.5vw,32px);box-shadow:0 12px 32px -24px rgba(20,28,48,.28)}
+#connect .prayer-form label{margin-bottom:12px;font-size:12.5px}
+#connect .prayer-form input,#connect .prayer-form select,#connect .prayer-form textarea{margin-top:6px;padding:11px 13px;min-height:44px;font-size:14px}
+#connect .prayer-form textarea{min-height:76px;max-height:240px;resize:vertical}
+#connect .prayer-form .form-row{gap:12px}
+#connect .prayer-form .btn{width:auto;min-width:150px;min-height:44px;padding:11px 25px;display:inline-flex;align-items:center;justify-content:center;gap:18px}
+#connect .prayer-form .form-note:empty{display:none}
+#connect .prayer-form .form-note:not(:empty){margin-top:12px}
+@media(max-width:900px){
+ #connect .prayer-grid{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:24px}
+ #connect .prayer-copy h2{font-size:clamp(32px,4vw,48px)}
+}
+@media(max-width:700px){
+ #connect{padding-block:38px!important}
+ #connect .prayer-grid{grid-template-columns:1fr;gap:22px}
+ #connect .prayer-copy{padding-top:0}
+ #connect .prayer-copy h2{font-size:clamp(34px,8vw,46px)}
+ #connect .prayer-form{padding:22px}
+ #connect .prayer-form .form-row{grid-template-columns:1fr;gap:0}
+}
+@media(max-width:420px){
+ #connect .prayer-form{padding:18px}
+ #connect .prayer-form .btn{width:100%}
+}
