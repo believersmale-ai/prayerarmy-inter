@@ -1,0 +1,50 @@
+/* Prayer Army International — non-destructive public layout refinements.
+   Preserves navy/ivory/gold branding and existing content/editor controls. */
+:root{--max:1200px}
+html,body{max-width:100%;overflow-x:clip}
+.container{width:min(var(--max),calc(100% - 48px))}
+.site-header{z-index:100}
+.nav-wrap{min-width:0;gap:clamp(12px,2.2vw,32px)}
+.brand{flex:0 0 auto;min-width:0}
+.brand-logo{display:block;max-height:56px;max-width:148px;object-fit:contain}
+.nav{min-width:0;gap:clamp(12px,1.7vw,28px)}
+.nav a{letter-spacing:.015em}
+.header-search,.menu-toggle{flex-shrink:0}
+.hero{isolation:isolate;min-height:clamp(600px,82svh,820px)}
+.hero-media{background-position:center 40%;background-size:cover}
+.hero-media.hero-logo-fallback{background-position:center 35%}
+.hero-overlay{pointer-events:none}
+.hero-content{width:min(var(--max),calc(100% - 48px));padding-block:clamp(110px,14vh,180px) clamp(80px,11vh,132px)}
+.hero h1{max-width:850px;font-size:clamp(46px,6.3vw,86px);line-height:1.08;letter-spacing:-.035em;overflow-wrap:break-word}
+.hero-copy{max-width:590px;line-height:1.75}
+.hero-actions{align-items:center;gap:12px}
+.hero-actions .btn{min-height:48px;display:inline-flex;align-items:center;justify-content:center;text-align:center}
+main section{min-width:0}
+main section img,main section video,main section iframe{max-width:100%}
+.quick-grid,.gallery-grid,.sermon-grid,.events-grid{min-width:0}
+.quick-grid > *, .gallery-grid > *, .sermon-grid > *, .events-grid > *{min-width:0}
+section h2{overflow-wrap:break-word}
+.section-heading,.section-head{max-width:100%}
+#gallery img{object-fit:cover}
+footer a,.nav a{transition:color .2s ease,background-color .2s ease}
+@media(min-width:1025px){.nav-wrap{justify-content:space-between}.nav{margin-left:auto}}
+@media(max-width:1024px){.nav-wrap{gap:16px}.hero h1{max-width:740px}.hero-content{padding-block:110px 90px}}
+@media(max-width:767px){
+ .container,.hero-content{width:calc(100% - 36px)}
+ .hero{min-height:620px;min-height:min(780px,92svh)}
+ .hero-media{background-position:57% center}
+ .hero-overlay{background:linear-gradient(90deg,rgba(7,10,17,.88),rgba(7,10,17,.53)),linear-gradient(0deg,rgba(7,10,17,.65),transparent 65%)}
+ .hero-content{padding-block:110px 74px}
+ .hero h1{font-size:clamp(38px,9vw,60px);line-height:1.12}
+ .hero-copy{font-size:16px;max-width:540px}
+ .hero-actions{gap:10px}
+ .hero-actions .btn{min-height:46px}
+ .brand-logo{max-height:46px;max-width:124px}
+ .quick-grid{gap:12px}
+}
+@media(max-width:420px){
+ .container,.hero-content{width:calc(100% - 32px)}
+ .hero h1{font-size:clamp(35px,9.4vw,44px)}
+ .hero-actions .btn{max-width:100%}
+}
+@media(prefers-reduced-motion:reduce){.hero-media{animation:none!important;transform:none!important}}
