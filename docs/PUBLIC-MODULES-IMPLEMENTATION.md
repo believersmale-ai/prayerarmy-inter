@@ -49,3 +49,14 @@ Install Node dependencies during deployment (`npm install`). Do not enable regis
 Endpoints: `POST /api/public/register` (displayName,email,password), `GET /api/public/verify-email?token=...`, `POST /api/public/login` (email,password), `GET /api/public/me`, `POST /api/public/logout`. Login and logout require same-origin browser requests; login requires verified active accounts. Email verification tokens are single-use and expire after 24 hours. Registration is not currently exposed through a public website form.
 
 **Security and rollout:** Test with disposable staging accounts; do not enable on production. SMTP delivery and real MySQL migration have not been verified by the developer. Account recovery, resend verification, admin approval, member profiles, and attendance remain pending.
+
+## Membership registration and approval (next staging milestone)
+Apply `migrations/002_membership_configuration.sql` to the **same staging MySQL database** if not already applied. It defaults to manual approval **with** email verification. No database changes are performed automatically by Node.
+
+When no email service exists, sign into the existing admin portal, choose **Manual — administrator approval**, uncheck **Require email verification**, and save. This is a deliberate temporary staging policy: administrators must validate applicant identities independently. The email address remains **unverified** in the database.
+
+After deploying the branch and installing dependencies, enable `PAI_PUBLIC_ACCOUNTS_ENABLED=true` and `PAI_PUBLIC_REGISTRATION_ENABLED=true` in **staging only**. Registration is at `/member-register.html`. New accounts start `pending`; the admin portal lists pending member applications and allows approve/reject. Login succeeds only for active accounts under the configured verification policy.
+
+Do **not** enable automatic approval without an operational SMTP sender and email verification. Never use production data in testing. Existing staff administration is unchanged. Registration currently collects name, email and password only; phone/branch, password reset, profile editing and attendance are future milestones. Password recovery is unavailable until configured; inform testers before enabling signup.
+
+QA checklist: migration 002 present; staff admin login still works; manual mode saved; registration disabled by default; duplicate registration doesn't reveal existence; unapproved account cannot log in; approve then login; rejected account cannot log in; cross-origin approval denied; no password hashes returned by admin APIs; regression of existing site and forms.
