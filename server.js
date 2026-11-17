@@ -19,6 +19,7 @@ import { createPublicAccountRouter } from './public-auth.js';
 import { createStore, route } from './node-common.js';
 import { createStaff, hashPassword, sameOrigin } from './node-auth.js';
 import { createContent } from './node-content.js';
+import { registerMediaPosts } from './media-posts.js';
 import { registerPages } from './node-pages.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -91,6 +92,7 @@ const content = createContent(store, staff, getStoredSettings, UPLOAD_DIR);
 const pages = registerPages(app, { content, store, root: __dirname, uploadsDir: UPLOAD_DIR,
   getFallbackSettings: () => { try { const s = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')); delete s.passkey; delete s.notifications; return s; } catch { return {}; } } });
 content.register(app);
+registerMediaPosts(app,{db,staff,sameOrigin,uploadDir:UPLOAD_DIR,mediaTypeOf});
 
 // Only the website itself is public. Never serve api/ (database password), server code,
 // package files, docs or migrations.
