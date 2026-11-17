@@ -1178,3 +1178,9 @@ footer.footer-reimagined{background:#f5f1e9!important;background-image:none!impo
  #connect .prayer-form{padding:18px}
  #connect .prayer-form .btn{width:100%}
 }
+
+/* Accessible in-player pause/resume control. Does not cover native YouTube controls. */
+.live-pause-toggle{position:absolute;top:12px;right:12px;z-index:8;padding:9px 14px;border:1px solid rgba(255,255,255,.55);border-radius:6px;background:rgba(8,13,24,.88);color:#fff;font:700 12px/1.2 var(--sans,Arial,sans-serif);cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,.25)}
+.live-pause-toggle:hover,.live-pause-toggle:focus-visible{background:#b18b3b;color:#0b1220;outline:2px solid #f4d879;outline-offset:2px}
+.live-pause-toggle[hidden]{display:none!important}
+@media(max-width:600px){.live-pause-toggle{top:8px;right:8px;padding:8px 10px;font-size:11px}}
