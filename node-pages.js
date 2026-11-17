@@ -451,7 +451,7 @@ export function registerPages(
       res
         .type("text")
         .send(
-          `User-agent: *\nContent-Signal: ${signals}\nAllow: /\nDisallow: /admin\nDisallow: /manage\nDisallow: /portal\nDisallow: /church\nDisallow: /api/\n\nSitemap: ${origin(req)}/sitemap.xml\n`,
+          `User-agent: *\nContent-Signal: ${signals}\nAllow: /\nDisallow: /admin\nDisallow: /manage\nDisallow: /portal\nDisallow: /member\nDisallow: /church\nDisallow: /api/\n\nSitemap: ${origin(req)}/sitemap.xml\n`,
         );
     }),
   );

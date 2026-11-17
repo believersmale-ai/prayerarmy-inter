@@ -41,7 +41,7 @@ const tokenFrom = req => {
   const pair = String(req.headers.cookie || '').split(';').map(x=>x.trim()).find(x=>x.startsWith('pai_public_session='));
   return pair ? pair.slice('pai_public_session='.length) : '';
 };
-export function createPublicAccountRouter(db) {
+export function createPublicAccountRouter(db, {memberRouter} = {}) {
   const router = Router();
   // Prevent a partial feature from being exposed on a public staging deployment.
   router.use((req,res,next) => process.env.PAI_PUBLIC_ACCOUNTS_ENABLED === 'true' ? next() : res.status(404).json({error:'Not found'}));
@@ -64,7 +64,7 @@ export function createPublicAccountRouter(db) {
   const throttle = (req,res,next) => {
     const key = req.ip || 'unknown', now = Date.now();
     const hits = (buckets.get(key) || []).filter(t=>now-t<15*60*1000);
-    hits.push(now); buckets.set(key,hits);
+    hits.push(now); buckets.set(key,hits.slice(-21));
     if (buckets.size>20000) buckets.clear();
     if (hits.length>20) return res.status(429).json({error:'Too many requests; try later'});
     next();
@@ -123,7 +123,34 @@ export function createPublicAccountRouter(db) {
     } catch(err){await connection.rollback();console.error('Email verification failed:',err.code||err.message);res.status(503).type('text/plain').send('Verification temporarily unavailable');}
     finally{connection.release();}
   });
-  router.post('/login',throttle,async(req,res)=>{
+  const loginBuckets = new Map();
+  const loginThrottle = (req, res, next) => {
+    const now = Date.now(),
+      identity = digest(
+        normalize(req.body?.email).toLowerCase().slice(0, 254),
+      ).toString("hex");
+    let blocked = false;
+    for (const [key, limit] of [
+      ["ip:" + req.ip, 300],
+      ["identity:" + identity, 20],
+    ]) {
+      const hits = (loginBuckets.get(key) || []).filter(
+        (t) => now - t < 15 * 60 * 1000,
+      );
+      hits.push(now);
+      loginBuckets.set(key, hits.slice(-(limit+1)));
+      if (hits.length > limit) blocked = true;
+    }
+    while (loginBuckets.size > 20000)
+      loginBuckets.delete(loginBuckets.keys().next().value);
+    if (blocked)
+      return res
+        .set("Retry-After", "900")
+        .status(429)
+        .json({ error: "Too many sign-in attempts. Try again in 15 minutes" });
+    next();
+  };
+  router.post('/login',loginThrottle,async(req,res)=>{
     const email=normalize(req.body?.email).toLowerCase(),password=req.body?.password;
     if (!email || email.length>254 || typeof password!=='string' || password.length>128) return res.status(400).json({error:'Invalid credentials'});
     try {
@@ -154,6 +181,32 @@ export function createPublicAccountRouter(db) {
     const [roles]=await db.execute('SELECT role FROM public_account_roles WHERE account_id=?',[rows[0].id]);
     return {...rows[0],roles:roles.map(x=>x.role)};
   };
+  if (memberRouter)
+    router.use(
+      "/church",
+      async (req, res, next) => {
+        try {
+          const account = await current(req);
+          if (!account)
+            return res.status(401).json({ error: "Sign in required" });
+          if (!account.roles.includes("member"))
+            return res
+              .status(403)
+              .json({ error: "An approved member account is required" });
+          req.publicAccount = account;
+          next();
+        } catch (err) {
+          console.error(
+            "Member authorization failed:",
+            err.code || err.message,
+          );
+          res
+            .status(503)
+            .json({ error: "Member access temporarily unavailable" });
+        }
+      },
+      memberRouter,
+    );
   router.get('/me',async(req,res)=>{
     try {const account=await current(req);if(!account)return res.status(401).json({error:'Sign in required'});res.json({account:publicView(account)});}
     catch(err){console.error('Public session error:',err.code||err.message);res.status(503).json({error:'Session temporarily unavailable'});}

@@ -401,13 +401,18 @@ const showDashboard = async () => {
   if (can('team')) loadTeam();
 };
 
-const checkAuthSession = () => {
+const checkAuthSession = async () => {
   const isAuth = isNodeAdminSession() || ((sessionStorage.getItem('pai_manager_authenticated') === 'true' ||
                  localStorage.getItem('pai_manager_authenticated') === 'true') &&
                  getPasskey() !== '');
   if (isAuth) {
     showDashboard();
   } else {
+    // Reuse the HttpOnly Node staff cookie when arriving from the church workspace.
+    try {
+      const response=await _origFetch(`${SUPABASE_URL}/admin/session`,{credentials:'same-origin',cache:'no-store'});
+      if(response.ok){sessionStorage.setItem(NODE_SESSION_KEY,'true');await showDashboard();return;}
+    } catch { /* Show the normal sign-in form when the backend is unavailable. */ }
     authScreen.style.display = 'flex';
     adminApp.style.display = 'none';
     setAuthMode('account');

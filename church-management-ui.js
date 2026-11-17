@@ -94,6 +94,7 @@
     member: null,
     household: null,
   };
+  let registerOpenRequest = 0;
   let request = 0,
     modalRequest = 0,
     modalDirty = false,
@@ -118,7 +119,7 @@
   };
   const localInput = (v) => {
     const d = new Date(v);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
   };
   const initials = (r) =>
     [r.first_name?.[0], r.last_name?.[0]]
@@ -175,6 +176,7 @@
     state.member = null;
     state.household = null;
     state.session = null;
+    state.checkinIssue = null;
     state.rows = [];
     state.members = { search: "", status: "", archived: false, page: 1 };
     state.households = { search: "", archived: false, page: 1 };
@@ -290,6 +292,8 @@
       : "";
   }
   async function navigate(view) {
+    if (view === "register" && state.session?.id)
+      return openRegister(state.session.id);
     if (state.pending.size && !confirm("Discard unsaved attendance marks?"))
       return;
     state.pending.clear();
@@ -384,6 +388,7 @@
     $("#member-search").addEventListener(
       "input",
       debounce(() => {
+        if (state.view !== "members" || !$("#member-search")) return;
         state.members.search = $("#member-search").value;
         state.members.page = 1;
         memberRows().catch((e) => status(e.message));
@@ -437,7 +442,7 @@
       `<div class="profile-heading"><span class="avatar">${esc(initials(m))}</span><div><h3>${esc([m.first_name, m.last_name].filter(Boolean).join(" "))}</h3><p class="section-caption">${badge(m.membership_status)} ${m.archived_at ? '<span class="badge">Archived</span>' : ""}</p></div></div><dl class="profile-details"><div><dt>Email</dt><dd>${esc(m.email || "Not recorded")}</dd></div><div><dt>Phone</dt><dd>${esc(m.phone || "Not recorded")}</dd></div><div><dt>Birth date</dt><dd>${esc(dateLabel(m.birth_date))}</dd></div><div><dt>Join date</dt><dd>${esc(dateLabel(m.joined_date))}</dd></div><div><dt>Household</dt><dd>${esc(m.household_name || "Not assigned")}${m.relationship ? ` · ${esc(m.relationship)}` : ""}</dd></div><div><dt>Registered account</dt><dd>${m.account_id ? "Linked to a registered account" : "Not linked"}</dd></div></dl><div class="detail-actions">${button("Edit record", "edit-member", `data-id="${m.id}"`, "primary")}${button("Attendance history", "member-history", `data-id="${m.id}"`)}${!m.archived_at ? button(m.account_id ? "Unlink account" : "Link account", "link-account", `data-id="${m.id}"`) : ""}${button(m.archived_at ? "Restore record" : "Archive record", "archive-member", `data-id="${m.id}"`, m.archived_at ? "" : "danger")}</div><div id="member-history"></div>`;
   }
   function field(label, name, value = "", type = "text", extra = "") {
-    return `<label>${esc(label)}<input type="${type}" name="${name}" value="${esc(value)}" ${extra}></label>`;
+    return `<label>${esc(label)}<input type="${type}" name="${name}" value="${esc(value)}" ${type === "datetime-local" ? 'step="1"' : ""} ${extra}></label>`;
   }
   async function memberForm(record = null) {
     modal(
@@ -488,12 +493,14 @@
           method: record ? "PUT" : "POST",
           body,
         });
+        if (token !== modalRequest || !state.me) return;
         modalDirty = false;
         toast(record ? "Member updated" : "Member added");
         await refresh();
         await showMember(data.member.id);
       } catch (error) {
-        if ($("#form-error")) $("#form-error").textContent = error.message;
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = error.message;
       } finally {
         submit.disabled = false;
       }
@@ -519,6 +526,7 @@
     $("#household-filter").addEventListener(
       "input",
       debounce(() => {
+        if (state.view !== "households" || !$("#household-filter")) return;
         state.households.search = $("#household-filter").value;
         state.households.page = 1;
         householdRows().catch((e) => status(e.message));
@@ -569,6 +577,7 @@
       data ? "Edit household" : "Add a household",
       `<form id="household-form"><div class="form-grid">${field("Household name *", "name", h.name, "text", 'required maxlength="150" placeholder="e.g. Mensah household"')}${field("Phone", "phone", h.phone, "tel", 'maxlength="40"')}${field("Email", "email", h.email, "email", 'maxlength="190"')}<label>Primary contact<select name="primary_contact_id" ${!members.length ? "disabled" : ""}><option value="">Not selected</option>${members.map((m) => `<option value="${m.id}" ${h.primary_contact_id === m.id ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select>${!members.length ? '<span class="form-help">Assign members to this household before choosing its primary contact.</span>' : ""}</label><label class="span-2">Address<textarea name="address" maxlength="1000">${esc(h.address)}</textarea></label></div><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button class="button primary" type="submit">Save household</button></div></form>`,
     );
+    const token = modalRequest;
     $("#household-form").onsubmit = async (e) => {
       e.preventDefault();
       const form = e.currentTarget,
@@ -581,12 +590,14 @@
           method: data ? "PUT" : "POST",
           body,
         });
+        if (token !== modalRequest || !state.me) return;
         modalDirty = false;
         toast("Household saved");
         await refresh();
         await showHousehold(saved.household.id);
       } catch (error) {
-        if ($("#form-error")) $("#form-error").textContent = error.message;
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = error.message;
       } finally {
         submit.disabled = false;
       }
@@ -634,8 +645,9 @@
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     modal(
       record ? "Edit service session" : "New service session",
-      `<form id="session-form"><div class="form-grid">${field("Service / gathering title *", "title", r.title, "text", 'required maxlength="200" placeholder="e.g. Sunday worship service"')}${field("Location", "location", r.location, "text", 'maxlength="200"')}${field("Starts *", "starts_at", record ? localInput(r.starts_at) : localInput(start), "datetime-local", "required")}${field("Ends *", "ends_at", record ? localInput(r.ends_at) : localInput(end), "datetime-local", "required")}${record ? field("Unnamed guests", "guest_count", r.guest_count || 0, "number", 'required min="0" max="100000" step="1"') : ""}<p class="form-help span-2">Times are shown in your local timezone: ${esc(zone)}.${record ? " Guest totals are for attendees who are not already marked in the named register." : ""}</p></div><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button class="button primary" type="submit">${record ? "Save session" : "Create session"}</button></div></form>`,
+      `<form id="session-form"><div class="form-grid">${field("Service / gathering title *", "title", r.title, "text", 'required maxlength="200" placeholder="e.g. Sunday worship service"')}${field("Location", "location", r.location, "text", 'maxlength="200"')}${field("Starts *", "starts_at", record ? localInput(r.starts_at) : localInput(start), "datetime-local", "required")}${field("Ends *", "ends_at", record ? localInput(r.ends_at) : localInput(end), "datetime-local", "required")}${record ? field("Unnamed guests", "guest_count", r.guest_count || 0, "number", 'required min="0" max="100000" step="1"') : ""}<p class="form-help span-2">Times are shown in your local timezone: ${esc(zone)}.${record ? " Guest totals are for attendees who are not already marked in the named register. Changing service times disables member check-in until its window is reviewed." : ""}</p></div><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button class="button primary" type="submit">${record ? "Save session" : "Create session"}</button></div></form>`,
     );
+    const token = modalRequest;
     $("#session-form").onsubmit = async (e) => {
       e.preventDefault();
       const form = e.currentTarget,
@@ -653,12 +665,20 @@
           method: record ? "PUT" : "POST",
           body,
         });
+        if (token !== modalRequest || !state.me) return;
         modalDirty = false;
-        $("#edit-dialog").close();
-        toast("Service session saved");
+        closeModal();
+        toast(
+          record &&
+            (record.starts_at !== body.starts_at ||
+              record.ends_at !== body.ends_at)
+            ? "Service saved. Review member check-in after changing its times."
+            : "Service session saved",
+        );
         await openRegister(d.session.id);
       } catch (error) {
-        if ($("#form-error")) $("#form-error").textContent = error.message;
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = error.message;
       } finally {
         submit.disabled = false;
       }
@@ -671,7 +691,8 @@
     state.view = "register";
     state.register = { search: "", mark: "", page: 1 };
     state.session = { id };
-    request++;
+    const token = ++request,
+      operation = ++registerOpenRequest;
     status("");
     $("#breadcrumb").textContent = "Attendance";
     $("#page-title").textContent = "Attendance register";
@@ -683,11 +704,97 @@
     );
     $("#page-content").innerHTML =
       '<div class="loading">Loading service register…</div>';
-    const d = await api("/sessions/" + id);
-    if (state.session?.id !== id) return;
-    state.session = d.session;
-    renderRegister(d.stats);
-    await registerRows();
+    $("#page-content").setAttribute("aria-busy", "true");
+    try {
+      const d = await api("/sessions/" + id);
+      if (
+        token !== request ||
+        state.view !== "register" ||
+        state.session?.id !== id
+      )
+        return;
+      state.session = d.session;
+      renderRegister(d.stats);
+      await registerRows();
+    } catch (e) {
+      if (
+        operation === registerOpenRequest &&
+        state.view === "register" &&
+        state.session?.id === id
+      ) {
+        status(e.message);
+        $("#page-content").innerHTML = empty(
+          "Could not load this register",
+          "Try again when your connection is available.",
+          button("Try again", "retry"),
+        );
+      }
+    } finally {
+      if (
+        operation === registerOpenRequest &&
+        state.view === "register" &&
+        state.session?.id === id
+      )
+        $("#page-content").setAttribute("aria-busy", "false");
+    }
+  }
+  async function checkinForm() {
+    const id = state.session.id;
+    modal("Member check-in", '<p class="muted">Loading check-in settings…</p>');
+    const token = modalRequest,
+      d = await api(`/sessions/${id}/check-in`);
+    if (token !== modalRequest) return;
+    const s = d.session,
+      c = d.configuration,
+      opens = c?.enabled
+        ? c.opens_at
+        : new Date(new Date(s.starts_at).getTime() - 30 * 60e3),
+      closes = c?.enabled ? c.closes_at : s.ends_at;
+    $("#dialog-body").innerHTML =
+      `<p>Let approved, linked members check themselves in with the code displayed at the service. The first valid check-in opens a scheduled register automatically.</p>${!d.public_accounts_enabled ? '<p class="error-text">Public member accounts are disabled on this installation. A system administrator must configure them before members can sign in.</p>' : ""}<form id="checkin-settings-form"><label>Member check-in<select name="enabled"><option value="false">Disabled</option><option value="true" ${c?.enabled ? "selected" : ""}>Enabled for this window</option></select></label><div class="form-grid">${field("Opens at", "opens_at", localInput(opens), "datetime-local", "required")}${field("Closes at", "closes_at", localInput(closes), "datetime-local", "required")}</div><p class="muted">Times use ${esc(timezone())}. The window can last up to 24 hours and must close by the end of the service. Saving enabled settings creates a new code and invalidates the previous one.</p><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button type="submit" class="button primary">Save check-in settings</button></div></form><div class="checkin-guide"><h3>Member arrival checklist</h3><ol><li>Approve the public member account in Website manager → Team & Accounts.</li><li>Open the member's directory record and choose Link account. Its email must match.</li><li>Share <a href="/member" target="_blank" rel="noopener">the member portal</a>, display the service code and keep an usher available to help.</li></ol><p>No account? The usher can record attendance in this register. Schedule changes disable member check-in until its window is reviewed.</p></div>`;
+    $("#checkin-settings-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.currentTarget,
+        b = f.querySelector("button[type=submit]");
+      b.disabled = true;
+      try {
+        const fields = Object.fromEntries(new FormData(f)),
+          body = { enabled: fields.enabled === "true", version: s.version };
+        if (body.enabled) {
+          body.opens_at = new Date(fields.opens_at).toISOString();
+          body.closes_at = new Date(fields.closes_at).toISOString();
+        }
+        const result = await api(`/sessions/${id}/check-in`, {
+          method: "PUT",
+          body,
+        });
+        if (token !== modalRequest || !state.me) return;
+        modalDirty = false;
+        state.session = result.session;
+        if (result.code) {
+          modal(
+            "Display this code at the service",
+            `<div class="checkin-issued"><p class="eyebrow">MEMBER CHECK-IN CODE</p><output id="issued-code">${esc(result.code)}</output><p>Valid ${esc(dateTime(result.configuration.opens_at))} – ${esc(dateTime(result.configuration.closes_at))}</p><p><a href="${esc(result.member_path)}" target="_blank" rel="noopener">Open member check-in ↗</a></p><div class="actions">${button("Copy code", "copy-checkin-code")}${button("Print sign", "print-checkin-code")}${button("Done", "checkin-done", "", "primary")}</div><p class="muted">Keep this code available for arriving members. It is shown once here; save it or print the sign now. Saving enabled settings again generates a new code.</p></div>`,
+          );
+          state.checkinIssue = {
+            code: result.code,
+            title: result.session.title,
+            path: result.member_path,
+            opens: result.configuration.opens_at,
+            closes: result.configuration.closes_at,
+          };
+        } else {
+          closeModal();
+          await openRegister(id);
+          toast("Member check-in disabled");
+        }
+      } catch (e) {
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = e.message;
+      } finally {
+        b.disabled = false;
+      }
+    };
   }
   function statsLine(s) {
     return `<span><strong>${Number(s.present)}</strong> Present</span><span><strong>${Number(s.late)}</strong> Late</span><span>${Number(s.excused)} Excused</span><span>${Number(s.absent)} Absent</span><span>${Number(s.unmarked)} Unmarked</span><span>${Number(s.roster_count)} on roster</span>`;
@@ -699,10 +806,11 @@
       dateTime(s.starts_at) + (s.location ? " · " + s.location : "");
     const manage = can("attendance_manage");
     $("#page-content").innerHTML =
-      `<article class="card"><div class="card-heading"><div>${badge(s.state)}<p class="muted">${Number(s.guest_count)} unnamed guests · ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)}</p></div><div class="actions">${manage ? `${["scheduled", "open"].includes(s.state) ? button("Edit details / guests", "edit-session") : ""}${s.state === "open" ? button("Close register", "set-session-state", 'data-state="closed"', "gold") : button(s.opened_at ? "Reopen register" : "Open register", "set-session-state", 'data-state="open"', "primary")}${s.state !== "cancelled" ? button("Cancel session", "set-session-state", 'data-state="cancelled"', "small danger") : ""}` : ""}</div></div><div class="register-stats" id="register-stats">${statsLine(stats)}</div><div class="toolbar"><label class="search"><span hidden>Find people in register</span><input id="roster-search" type="search" placeholder="Search people or households"></label><select id="roster-status" aria-label="Attendance filter"><option value="">All marks</option>${["unmarked", "present", "late", "excused", "absent"].map((v) => `<option value="${v}">${labels[v]}</option>`).join("")}</select>${manage && s.state === "open" ? button("Add new members to roster", "refresh-roster", "", "small") : ""}</div><div id="roster-table"></div></article>${s.state === "open" ? `<div class="register-actions"><span id="pending-note">No unsaved marks</span><div class="actions">${button("Mark this page present", "mark-page", "", "subtle")}${button("Save attendance", "save-attendance", "disabled", "primary")}</div></div>` : '<p class="section-caption">' + (s.state === "scheduled" ? "Open this session to prepare its roster." : "This register is locked. A registrar can reopen it for corrections.") + "</p>"}`;
+      `<article class="card"><div class="card-heading"><div>${badge(s.state)}<p class="muted">${Number(s.guest_count)} unnamed guests · ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)}</p></div><div class="actions">${manage ? `${["scheduled", "open"].includes(s.state) ? button("Member check-in", "member-checkin") : ""}${["scheduled", "open"].includes(s.state) ? button("Edit details / guests", "edit-session") : ""}${s.state === "open" ? button("Close register", "set-session-state", 'data-state="closed"', "gold") : button(s.opened_at ? "Reopen register" : "Open register", "set-session-state", 'data-state="open"', "primary")}${s.state !== "cancelled" ? button("Cancel session", "set-session-state", 'data-state="cancelled"', "small danger") : ""}` : ""}</div></div><div class="register-stats" id="register-stats">${statsLine(stats)}</div><div class="toolbar"><label class="search"><span hidden>Find people in register</span><input id="roster-search" type="search" placeholder="Search people or households"></label><select id="roster-status" aria-label="Attendance filter"><option value="">All marks</option>${["unmarked", "present", "late", "excused", "absent"].map((v) => `<option value="${v}">${labels[v]}</option>`).join("")}</select>${manage && s.state === "open" ? button("Add new members to roster", "refresh-roster", "", "small") : ""}</div><div id="roster-table"></div></article>${s.state === "open" ? `<div class="register-actions"><span id="pending-note">No unsaved marks</span><div class="actions">${button("Mark this page present", "mark-page", "", "subtle")}${button("Save attendance", "save-attendance", "disabled", "primary")}</div></div>` : '<p class="section-caption">' + (s.state === "scheduled" ? "Open this session to prepare its roster." : "This register is locked. A registrar can reopen it for corrections.") + "</p>"}`;
     $("#roster-search").addEventListener(
       "input",
       debounce(() => {
+        if (state.view !== "register" || !$("#roster-search")) return;
         if (!discardMarks()) return;
         state.register.search = $("#roster-search").value;
         state.register.page = 1;
@@ -745,7 +853,7 @@
     state.rows = data.roster;
     $("#register-stats").innerHTML = statsLine(data.stats);
     $("#roster-table").innerHTML = data.roster.length
-      ? `<div class="table-scroll"><table><thead><tr><th>Person</th><th>Household</th><th>Attendance</th><th>Checked in</th></tr></thead><tbody>${data.roster.map((r) => `<tr><td>${person(r, can("members"))}${r.archived_at ? "<small>Archived record</small>" : ""}</td><td>${esc(r.household_name || "—")}</td><td><select class="attendance-select" data-attendance="${r.id}" aria-label="Attendance for ${esc(r.name)}" ${state.session.state !== "open" || r.archived_at || r.membership_status === "inactive" ? "disabled" : ""}>${["unmarked", "present", "late", "excused", "absent"].map((v) => `<option value="${v}" ${(r.status || "unmarked") === v ? "selected" : ""}>${labels[v]}</option>`).join("")}</select></td><td class="nowrap">${esc(r.checked_in_at ? dateTime(r.checked_in_at) : "—")}</td></tr>`).join("")}</tbody></table></div>${pagination(data)}`
+      ? `<div class="table-scroll"><table><thead><tr><th>Person</th><th>Household</th><th>Attendance</th><th>Checked in</th></tr></thead><tbody>${data.roster.map((r) => `<tr><td>${person(r, can("members"))}${r.archived_at ? "<small>Archived record</small>" : ""}</td><td>${esc(r.household_name || "—")}</td><td><select class="attendance-select" data-attendance="${r.id}" aria-label="Attendance for ${esc(r.name)}" ${state.session.state !== "open" || r.archived_at || r.membership_status === "inactive" ? "disabled" : ""}>${["unmarked", "present", "late", "excused", "absent"].map((v) => `<option value="${v}" ${(r.status || "unmarked") === v ? "selected" : ""}>${labels[v]}</option>`).join("")}</select></td><td class="nowrap">${esc(r.checked_in_at ? dateTime(r.checked_in_at) : "—")}${r.self_checked_in_at ? "<small>Member self check-in</small>" : ""}</td></tr>`).join("")}</tbody></table></div>${pagination(data)}`
       : empty(
           "No people on this roster",
           state.session.state === "scheduled"
@@ -836,6 +944,9 @@
     "session.cancelled": "Service cancelled",
     "session.refresh_roster": "Roster refreshed",
     "attendance.mark": "Attendance recorded",
+    "attendance.self_checkin": "Member checked in",
+    "session.checkin_enabled": "Member check-in enabled / code rotated",
+    "session.checkin_disabled": "Member check-in disabled",
     "members.import": "Member list imported",
     "members.export": "Member directory exported",
     "attendance.export": "Attendance report exported",
@@ -889,6 +1000,7 @@
       record ? "Edit group" : "Add a group",
       `<form id="group-form"><div class="form-grid">${field("Group name *", "name", g.name, "text", 'required maxlength="150"')}<label>Group type<select name="kind"><option value="ministry" ${g.kind === "ministry" ? "selected" : ""}>Ministry</option><option value="small_group" ${g.kind === "small_group" ? "selected" : ""}>Small group</option></select></label>${field("Location", "location", g.location, "text", 'maxlength="200"')}${field("Meeting details", "meeting_details", g.meeting_details, "text", 'maxlength="300" placeholder="e.g. Wednesdays at 18:00"')}<label>Description<textarea name="description" maxlength="2000" rows="4">${esc(g.description || "")}</textarea></label></div><p id="form-error" class="error-text" role="alert"></p><div class="form-actions">${button("Cancel", "close-dialog")}<button type="submit" class="button primary">${record ? "Save group" : "Add group"}</button></div></form>`,
     );
+    const token = modalRequest;
     $("#group-form").onsubmit = async (e) => {
       e.preventDefault();
       const form = e.currentTarget,
@@ -901,6 +1013,7 @@
           method: record ? "PUT" : "POST",
           body,
         });
+        if (token !== modalRequest || !state.me) return;
         modalDirty = false;
         closeModal();
         state.group = d.group;
@@ -908,7 +1021,8 @@
         await navigate("group");
         toast(record ? "Group updated" : "Group added");
       } catch (e) {
-        if ($("#form-error")) $("#form-error").textContent = e.message;
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = e.message;
       } finally {
         b.disabled = false;
       }
@@ -947,7 +1061,8 @@
       try {
         await find();
       } catch (e) {
-        if ($("#form-error")) $("#form-error").textContent = e.message;
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = e.message;
       }
     };
     $("#group-person-form").onsubmit = async (e) => {
@@ -962,12 +1077,14 @@
           method: "PUT",
           body,
         });
+        if (token !== modalRequest || !state.me) return;
         modalDirty = false;
         closeModal();
         await groupDetail();
         toast("Group roster updated");
       } catch (e) {
-        if ($("#form-error")) $("#form-error").textContent = e.message;
+        if (token === modalRequest && $("#form-error"))
+          $("#form-error").textContent = e.message;
       } finally {
         b.disabled = false;
       }
@@ -1329,8 +1446,11 @@
       "Import members",
       `<p class="muted">Upload a CSV file with up to 500 people. Preview and validate it before importing. Duplicate names with the same email are flagged for review.</p><p>${button("Download CSV template", "import-template", "", "small")}</p><div class="file-picker"><label>Choose CSV file<input id="import-file" type="file" accept=".csv,text/csv"></label><p class="form-help">Assign household links after importing. The template uses first_name, last_name, email, phone and membership_status.</p></div><p id="import-error" class="error-text" role="alert"></p><div id="import-preview"></div><div class="form-actions">${button("Cancel", "close-dialog")}${button("Import members", "commit-import", "disabled", "primary")}</div>`,
     );
+    const token = modalRequest;
+    let previewSeq = 0;
     let prepared = null;
     $("#import-file").onchange = async (e) => {
+      const seq = ++previewSeq;
       prepared = null;
       $("#import-error").textContent = "";
       $('[data-action="commit-import"]').disabled = true;
@@ -1343,6 +1463,7 @@
             method: "POST",
             body: { rows: parsed },
           });
+        if (token !== modalRequest || seq !== previewSeq || !state.me) return;
         prepared = {
           rows: d.rows.map((r) => r.data),
           requestId: crypto.randomUUID(),
@@ -1352,7 +1473,8 @@
         $('[data-action="commit-import"]').disabled = !d.ready;
         modalDirty = d.ready;
       } catch (error) {
-        $("#import-error").textContent = error.message;
+        if (token === modalRequest && $("#import-error"))
+          $("#import-error").textContent = error.message;
       }
     };
     $('[data-action="commit-import"]').onclick = async (e) => {
@@ -1365,13 +1487,15 @@
           method: "POST",
           body: prepared,
         });
+        if (token !== modalRequest || !state.me) return;
         modalDirty = false;
-        $("#edit-dialog").close();
+        closeModal();
         toast(`${d.imported} members imported`);
         state.members.page = 1;
         await refresh();
       } catch (error) {
-        $("#import-error").textContent = error.message;
+        if (token === modalRequest && $("#import-error"))
+          $("#import-error").textContent = error.message;
         b.disabled = false;
       }
     };
@@ -1386,6 +1510,38 @@
     };
   }
   async function handle(action, el) {
+    if (action === "member-checkin") return checkinForm();
+    if (action === "copy-checkin-code") {
+      try {
+        await navigator.clipboard.writeText(state.checkinIssue.code);
+        toast("Check-in code copied");
+      } catch {
+        toast("Select and copy the displayed code manually.");
+      }
+      return;
+    }
+    if (action === "print-checkin-code") {
+      const issue = state.checkinIssue,
+        sheet = document.createElement("section");
+      sheet.className = "portal-print-sheet";
+      sheet.innerHTML = `<h1>${esc(issue.title)}</h1><p>MEMBER CHECK-IN</p><p class="portal-print-code">${esc(issue.code)}</p><p>Sign in at ${esc(location.origin + issue.path)}</p><p>Valid ${esc(dateTime(issue.opens))} – ${esc(dateTime(issue.closes))}</p><ol><li>Sign in with your approved member account.</li><li>Choose this service and enter the code above.</li><li>Wait for your check-in confirmation. An usher can help.</li></ol>`;
+      document.body.append(sheet);
+      document.body.classList.add("printing-checkin");
+      const clean = () => {
+        sheet.remove();
+        document.body.classList.remove("printing-checkin");
+        window.removeEventListener("afterprint", clean);
+      };
+      window.addEventListener("afterprint", clean);
+      window.print();
+      return;
+    }
+    if (action === "checkin-done") {
+      closeModal();
+      state.checkinIssue = null;
+      return openRegister(state.session.id);
+    }
+
     if (action === "volunteers") return navigate("volunteers");
     if (action === "shift") {
       state.shift = { id: el.dataset.id };
@@ -1706,6 +1862,14 @@
         }
       });
     }
+  });
+  document.addEventListener("pai:church-refresh", () => {
+    if (!state.me) return;
+    if ($("#edit-dialog").open) {
+      closeModal();
+      if ($("#edit-dialog").open) return;
+    }
+    navigate(state.view).catch((e) => status(e.message));
   });
   $("#church-nav").addEventListener("click", (e) => {
     const b = e.target.closest("[data-view]");

@@ -105,3 +105,9 @@ test('church workspace assets load and personal records require staff authentica
   for(const path of ['/church-management-ui.js','/church-management.css'])assert.equal((await fetch(base+path)).status,200,path);
   for(const path of ['/api/church/shifts','/api/church/groups','/api/church/members','/api/church/households','/api/church/sessions','/api/church/reports/attendance','/api/church/activity'])assert.equal((await fetch(base+path)).status,401,path);
 });
+
+test('member portal and shared staff tools load without exposing check-in or staff data',async()=>{
+ const page=await fetch(base+'/member');assert.equal(page.status,200);assert.equal(page.headers.get('cache-control'),'no-store');assert.match(page.headers.get('x-robots-tag'),/noindex/);
+ for(const path of ['/member-portal.js','/member-portal.css','/portal-shell.js','/portal-shell.css'])assert.equal((await fetch(base+path)).status,200,path);
+ assert.equal((await fetch(base+'/api/public/church/dashboard')).status,404);
+});

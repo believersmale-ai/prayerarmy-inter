@@ -4,3 +4,6 @@ assets/uploads/
 # Media uploaded through the admin panel lives on the server, not in git
 uploads/*
 !uploads/.htaccess
+
+# Public-only Vercel preview build
+.vercel-static/

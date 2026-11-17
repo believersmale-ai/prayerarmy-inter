@@ -1,3 +1,4 @@
+import { runMemberCheckinIntegration } from "./member-checkin.integration.mjs";
 import { runVolunteerIntegration } from "./volunteers.integration.mjs";
 import assert from "node:assert/strict";
 import mysql from "mysql2/promise";
@@ -761,6 +762,12 @@ try {
   );
   assert.equal(ga.record_name, "Welcome team");
   const volunteerShiftId = await runVolunteerIntegration({ church, roles, db });
+  const memberCheckin = await runMemberCheckinIntegration({
+    church,
+    call,
+    db,
+    roles,
+  });
   await new Promise((resolve) => {
     server.once("exit", resolve);
     server.kill();
@@ -780,6 +787,12 @@ try {
     (await church("/shifts/" + volunteerShiftId)).data.assignments.length,
     1,
   );
+  await call(memberCheckin.path, {
+    method: "POST",
+    cookie: memberCheckin.cookie,
+    body: { code: "00000000" },
+    expected: 429,
+  });
   const oversized = Array.from({ length: 5001 }, () => [
     randomUUID(),
     "Report bound fixture",
@@ -793,7 +806,7 @@ try {
   );
   await church("/reports/attendance" + range, { expected: 422 });
   console.log(
-    "PASS church integration: volunteer scheduling/conflicts/capacity, groups/leader rosters/concurrency/archives, roles/privacy, members/households, account links, atomic imports, concurrent attendance, history, reports, exports and restart persistence",
+    "PASS church integration: scheduled member check-in/privacy/rate limits, volunteer scheduling/conflicts/capacity, groups/leader rosters/concurrency/archives, roles/privacy, members/households, account links, atomic imports, concurrent attendance, history, reports, exports and restart persistence",
   );
 } catch (error) {
   console.error(logs.slice(-4000));

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#112633" />
+    <title>Member check-in | Prayer Army International</title>
+    <link rel="icon" href="/assets/images/prayer-army-logo.png" />
+    <link rel="stylesheet" href="/church-management.css" />
+    <link rel="stylesheet" href="/member-portal.css" />
+    <script src="/member-portal.js" defer></script>
+  </head>
+  <body>
+    <a class="member-skip" href="#member-main">Skip to content</a>
+    <header class="member-header">
+      <a href="/" class="member-brand"
+        ><span aria-hidden="true">✦</span
+        ><span>PRAYER ARMY<small>MEMBER PORTAL</small></span></a
+      >
+      <nav aria-label="Member account">
+        <a href="/">Church website ↗</a
+        ><button id="member-refresh" class="button subtle" type="button" hidden>
+          Refresh</button
+        ><button id="member-logout" class="button subtle" type="button" hidden>
+          Sign out
+        </button>
+      </nav>
+    </header>
+    <main id="member-main" tabindex="-1">
+      <div class="member-intro">
+        <p class="eyebrow">YOU BELONG HERE</p>
+        <h1>Welcome to your church community.</h1>
+        <p class="muted">
+          Sign in, find your service and check in when you arrive.
+        </p>
+      </div>
+      <div
+        id="member-message"
+        class="member-message"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+      <section id="member-login" class="member-card" hidden>
+        <div>
+          <p class="eyebrow">YOUR MEMBER ACCOUNT</p>
+          <h2>Sign in to check in.</h2>
+          <p class="muted">
+            Use your approved member account. Staff sign-in is separate.
+          </p>
+        </div>
+        <form id="member-login-form">
+          <label
+            >Email<input
+              type="email"
+              name="email"
+              autocomplete="username"
+              maxlength="254"
+              required /></label
+          ><label
+            >Password<input
+              type="password"
+              name="password"
+              autocomplete="current-password"
+              maxlength="128"
+              required
+          /></label>
+          <p id="member-login-error" class="error-text" role="alert"></p>
+          <button class="button primary" type="submit">Sign in</button>
+        </form>
+        <p class="muted">
+          Need an account or help signing in? Ask a church registrar. If
+          registration is open,
+          <a href="/member-register.html">request a member account</a>.
+        </p>
+      </section>
+      <section id="member-content" aria-busy="true">
+        <p class="loading">Checking your account…</p>
+      </section>
+      <aside class="member-help">
+        <h2>How check-in works</h2>
+        <ol>
+          <li>
+            A registrar approves your member account and links it to your church
+            record.
+          </li>
+          <li>Choose your service when its check-in window opens.</li>
+          <li>
+            Enter the current eight-character code displayed at the service.
+          </li>
+          <li>
+            Look for your confirmation. If you need help, an usher can check you
+            in.
+          </li>
+        </ol>
+        <p>
+          Each member checks in to their own record. Your household and other
+          members' details stay private.
+        </p>
+      </aside>
+    </main>
+    <footer class="member-footer">
+      Prayer Army International · Raising Generals. Transforming Generations.
+    </footer>
+    <noscript
+      ><p class="member-message">
+        Enable JavaScript to use member check-in, or ask an usher to record your
+        attendance.
+      </p></noscript
+    >
+  </body>
+</html>
