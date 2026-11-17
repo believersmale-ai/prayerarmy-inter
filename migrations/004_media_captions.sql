@@ -1,0 +1,11 @@
+-- Run on the intended MySQL database after taking a backup.
+CREATE TABLE IF NOT EXISTS site_media_posts (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ filename VARCHAR(255) NOT NULL UNIQUE,
+ caption VARCHAR(500) NOT NULL DEFAULT '',
+ alt_text VARCHAR(255) NOT NULL DEFAULT '',
+ published TINYINT(1) NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ INDEX idx_media_published (published, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
