@@ -8,6 +8,9 @@
 const SUPABASE_URL = `${location.origin}/api`;   // kept name for compatibility: this is now your own Hostinger PHP/MySQL API
 const SUPABASE_ANON_KEY = "";                      // not used any more
 const EDGE_BASE = `${SUPABASE_URL}/functions/v1`;
+// Node-hosted staging uses cookie sessions; PHP token sessions remain supported elsewhere.
+const NODE_SESSION_KEY = 'pai_node_admin_session';
+const isNodeAdminSession = () => sessionStorage.getItem(NODE_SESSION_KEY) === 'true';
 
 const getPasskey = () =>
   sessionStorage.getItem('pai_manager_passkey') || localStorage.getItem('pai_manager_passkey') || '';
@@ -296,6 +299,7 @@ $('#auth-mode-toggle')?.addEventListener('click', () => setAuthMode(authMode ===
 // Back to the sign-in screen (used on sign out, expired sessions and removed access)
 function signOutToLogin(message) {
   clearSession();
+  sessionStorage.removeItem(NODE_SESSION_KEY);
   me = null;
   // Drop everything the previous person could see so the next sign-in (maybe another role) never inherits it
   ['requests-admin-list', 'connect-admin-list', 'testimonies-admin-list', 'wall-admin-list', 'messages-admin-list', 'dash-body', 'analytics-body']
@@ -309,6 +313,16 @@ function signOutToLogin(message) {
 }
 
 const loadMe = async () => {
+  if (isNodeAdminSession()) {
+    try {
+      const res=await _origFetch(`${SUPABASE_URL}/admin/session`,{credentials:'same-origin',cache:'no-store'});
+      if(!res.ok)return {error:'Your admin session has expired. Sign in again.'};
+      const body=await res.json();
+      me={role:'owner',email:body.user.email,name:body.user.email,via:'node',permissions:['settings','media','messages','care','analytics','team','security']};
+      legacyEnabled=false;
+      return {me};
+    }catch{return {error:'Could not reach the server. Please reload.',network:true};}
+  }
   try {
     const res = await fetch(`${EDGE_BASE}/admin-users`, {
       method: 'POST',
@@ -379,9 +393,9 @@ const showDashboard = async () => {
 };
 
 const checkAuthSession = () => {
-  const isAuth = (sessionStorage.getItem('pai_manager_authenticated') === 'true' ||
+  const isAuth = isNodeAdminSession() || ((sessionStorage.getItem('pai_manager_authenticated') === 'true' ||
                  localStorage.getItem('pai_manager_authenticated') === 'true') &&
-                 getPasskey() !== '';
+                 getPasskey() !== '');
   if (isAuth) {
     showDashboard();
   } else {
@@ -408,6 +422,16 @@ authForm?.addEventListener('submit', async (e) => {
 
   try {
     if (authMode === 'account') {
+      const nodeProbe=await _origFetch(`${SUPABASE_URL}/health/db`,{cache:'no-store'}).then(r=>r.ok).catch(()=>false);
+      if(nodeProbe){
+        const res=await _origFetch(`${SUPABASE_URL}/admin/login`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:emailInput.value.trim().toLowerCase(),password:accountPwInput.value})});
+        const body=await res.json().catch(()=>({}));
+        if(!res.ok){authError.textContent=body.error||'Unable to sign in';return;}
+        sessionStorage.setItem(NODE_SESSION_KEY,'true');
+        accountPwInput.value='';
+        await showDashboard();
+        return;
+      }
       const res = await _origFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
@@ -455,7 +479,9 @@ authForm?.addEventListener('submit', async (e) => {
 });
 
 btnLogout?.addEventListener('click', async () => {
-  if (isAccountSession()) {
+  if (isNodeAdminSession()) {
+    await _origFetch(`${SUPABASE_URL}/admin/logout`,{method:'POST',credentials:'same-origin'}).catch(()=>{});
+  } else if (isAccountSession()) {
     // best effort: also end the session on the server
     _origFetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${getPasskey()}` } }).catch(() => {});
   }
