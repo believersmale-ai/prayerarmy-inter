@@ -24,6 +24,7 @@ import { registerBundledMediaVisibility } from './bundled-media-visibility.js';
 import { registerPages } from './node-pages.js';
 import { createChurchManagement } from './church-management.js';
 import { createAcademyStaffRouter } from './academy-staff.js';
+import { createAcademyAdmissionsRouter } from './academy-admissions.js';
 import { createAcademyInstructorRouter } from './academy-instructors.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -99,6 +100,9 @@ content.register(app);
 const church = createChurchManagement(store, staff);
 app.use('/api/church', church.router);
 app.use('/api/academy/staff', createAcademyStaffRouter({db,staff}));
+const admissions=createAcademyAdmissionsRouter({db,staff});
+app.use('/api/academy/admissions',admissions.publicRouter);
+app.use('/api/academy/staff/admissions',admissions.adminRouter);
 app.use('/api/academy/instructor', createAcademyInstructorRouter({db,staff}));
 const academyLoginPages={admin:'academy-login-admin.html',instructor:'academy-login-instructor.html',student:'academy-login-student.html'};
 app.get('/academy/login/:role', (req,res)=>{
