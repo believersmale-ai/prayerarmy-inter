@@ -104,6 +104,8 @@ const admissions=createAcademyAdmissionsRouter({db,staff});
 app.use('/api/academy/admissions',admissions.publicRouter);
 app.use('/api/academy/staff/admissions',admissions.adminRouter);
 app.use('/api/academy/instructor', createAcademyInstructorRouter({db,staff}));
+app.get('/academy/apply',(req,res)=>res.set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-apply.html')));
+app.get('/academy/activate',(req,res)=>res.set('Cache-Control','no-store').set('Referrer-Policy','no-referrer').set('X-Robots-Tag','noindex,nofollow').sendFile(path.join(__dirname,'academy-activate.html')));
 const academyLoginPages={admin:'academy-login-admin.html',instructor:'academy-login-instructor.html',student:'academy-login-student.html'};
 app.get('/academy/login/:role', (req,res)=>{
  const file=academyLoginPages[req.params.role];
