@@ -2868,6 +2868,7 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
     if (!box) return;
     try {
       const { dashboard: d } = await callManageContent('get_dashboard');
+      if (!d || typeof d !== 'object') throw new Error('Dashboard data is unavailable. Please refresh and try again.');
       const cards = [];
       if (d.live) cards.push(card(d.live.isLive ? 'LIVE' : 'Offline', 'Livestream status', 'view-live', { hint: d.live.isLive ? d.live.title : 'Not broadcasting', cls: d.live.isLive ? 'live-on' : '' }));
       if (d.sermons) cards.push(card(d.sermons.total, 'Sermons & messages', 'view-messages', { hint: `${d.sermons.featured} featured` }));
@@ -2875,10 +2876,10 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
       if (d.prayer) {
         cards.push(card(d.prayer.total, 'Prayer requests', 'view-requests', { hint: `${d.prayer.private} confidential · ${d.prayer.followup} being followed up` }));
         cards.push(card(d.prayer.unread, 'Unread requests', 'view-requests', { attention: d.prayer.unread > 0 }));
-        cards.push(card(d.testimonies.total, 'Testimonies', 'view-testimonies'));
-        cards.push(card(d.testimonies.pending, 'Testimonies awaiting approval', 'view-testimonies', { attention: d.testimonies.pending > 0 }));
-        cards.push(card(d.wall.pending, 'Prayer wall posts awaiting approval', 'view-wall', { attention: d.wall.pending > 0, hint: `${d.wall.prayed} prayers offered` }));
-        cards.push(card(d.enquiries.total, 'Visitor enquiries', 'view-connect', { hint: `${d.enquiries.waiting} not yet contacted`, attention: d.enquiries.waiting > 0 }));
+        if (d.testimonies) cards.push(card(d.testimonies.total, 'Testimonies', 'view-testimonies'));
+        if (d.testimonies) cards.push(card(d.testimonies.pending, 'Testimonies awaiting approval', 'view-testimonies', { attention: d.testimonies.pending > 0 }));
+        if (d.wall) cards.push(card(d.wall.pending, 'Prayer wall posts awaiting approval', 'view-wall', { attention: d.wall.pending > 0, hint: `${d.wall.prayed} prayers offered` }));
+        if (d.enquiries) cards.push(card(d.enquiries.total, 'Visitor enquiries', 'view-connect', { hint: `${d.enquiries.waiting} not yet contacted`, attention: d.enquiries.waiting > 0 }));
       }
       if (d.events) cards.push(card(d.events.upcoming, 'Upcoming events', 'view-events'));
       if (d.announcements) cards.push(card(d.announcements.active, 'Published announcements', 'view-announcements'));
