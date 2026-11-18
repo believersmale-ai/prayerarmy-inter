@@ -119,6 +119,20 @@ app.get('/api/academy/catalog', async (req,res)=>{
   res.json({courses:rows.map(c=>({id:String(c.id),title:c.title,slug:c.slug,description:c.description,lesson_count:Number(c.lesson_count)}))});
  }catch(err){console.error('Academy catalog error:',err.code||err.message);res.status(503).json({error:'Catalog temporarily unavailable'})}
 });
+// Course previews expose public metadata and lesson headings only.
+app.get('/api/academy/catalog/:slug',async(req,res)=>{
+ res.set('Cache-Control','no-store');
+ if(process.env.PAI_ACADEMY_PUBLIC_CATALOG_ENABLED!=='true')return res.status(404).json({error:'Course unavailable'});
+ const slug=String(req.params.slug||'');
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||slug.length>160)return res.status(404).json({error:'Course unavailable'});
+ try{
+  const [courses]=await db.execute("SELECT id,title,slug,description FROM academy_courses WHERE slug=? AND status='published' LIMIT 1",[slug]);
+  if(!courses.length)return res.status(404).json({error:'Course unavailable'});
+  const course=courses[0];
+  const [lessons]=await db.execute('SELECT title,position FROM academy_lessons WHERE course_id=? AND published=1 ORDER BY position,id LIMIT 300',[course.id]);
+  res.json({course:{title:course.title,slug:course.slug,description:course.description,lesson_count:lessons.length,outline:lessons.map(l=>l.title)}});
+ }catch(err){console.error('Academy course preview:',err.code||err.message);res.status(503).json({error:'Course preview unavailable'})}
+});
 app.get('/academy-landing.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-landing.css')));
 app.get(['/academy','/academy/'], (req,res)=>res.sendFile(path.join(__dirname,'academy-landing.html')));
 app.get(['/academy/learn','/academy/learn/'], (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy.html')));
