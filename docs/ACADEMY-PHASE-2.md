@@ -9,9 +9,16 @@ This branch starts the Academy from the agreed phased plan. It does **not** depl
 - The schema stores server-side start/deadline timestamps and result release policy. **The schema alone does not enforce these policies**: authenticated API guards, database transactions and tests are required before activation.
 - No live database migration has been executed.
 
+## Course management implementation (this branch)
+- `academy-staff.js` exposes authenticated, owner-only course listing/creation/editing and draft lesson listing/creation. Course and lesson creation cannot publish content.
+- `academy-admin.html` provides a responsive draft course/lesson editor at `/academy/admin`; the HTML route requires staff security permission.
+- Set `PAI_ACADEMY_STAFF_ENABLED=true` **only on staging after migration 006** to activate these APIs. The default is disabled. No student exam routes are enabled.
+- This is an initial admin workflow, not the complete Academy: course publishing, lesson editing, enrollment, exams, grading and certificates remain pending.
+- Staging browser/database integration tests have not yet been run.
+
 ## Mandatory next implementation steps
 1. Staging DB backup, apply migration 006 once to staging only and inspect foreign keys.
-2. Staff-only course/lesson/assessment CRUD with server-side role checks and audit logs; explicit admin activation.
+2. Finish staff course/lesson/assessment CRUD with audit logs, role checks and explicit admin activation.
 3. Student enrollment and lesson access restricted to verified, approved, active student accounts.
 4. Timed assessment engine: use database/server time; enforce opens/closes, duration and max attempts on *every* request and submission; immutable questions after activation; transaction/locking to prevent double attempts.
 5. Grade objective questions on submission; hold essay marks for staff review; release results only according to `result_policy`. Do not leak correct answers before release.
