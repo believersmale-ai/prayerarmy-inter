@@ -20,6 +20,14 @@ export function createAcademyStudentRouter(db){
   const [nextLessons]=await db.execute("SELECT c.id AS course_id,c.title AS course_title,l.id AS lesson_id,l.title AS lesson_title FROM academy_enrollments e JOIN academy_courses c ON c.id=e.course_id JOIN academy_lessons l ON l.course_id=c.id AND l.published=1 LEFT JOIN academy_lesson_progress p ON p.enrollment_id=e.id AND p.lesson_id=l.id WHERE e.account_id=? AND e.status='active' AND c.status='published' AND p.id IS NULL ORDER BY e.enrolled_at DESC,l.position,l.id LIMIT 5",[accountId]);
   res.json({enrollments:Number(enrollments[0].total),completed_courses:Number(enrollments[0].completed||0),completed_lessons:Number(progress[0].completed_lessons),exam_attempts:Number(attempts[0].total),graded_attempts:Number(attempts[0].graded||0),continue_learning:nextLessons.map(l=>({course_id:String(l.course_id),course_title:l.course_title,lesson_id:String(l.lesson_id),lesson_title:l.lesson_title}))});
  }));
+ router.get('/courses/:id/announcements',route(async(req,res)=>{
+  check(process.env.PAI_ACADEMY_ANNOUNCEMENTS_ENABLED==='true',404,'Announcements are unavailable');
+  const courseId=id(req.params.id);
+  const [enrolled]=await db.execute("SELECT 1 FROM academy_enrollments e JOIN academy_courses c ON c.id=e.course_id WHERE e.course_id=? AND e.account_id=? AND e.status IN ('active','completed') AND c.status='published' LIMIT 1",[courseId,req.publicAccount.id]);
+  check(enrolled.length===1,403,'Enrollment required');
+  const [rows]=await db.execute('SELECT id,title,body,published_at FROM academy_announcements WHERE course_id=? ORDER BY published_at DESC,id DESC LIMIT 50',[courseId]);
+  res.json({announcements:rows.map(a=>({...a,id:String(a.id)}))});
+ }));
  router.get('/courses',route(async(req,res)=>{
   const [courses]=await db.execute("SELECT id,title,slug,description FROM academy_courses WHERE status='published' ORDER BY id DESC LIMIT 100");
   res.json({courses});
