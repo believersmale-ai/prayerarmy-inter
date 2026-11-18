@@ -1412,6 +1412,7 @@
         <button type="button" class="sidebar-btn" data-view="view-team">
           <span>👥</span> Team &amp; Accounts
         </button>
+        <a href="/academy/admin" id="academy-management-link" class="church-management-link" hidden>🎓 Academy Management ↗</a>
         <button type="button" class="sidebar-btn" data-view="view-security">
           <span>🔒</span> My Account &amp; Backup
         </button>
@@ -2504,6 +2505,13 @@
           </section>
 
           <section class="tab-view" id="view-team">
+            <div class="card" id="academy-setup-card" hidden style="margin-bottom:20px">
+              <h3 class="card-title">🎓 Academy Setup &amp; Activation</h3>
+              <p>Manage courses, lessons, and student enrollment from the Academy workspace. Academy access is disabled until the staging or production database migration and environment settings are ready.</p>
+              <p><a class="btn-primary" href="/academy/admin" style="display:inline-block;text-decoration:none;padding:12px 18px;border-radius:8px">Open Academy Management ↗</a></p>
+              <p class="form-note">To enable Academy, first confirm migration 006 and the public-account tables in the database used by this website. Then set <code>PAI_ACADEMY_STAFF_ENABLED=true</code> in Hostinger environment variables and redeploy. For student access, also configure <code>PAI_PUBLIC_ACCOUNTS_ENABLED=true</code> and <code>PAI_ACADEMY_STUDENTS_ENABLED=true</code> after verifying account authentication. These settings cannot safely be changed by a browser-only toggle.</p>
+            </div>
+
             <div class="view-header">
               <div class="view-header-text">
                 <h2><span>👥</span> Team &amp; Accounts</h2>
