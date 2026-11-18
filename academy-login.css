@@ -73,3 +73,30 @@
  .role-nav{padding-top:14px}
  .bottom-link{margin-top:16px}
 }
+
+/* Premium small-screen authentication: single compact identity header, form first */
+@media(max-width:720px){
+ html,body{min-height:100%;width:100%;overflow-x:hidden}
+ .auth-shell{min-height:100dvh;background:#f6f8fb}
+ .auth-story{min-height:0!important;padding:14px 18px!important;background:linear-gradient(115deg,#10233d,#1c3a5b);flex:0 0 auto}
+ .auth-story:before,.auth-story:after{display:none}
+ .auth-story .brand{gap:11px;align-items:center;max-width:100%}
+ .auth-story .brand img{width:44px!important;height:44px!important;object-fit:contain;border-radius:8px}
+ .auth-story .brand-name{font-size:clamp(.68rem,3.15vw,.88rem);line-height:1.35;letter-spacing:.04em;overflow-wrap:anywhere}
+ .auth-story .brand-name small{font-size:.64rem;letter-spacing:.11em;margin-top:2px}
+ .auth-story .story-main,.auth-story .story-footer{display:none!important}
+ .auth-main{flex:1;padding:clamp(20px,5vw,32px) clamp(18px,5vw,28px) 30px;background:#f6f8fb;align-items:flex-start;justify-content:center}
+ .auth-content{width:min(100%,460px);margin:auto;background:#fff;border:1px solid #e0e7ee;border-radius:18px;padding:clamp(18px,5vw,28px);box-shadow:0 15px 45px #10243e0d}
+ .auth-content h2{font-size:clamp(1.9rem,7vw,2.4rem);line-height:1.12;margin:5px 0 8px}
+ .auth-content .lead{font-size:.91rem;line-height:1.5;margin:0 0 18px}
+ .form-group{margin-bottom:14px}
+ .form-group label{font-size:.85rem;margin-bottom:6px}
+ .field input{height:48px;font-size:16px}
+ .submit{min-height:50px;margin-top:13px}
+ .auth-note{font-size:.78rem;line-height:1.5}
+ .role-nav{padding-top:14px}
+ .role-links{display:flex;flex-wrap:wrap;gap:7px}
+ .role-links a{font-size:.79rem;padding:8px 10px}
+ .bottom-link{font-size:.79rem;line-height:1.5}
+}
+@media(max-width:380px){.auth-main{padding:14px 10px 22px}.auth-content{padding:17px 15px}.auth-story{padding:12px!important}}
