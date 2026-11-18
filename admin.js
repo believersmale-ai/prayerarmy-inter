@@ -1604,7 +1604,13 @@ const handleFileUpload = async (files) => {
 };
 
 // Load Media Files (bundled church photos + uploaded files)
+let mediaLoadRequest = 0;
 const loadMedia = async () => {
+  const requestId = ++mediaLoadRequest;
+  if (mediaGridContainer) {
+    mediaGridContainer.setAttribute('aria-busy', 'true');
+    mediaGridContainer.innerHTML = '<p class="muted-note" role="status">Loading media library…</p>';
+  }
   try {
     const media = [];
 
@@ -1613,7 +1619,7 @@ const loadMedia = async () => {
       const manifestRes = await fetch('assets/images/manifest.json');
       if (manifestRes.ok) {
         const manifest = await manifestRes.json();
-        media.push(...manifest);
+        if (Array.isArray(manifest)) media.push(...manifest);
       }
     } catch {}
 
@@ -1622,7 +1628,7 @@ const loadMedia = async () => {
       const response=await _origFetch(`${SUPABASE_URL}/media`,{credentials:'same-origin',cache:'no-store'});
       if(!response.ok)throw Error('Unable to load uploaded media');
       const data=await response.json();
-      media.push(...(data.media||[]).filter(item=>item.isUpload).map(item=>({
+      media.push(...(Array.isArray(data.media) ? data.media : []).filter(item=>item.isUpload).map(item=>({
         ...item,url:'/'+String(item.url).replace(/^\//,''),isUpload:true
       })));
     }else{
@@ -1636,8 +1642,10 @@ const loadMedia = async () => {
       },
       body: JSON.stringify({ prefix: '', limit: 500, sortBy: { column: 'created_at', order: 'desc' } })
     });
+    if (!listRes.ok) throw Error(`Unable to load uploaded media (${listRes.status})`);
     if (listRes.ok) {
       const objects = await listRes.json();
+      if (!Array.isArray(objects)) throw Error('Media storage returned an invalid response.');
       for (const obj of objects) {
         if (!obj.name) continue;
         const ext = obj.name.split('.').pop().toLowerCase();
@@ -1669,11 +1677,18 @@ const loadMedia = async () => {
       media.forEach(m=>{if(!m.isUpload&&hiddenSet.has(m.filename))m.hidden=true;});
     }catch(err){console.warn('Media visibility:',err.message);showToast('Hidden assets unavailable. Check migration 005.','error');}
 
+    if (requestId !== mediaLoadRequest) return;
     allMedia = media;
     renderMediaGrid();
     populateMessageMediaSelect();
   } catch (err) {
     console.error('Failed to load media files', err);
+    if (requestId === mediaLoadRequest && mediaGridContainer) {
+      mediaGridContainer.innerHTML = `<div role="alert"><p>${escAttr(err.message || 'Could not load media files.')}</p><button type="button" class="btn-mini" id="media-retry">Try again</button></div>`;
+      mediaGridContainer.querySelector('#media-retry')?.addEventListener('click', loadMedia, { once: true });
+    }
+  } finally {
+    if (requestId === mediaLoadRequest) mediaGridContainer?.removeAttribute('aria-busy');
   }
 };
 
@@ -1708,7 +1723,7 @@ const renderMediaGrid = () => {
     filtered = allMedia.filter(m => m.hidden);
   }
 
-  mediaCount.textContent = filtered.length;
+  if (mediaCount) mediaCount.textContent = filtered.length;
 
   if (filtered.length === 0) {
     mediaGridContainer.innerHTML = currentMediaFilter === 'hidden'
@@ -1726,7 +1741,7 @@ const renderMediaGrid = () => {
       <div class="media-card${isHidden ? ' media-card-hidden' : ''}">
         <div class="media-thumb-wrap">
           ${isVideo
-            ? `<video src="${item.url}" preload="metadata" muted playsinline></video>`
+            ? `<video src="${escAttr(item.url)}" preload="metadata" muted playsinline></video>`
             : isAudio
             ? `<div class="media-audio-thumb" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;background:#10131a;">🎙</div>`
             : `<img src="${escAttr(item.url)}" alt="${escAttr(item.filename)}" loading="lazy">`
