@@ -3,6 +3,7 @@
 import {Router} from 'express';
 import multer from 'multer';
 import {getDocument} from 'pdfjs-dist/legacy/build/pdf.mjs';
+import {outlineFromText} from './academy-pdf-outline.js';
 import {sameOrigin} from './node-auth.js';
 import {check,required,optional,clean,route} from './node-common.js';
 const numericId=value=>{const v=String(value??'');check(/^[1-9]\d{0,18}$/.test(v),400,'Invalid identifier');return v};
@@ -78,8 +79,40 @@ export function createAcademyStaffRouter({db,staff}){
    }
    const text=pages.join('\\n\\n').slice(0,150000);
    check(text.trim().length>0,422,'No selectable text found. Scanned PDFs need OCR before import.');
-   res.json({pages:document.numPages,text,warning:'Review and edit extracted text before creating draft lessons, courses or questions. Nothing has been saved.'});
+   res.json({pages:document.numPages,text,outline:outlineFromText(text),warning:'Review and edit extracted text before creating draft lessons, courses or questions. Nothing has been saved.'});
   }finally{if(document)await document.destroy()}
+ }));
+
+
+ // Review-first import into an existing draft course; atomic and never published.
+ router.post('/courses/:id/import-outline',route(async(req,res)=>{
+  const courseId=numericId(req.params.id);
+  const lessons=req.body?.lessons,questions=req.body?.questions||[];
+  check(Array.isArray(lessons)&&Array.isArray(questions),400,'Invalid outline');
+  check(lessons.length<=100&&questions.length<=200&&lessons.length+questions.length>0,400,'Import must contain 1–300 items');
+  const assessmentId=questions.length?numericId(req.body?.assessment_id):null;
+  const preparedLessons=lessons.map((item,i)=>({title:required(item?.title,200,'Lesson title'),content:optional(item?.content,50000),position:i}));
+  const preparedQuestions=questions.map((item,i)=>{
+   const type=String(item?.question_type||'essay');
+   check(type==='essay',400,'Only essay question drafts are supported by this import; choice answer keys need manual review');
+   const points=Number(item?.points??1);
+   check(Number.isFinite(points)&&points>0&&points<=9999&&Number.isInteger(points*100),400,'Invalid points');
+   return {text:required(item?.question_text,10000,'Question text'),type,points,position:i};
+  });
+  const conn=await db.getConnection();
+  try{
+   await conn.beginTransaction();
+   const [courses]=await conn.execute('SELECT status FROM academy_courses WHERE id=? FOR UPDATE',[courseId]);
+   check(courses[0]?.status==='draft',409,'Import requires a draft course');
+   if(assessmentId){
+    const [assessments]=await conn.execute('SELECT status FROM academy_assessments WHERE id=? AND course_id=? FOR UPDATE',[assessmentId,courseId]);
+    check(assessments[0]?.status==='draft',409,'Choose a draft assessment belonging to this course');
+   }
+   for(const item of preparedLessons)await conn.execute('INSERT INTO academy_lessons(course_id,title,content,position,published) VALUES (?,?,?,?,0)',[courseId,item.title,item.content,item.position]);
+   for(const item of preparedQuestions)await conn.execute('INSERT INTO academy_questions(assessment_id,question_text,question_type,points,position) VALUES (?,?,?,?,?)',[assessmentId,item.text,item.type,item.points,item.position]);
+   await conn.commit();
+   res.status(201).json({success:true,lessons:preparedLessons.length,questions:preparedQuestions.length,published:false});
+  }catch(error){await conn.rollback();throw error}finally{conn.release()}
  }));
 
  // Phase 2A: staff assessment authoring. All new assessments remain drafts.
