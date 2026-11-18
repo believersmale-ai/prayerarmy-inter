@@ -36,7 +36,7 @@ export function createAcademyStudentRouter(db){
   const [courses]=await db.execute("SELECT c.id,c.title,c.slug,e.status AS enrollment_status,e.enrolled_at,e.completed_at FROM academy_enrollments e JOIN academy_courses c ON c.id=e.course_id WHERE e.account_id=? ORDER BY e.enrolled_at DESC LIMIT 100",[req.publicAccount.id]);
   res.json({courses});
  }));
- router.post('/courses/:id/enroll',route(async(req,res)=>{
+ router.post('/courses/:id/enroll',(req,res,next)=>process.env.PAI_ACADEMY_ADMISSIONS_ENABLED==='true'?res.status(403).json({error:'Apply for admission to this course. Enrollment is granted only after approval.'}):next(),route(async(req,res)=>{
   const courseId=id(req.params.id);
   const connection=await db.getConnection();
   try{
