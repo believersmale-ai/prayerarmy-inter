@@ -106,6 +106,7 @@ app.get('/academy/login/:role', (req,res)=>{
  if(!file)return res.status(404).type('text/plain').send('Not found');
  res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,file));
 });
+app.get('/academy-login.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-login.css')));
 app.get('/academy-design.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-design.css')));
 app.get(['/academy/instructor','/academy/instructor/'], ...staff.permit(), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-instructor.html')));
 app.get(['/academy/admin','/academy/admin/'], ...staff.permit('security'), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-admin.html')));
