@@ -87,3 +87,36 @@ input:focus,textarea:focus,select:focus{border-color:#af8530!important;box-shado
 #site-manager-main:focus{outline:none}
 .sidebar-btn:focus-visible,.ux-quick-link:focus-visible,.btn-mini:focus-visible,.btn-live-site:focus-visible{outline:3px solid #dfbb70!important;outline-offset:2px!important}
 .sidebar-btn[aria-current="page"]{font-weight:700!important}
+
+/* Management workspaces: media, sermons, pastoral care and approvals */
+#view-media .upload-dropzone{border:2px dashed #bdcbdc!important;border-radius:16px!important;padding:clamp(24px,4vw,48px)!important;text-align:center;background:#f8fafc!important}
+#view-media .upload-dropzone:hover,#view-media .upload-dropzone:focus-within{border-color:#b68b31!important;background:#fffaf0!important}
+#view-media .upload-dropzone h4{color:#172941!important;font-size:17px!important}
+#view-media .upload-dropzone p{color:#53677d!important}
+#view-media .btn-select-files{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 18px;border-radius:9px;background:#b68b31!important;color:#fff!important;cursor:pointer}
+#view-media .btn-select-files:hover{background:#8e6b26!important}
+#view-messages .card,#view-requests .card,#view-testimonies .card{margin-bottom:20px!important}
+#view-messages .card-title,#view-media .card-title,#view-requests .card-title,#view-testimonies .card-title{font-weight:750!important;letter-spacing:-.02em}
+#view-requests .toolbar,#view-testimonies .toolbar{display:flex!important;align-items:center;gap:12px!important;flex-wrap:wrap!important;margin-bottom:18px!important}
+#view-requests .toolbar input[type="search"],#view-testimonies .toolbar input[type="search"]{flex:1 1 240px;max-width:100%;min-width:0}
+#view-requests .toolbar select,#view-testimonies .toolbar select{flex:0 1 220px;min-width:160px;max-width:100%}
+#requests-admin-list,#testimonies-admin-list,#media-library,#messages-admin-list{min-width:0;overflow-wrap:anywhere}
+#view-requests .admin-item,#view-testimonies .admin-item,#view-messages .admin-item{padding:18px!important;margin-bottom:12px!important;box-shadow:0 2px 9px rgba(20,39,65,.025)}
+#view-requests .admin-item:hover,#view-testimonies .admin-item:hover,#view-messages .admin-item:hover{border-color:#c1cddd!important;box-shadow:0 7px 24px rgba(20,39,65,.06)!important}
+#view-requests button,#view-testimonies button,#view-messages button,#view-media button{max-width:100%}
+#view-requests [class*="status"],#view-testimonies [class*="status"]{overflow-wrap:anywhere}
+#admin-app table{width:100%;border-collapse:separate;border-spacing:0}
+#admin-app table th{background:#f3f6fa!important;color:#334b64!important;font-size:12px!important;font-weight:700!important;text-align:left}
+#admin-app table td{color:#273e56!important;border-bottom:1px solid #e5ebf3!important}
+#admin-app table th,#admin-app table td{padding:12px 14px!important}
+#admin-app table tr:hover td{background:#fafbfd!important}
+#admin-app .form-note.err,#admin-app [role="alert"]{color:#a93434!important}
+#admin-app .form-note.ok{color:#236f52!important}
+#admin-app button:disabled{cursor:not-allowed!important;opacity:.58!important}
+@media(max-width:700px){
+ #view-requests .toolbar,#view-testimonies .toolbar{align-items:stretch!important}
+ #view-requests .toolbar input[type="search"],#view-testimonies .toolbar input[type="search"],#view-requests .toolbar select,#view-testimonies .toolbar select{flex:1 1 100%;width:100%;min-width:0}
+ #view-media .upload-dropzone{padding:22px 14px!important}
+ #admin-app table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ #admin-app table th,#admin-app table td{white-space:nowrap}
+}
