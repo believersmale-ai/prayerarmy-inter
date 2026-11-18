@@ -101,6 +101,7 @@ app.use('/api/church', church.router);
 app.use('/api/academy/staff', createAcademyStaffRouter({db,staff}));
 app.use('/api/academy/instructor', createAcademyInstructorRouter({db,staff}));
 app.get('/academy-design.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-design.css')));
+app.get(['/academy/instructor','/academy/instructor/'], ...staff.permit(), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-instructor.html')));
 app.get(['/academy/admin','/academy/admin/'], ...staff.permit('security'), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-admin.html')));
 app.get(['/academy','/academy/'], (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').sendFile(path.join(__dirname,'academy.html')));
 app.get(['/church','/church/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'church-management.html')));
