@@ -198,5 +198,38 @@ export function createAcademyStaffRouter({db,staff}){
    await conn.commit();res.json({success:true,count:prepared.length});
   }catch(error){await conn.rollback();throw error}finally{conn.release()}
  }));
+
+ // Activate only fully configured assessments, with explicit scheduling.
+ router.post('/assessments/:id/activate',route(async(req,res)=>{
+  check(process.env.PAI_ACADEMY_EXAMS_ENABLED==='true',503,'Assessment activation is disabled');
+  const assessmentId=numericId(req.params.id);
+  const duration=Number(req.body?.duration_minutes);
+  const maxAttempts=Number(req.body?.max_attempts??1);
+  const passing=Number(req.body?.passing_percent??50);
+  const opens=String(req.body?.opens_at||''),closes=String(req.body?.closes_at||'');
+  check(/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$/.test(opens)&&/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$/.test(closes),400,'Provide UTC ISO start and end times');
+  const start=new Date(opens),end=new Date(closes);
+  check(Number.isFinite(start.getTime())&&Number.isFinite(end.getTime())&&end>start&&end>Date.now(),400,'Invalid assessment window');
+  check(Number.isSafeInteger(duration)&&duration>=1&&duration<=1440,400,'Invalid exam duration');
+  check(Number.isSafeInteger(maxAttempts)&&maxAttempts>=1&&maxAttempts<=10,400,'Invalid attempt limit');
+  check(Number.isFinite(passing)&&passing>=0&&passing<=100,400,'Invalid passing percentage');
+  const toSql=date=>date.toISOString().slice(0,19).replace('T',' ');
+  const conn=await db.getConnection();
+  try{
+   await conn.beginTransaction();
+   const [rows]=await conn.execute("SELECT a.kind,a.status,c.status AS course_status FROM academy_assessments a JOIN academy_courses c ON c.id=a.course_id WHERE a.id=? FOR UPDATE",[assessmentId]);
+   check(rows[0]?.status==='draft'&&rows[0]?.course_status==='published',409,'Publish the course before activating its draft assessment');
+   const [questions]=await conn.execute('SELECT id,question_type FROM academy_questions WHERE assessment_id=? FOR UPDATE',[assessmentId]);
+   check(questions.length>0,409,'Add questions before activation');
+   check(questions.every(q=>q.question_type!=='essay'),409,'Essay marking requires manual grading; activation currently supports choice questions only');
+   for(const question of questions){
+    const [options]=await conn.execute('SELECT is_correct FROM academy_options WHERE question_id=?',[question.id]);
+    const correct=options.filter(o=>o.is_correct).length;
+    check(options.length>=2&&(question.question_type==='single_choice'?correct===1:correct>=1),409,'Complete all answer keys before activation');
+   }
+   await conn.execute("UPDATE academy_assessments SET status='active',opens_at=?,closes_at=?,duration_minutes=?,max_attempts=?,passing_percent=?,result_policy='immediate' WHERE id=?",[toSql(start),toSql(end),duration,maxAttempts,passing,assessmentId]);
+   await conn.commit();res.json({success:true,status:'active'});
+  }catch(error){await conn.rollback();throw error}finally{conn.release()}
+ }));
  return router;
 }
