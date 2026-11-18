@@ -39,6 +39,28 @@ export function createAcademyStudentRouter(db){
   const [lessons]=await db.execute('SELECT id,title,content,position FROM academy_lessons WHERE course_id=? AND published=1 ORDER BY position,id LIMIT 300',[courseId]);
   res.json({lessons});
  }));
+
+ router.get('/courses/:id/progress',route(async(req,res)=>{
+  const courseId=id(req.params.id);
+  const [enrollments]=await db.execute("SELECT e.id,e.status FROM academy_enrollments e JOIN academy_courses c ON c.id=e.course_id WHERE e.course_id=? AND e.account_id=? AND e.status IN ('active','completed') AND c.status='published'",[courseId,req.publicAccount.id]);
+  check(enrollments.length===1,403,'Active enrollment required');
+  const [lessons]=await db.execute("SELECT l.id,l.title,CASE WHEN p.id IS NULL THEN 0 ELSE 1 END AS completed,p.completed_at FROM academy_lessons l LEFT JOIN academy_lesson_progress p ON p.lesson_id=l.id AND p.enrollment_id=? WHERE l.course_id=? AND l.published=1 ORDER BY l.position,l.id",[enrollments[0].id,courseId]);
+  const [assessments]=await db.execute("SELECT a.id,a.title,a.kind,a.passing_percent,MAX(CASE WHEN t.status='graded' AND t.possible_points>0 AND t.earned_points*100>=t.possible_points*a.passing_percent THEN 1 ELSE 0 END) AS passed FROM academy_assessments a LEFT JOIN academy_attempts t ON t.assessment_id=a.id AND t.account_id=? WHERE a.course_id=? AND a.status IN ('active','closed') GROUP BY a.id,a.title,a.kind,a.passing_percent ORDER BY a.id",[req.publicAccount.id,courseId]);
+  const completed=lessons.filter(l=>l.completed).length;
+  const passed=assessments.filter(a=>Number(a.passed)===1).length;
+  res.json({course_id:courseId,enrollment_status:enrollments[0].status,lessons:{completed,total:lessons.length,items:lessons.map(l=>({id:String(l.id),title:l.title,completed:Boolean(l.completed),completed_at:l.completed_at}))},assessments:{passed,total:assessments.length,items:assessments.map(a=>({id:String(a.id),title:a.title,kind:a.kind,passed:Boolean(a.passed)}))},eligible_for_completion:lessons.length>0&&completed===lessons.length&&passed===assessments.length});
+ }));
+ router.post('/lessons/:id/complete',route(async(req,res)=>{
+  const lessonId=id(req.params.id);
+  const conn=await db.getConnection();
+  try{
+   await conn.beginTransaction();
+   const [rows]=await conn.execute("SELECT l.id,e.id AS enrollment_id FROM academy_lessons l JOIN academy_courses c ON c.id=l.course_id JOIN academy_enrollments e ON e.course_id=c.id AND e.account_id=? WHERE l.id=? AND l.published=1 AND c.status='published' AND e.status IN ('active','completed') FOR UPDATE",[req.publicAccount.id,lessonId]);
+   check(rows.length===1,403,'Published lesson and active enrollment required');
+   await conn.execute('INSERT IGNORE INTO academy_lesson_progress(enrollment_id,lesson_id,completed_at) VALUES (?,?,UTC_TIMESTAMP())',[rows[0].enrollment_id,lessonId]);
+   await conn.commit();res.json({success:true,lesson_id:lessonId,completed:true});
+  }catch(error){await conn.rollback();throw error}finally{conn.release()}
+ }));
  router.use(createAcademyExamRouter(db));
  return router;
 }
