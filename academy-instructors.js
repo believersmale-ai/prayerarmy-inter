@@ -16,6 +16,14 @@ export function createAcademyInstructorRouter({db,staff}){
   const [rows]=await db.execute("SELECT c.id,c.title,c.description,c.status,COUNT(DISTINCT e.id) AS enrollment_count,COUNT(DISTINCT a.id) AS assessment_count FROM academy_courses c JOIN academy_instructor_assignments i ON i.course_id=c.id LEFT JOIN academy_enrollments e ON e.course_id=c.id LEFT JOIN academy_assessments a ON a.course_id=c.id WHERE i.staff_id=? GROUP BY c.id,c.title,c.description,c.status ORDER BY c.id DESC",[req.staff.user_id]);
   res.json({courses:rows.map(r=>({...r,id:String(r.id),enrollment_count:Number(r.enrollment_count),assessment_count:Number(r.assessment_count)}))});
  }));
+ router.get('/courses/:id/analytics',route(async(req,res)=>{
+  const courseId=id(req.params.id);
+  check(req.academyCourseIds.has(courseId),403,'Course is not assigned to you');
+  const [lessonCount]=await db.execute('SELECT COUNT(*) AS total FROM academy_lessons WHERE course_id=? AND published=1',[courseId]);
+  const [learners]=await db.execute("SELECT e.id,e.status,e.enrolled_at,e.completed_at,a.display_name,COUNT(DISTINCT p.lesson_id) AS lessons_completed FROM academy_enrollments e JOIN public_accounts a ON a.id=e.account_id LEFT JOIN academy_lesson_progress p ON p.enrollment_id=e.id WHERE e.course_id=? GROUP BY e.id,e.status,e.enrolled_at,e.completed_at,a.display_name ORDER BY e.enrolled_at DESC LIMIT 200",[courseId]);
+  const [outcomes]=await db.execute("SELECT x.id,x.title,COUNT(DISTINCT t.id) AS attempts,COUNT(DISTINCT CASE WHEN t.status='graded' AND t.possible_points>0 AND t.earned_points*100>=t.possible_points*x.passing_percent THEN t.account_id END) AS learners_passed FROM academy_assessments x LEFT JOIN academy_attempts t ON t.assessment_id=x.id WHERE x.course_id=? AND x.status IN ('active','closed') GROUP BY x.id,x.title ORDER BY x.id DESC LIMIT 100",[courseId]);
+  res.json({course_id:courseId,total_lessons:Number(lessonCount[0].total),learners:learners.map(l=>({name:l.display_name,status:l.status,enrolled_at:l.enrolled_at,completed_at:l.completed_at,lessons_completed:Number(l.lessons_completed)})),assessments:outcomes.map(a=>({title:a.title,attempts:Number(a.attempts),learners_passed:Number(a.learners_passed)}))});
+ }));
  router.get('/courses/:id/summary',route(async(req,res)=>{
   const courseId=id(req.params.id);
   check(req.academyCourseIds.has(courseId),403,'Course is not assigned to you');
