@@ -23,6 +23,7 @@ import { registerMediaPosts } from './media-posts.js';
 import { registerBundledMediaVisibility } from './bundled-media-visibility.js';
 import { registerPages } from './node-pages.js';
 import { createChurchManagement } from './church-management.js';
+import { createAcademyStaffRouter } from './academy-staff.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,6 +97,8 @@ const pages = registerPages(app, { content, store, root: __dirname, uploadsDir: 
 content.register(app);
 const church = createChurchManagement(store, staff);
 app.use('/api/church', church.router);
+app.use('/api/academy/staff', createAcademyStaffRouter({db,staff}));
+app.get(['/academy/admin','/academy/admin/'], ...staff.permit('security'), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-admin.html')));
 app.get(['/church','/church/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'church-management.html')));
 app.get(['/member','/member/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'member-portal.html')));
 registerMediaPosts(app,{db,staff,sameOrigin,uploadDir:UPLOAD_DIR,mediaTypeOf});
