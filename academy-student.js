@@ -2,6 +2,7 @@
 // Courses must be explicitly published by a future staff workflow.
 import {Router} from 'express';
 import {createAcademyExamRouter} from './academy-exams.js';
+import {createAcademyCertificateRouter} from './academy-certificates.js';
 import {check,route} from './node-common.js';
 const id=value=>{const v=String(value??'');check(/^[1-9][0-9]{0,18}$/.test(v),400,'Invalid course ID');return v;};
 export function createAcademyStudentRouter(db){
@@ -61,6 +62,7 @@ export function createAcademyStudentRouter(db){
    await conn.commit();res.json({success:true,lesson_id:lessonId,completed:true});
   }catch(error){await conn.rollback();throw error}finally{conn.release()}
  }));
+ router.use(createAcademyCertificateRouter(db));
  router.use(createAcademyExamRouter(db));
  return router;
 }
