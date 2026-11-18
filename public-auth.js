@@ -1,6 +1,7 @@
 // Shared public identity API. Deliberately separate from staff admin sessions.
 // Routes stay disabled until staging migration, email verification and QA are ready.
 import { Router } from 'express';
+import { createAcademyStudentRouter } from './academy-student.js';
 import { randomBytes, createHash, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import nodemailer from 'nodemailer';
@@ -207,6 +208,13 @@ export function createPublicAccountRouter(db, {memberRouter} = {}) {
       },
       memberRouter,
     );
+  router.use('/academy',async(req,res,next)=>{
+    try {
+      const account=await current(req);
+      if(!account)return res.status(401).json({error:'Sign in required'});
+      req.publicAccount=account;next();
+    }catch(err){console.error('Academy authorization failed:',err.code||err.message);res.status(503).json({error:'Academy temporarily unavailable'});}
+  },createAcademyStudentRouter(db));
   router.get('/me',async(req,res)=>{
     try {const account=await current(req);if(!account)return res.status(401).json({error:'Sign in required'});res.json({account:publicView(account)});}
     catch(err){console.error('Public session error:',err.code||err.message);res.status(503).json({error:'Session temporarily unavailable'});}
