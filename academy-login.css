@@ -22,3 +22,54 @@
 @media(max-width:980px){.auth-shell{grid-template-columns:minmax(0,.85fr) minmax(380px,1fr)}.auth-story{padding:36px}.story-main h1{font-size:2.7rem}}
 @media(max-width:720px){.auth-shell{display:flex;flex-direction:column}.auth-story{padding:25px 23px 28px;min-height:auto}.brand img{width:46px;height:46px}.story-main{margin:24px 0 0}.story-main h1{font-size:2rem;margin:9px 0}.story-main p{font-size:.91rem;line-height:1.5;margin:0}.story-rule,.story-footer{display:none}.auth-main{padding:34px 22px 60px;justify-content:flex-start}.auth-content h2{font-size:2rem;margin-top:16px}.lead{margin-bottom:24px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+/* Compact faculty sign-in: fit normal laptop/desktop viewports without clipping */
+@media(min-width:721px){
+ html,body{min-height:100%;height:100%}
+ .auth-shell{height:100dvh;min-height:0;grid-template-columns:minmax(0,1fr) minmax(410px,1fr)}
+ .auth-story{min-height:0;padding:clamp(22px,3.2vh,42px) clamp(28px,4vw,64px)}
+ .auth-story .brand img{width:clamp(52px,6.5vh,68px);height:clamp(52px,6.5vh,68px)}
+ .story-main{margin:clamp(14px,2.5vh,30px) 0}
+ .story-main h1{font-size:clamp(2.5rem,5.4vh,4.1rem);margin:clamp(10px,1.5vh,20px) 0}
+ .story-main p{font-size:clamp(.88rem,1.7vh,1.05rem);line-height:1.55}
+ .story-rule{margin:clamp(12px,2vh,22px) 0}
+ .auth-main{min-height:0;padding:clamp(14px,2.3vh,28px) clamp(24px,4vw,70px);overflow-y:auto}
+ .auth-content{width:min(100%,470px)}
+ .auth-content h2{font-size:clamp(1.9rem,3.8vh,2.6rem);margin:clamp(8px,1.5vh,17px) 0 6px}
+ .lead{margin-bottom:clamp(12px,2vh,22px)}
+ .form-group{margin-bottom:clamp(10px,1.7vh,16px)}
+ .form-group label{margin-bottom:5px}
+ .field input{height:clamp(43px,5.8vh,52px)}
+ .reveal{top:4px;height:calc(100% - 8px)}
+ .submit{height:clamp(45px,6vh,52px);margin-top:clamp(8px,1.5vh,16px)}
+ .error{margin:4px 0;min-height:1.1em}
+ .auth-note{margin:clamp(12px,2vh,20px) 0;padding:11px 13px;line-height:1.45}
+ .role-nav{padding-top:clamp(10px,1.7vh,18px)}
+ .role-nav p{margin-bottom:7px}
+ .role-links a{padding:7px 11px}
+ .bottom-link{margin-top:clamp(12px,2vh,20px)}
+}
+@media(min-width:721px) and (max-height:700px){
+ .auth-story{padding-top:18px;padding-bottom:18px}
+ .story-main h1{font-size:clamp(2.1rem,5vh,3rem)}
+ .story-main p{font-size:.88rem}
+ .auth-main{padding-top:12px;padding-bottom:12px}
+ .auth-content h2{font-size:1.8rem}
+ .auth-note{font-size:.77rem;padding:9px 12px;margin:9px 0}
+ .bottom-link{font-size:.78rem;margin-top:9px}
+}
+@media(max-width:720px){
+ .auth-story{padding:18px 20px}
+ .story-main{margin:12px 0 0}
+ .story-main h1{font-size:clamp(1.6rem,6vw,2rem);margin:5px 0}
+ .story-main p{display:none}
+ .auth-main{padding:20px 20px 32px}
+ .auth-content h2{margin-top:10px}
+ .lead{margin-bottom:16px}
+ .form-group{margin-bottom:13px}
+ .field input{height:48px}
+ .reveal{height:36px;top:6px}
+ .auth-note{margin:14px 0;padding:11px}
+ .role-nav{padding-top:14px}
+ .bottom-link{margin-top:16px}
+}
