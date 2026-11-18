@@ -371,6 +371,10 @@ const applyRoleUI = () => {
   if (backup) backup.hidden = !can('settings');
   const chip = $('#whoami-chip');
   if (chip) chip.textContent = `${me.name || me.email} · ${ROLE_LABEL[me.role] || me.role}`;
+  const academyLink=document.getElementById('academy-management-link');
+  if(academyLink)academyLink.hidden=!isNodeAdminSession()||!can('security');
+  const academyCard=document.getElementById('academy-setup-card');
+  if(academyCard)academyCard.hidden=!isNodeAdminSession()||!can('security');
   const churchLink=document.getElementById('church-management-link');
   if(churchLink)churchLink.hidden=!isNodeAdminSession()||!me.permissions.some(p=>['members','attendance','reports'].includes(p));
   $$('#team-role option').forEach(o=>{if(['registrar','usher'].includes(o.value)){o.hidden=!isNodeAdminSession();o.disabled=!isNodeAdminSession();}});
