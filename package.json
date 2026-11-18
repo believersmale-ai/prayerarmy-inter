@@ -15,7 +15,8 @@
     "file-type": "^22.3.0",
     "multer": "^2.5.0",
     "mysql2": "^3.14.4",
-    "nodemailer": "^10.6.0"
+    "nodemailer": "^10.6.0",
+    "pdfjs-dist": "^5.4.296"
   },
   "type": "module",
   "engines": {
