@@ -2863,11 +2863,16 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
     return new Date(iso).toLocaleDateString();
   };
 
+  let dashboardRequestId = 0;
   const loadDashboard = async () => {
     const box = document.getElementById('dash-body');
     if (!box) return;
+    const requestId = ++dashboardRequestId;
+    box.setAttribute('aria-busy', 'true');
+    box.innerHTML = '<p class="muted-note" role="status">Loading dashboard…</p>';
     try {
       const { dashboard: d } = await callManageContent('get_dashboard');
+      if (requestId !== dashboardRequestId) return;
       if (!d || typeof d !== 'object') throw new Error('Dashboard data is unavailable. Please refresh and try again.');
       const cards = [];
       if (d.live) cards.push(card(d.live.isLive ? 'LIVE' : 'Offline', 'Livestream status', 'view-live', { hint: d.live.isLive ? d.live.title : 'Not broadcasting', cls: d.live.isLive ? 'live-on' : '' }));
@@ -2899,6 +2904,7 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
       if (d.traffic) {
         try {
           const { analytics: a } = await callManageContent('get_analytics', { days: 30 });
+          if (requestId !== dashboardRequestId) return;
           const days = (a.days || []).slice(-14);
           const max = Math.max(1, ...days.map((x) => x.views));
           document.getElementById('dash-bars').innerHTML = days.map((x) => `<i style="height:${Math.round(x.views / max * 100)}%" title="${esc(x.day)}: ${x.views} visits"></i>`).join('');
@@ -2908,7 +2914,12 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
       const w = document.getElementById('dash-welcome');
       if (w && typeof me !== 'undefined' && me) w.textContent = `Welcome, ${me.name || me.email}. Everything below is counted from your real website records.`;
     } catch (err) {
-      box.innerHTML = `<p style="font-size:13px;color:#f87171">${esc(err.message || 'Could not load the dashboard.')}</p>`;
+      if (requestId === dashboardRequestId) {
+        box.innerHTML = `<div role="alert"><p style="font-size:13px;color:#f87171">${esc(err.message || 'Could not load the dashboard.')}</p><button type="button" class="btn-mini" id="dash-retry">Try again</button></div>`;
+        box.querySelector('#dash-retry')?.addEventListener('click', loadDashboard, { once: true });
+      }
+    } finally {
+      if (requestId === dashboardRequestId) box.removeAttribute('aria-busy');
     }
   };
 
@@ -2924,8 +2935,10 @@ $('#btn-change-my-password')?.addEventListener('click', async () => {
     if (!can('settings')) return;
     try {
       const { prefs } = await callManageContent('get_notify_prefs');
-      document.getElementById('notify-email').value = prefs.email || '';
-      Object.entries(ids).forEach(([k, id]) => { document.getElementById(id).checked = !!prefs[k]; });
+      if (!prefs || typeof prefs !== 'object') throw new Error('Notification preferences are unavailable.');
+      const emailField = document.getElementById('notify-email');
+      if (emailField) emailField.value = prefs.email || '';
+      Object.entries(ids).forEach(([k, id]) => { const field = document.getElementById(id); if (field) field.checked = !!prefs[k]; });
     } catch (err) { showToast(err.message || 'Could not load notification settings', 'error'); }
   };
   document.getElementById('btn-save-notify')?.addEventListener('click', async () => {
