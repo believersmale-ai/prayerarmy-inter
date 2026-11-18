@@ -32,3 +32,68 @@
 .ux-task[hidden],.ux-quick-link[hidden]{display:none!important}
 
 .church-management-link{display:flex;align-items:center;padding:12px;margin:2px 3px 12px;color:#f3e5ab;border:1px solid #63532c;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px}.church-management-link[hidden]{display:none!important}
+
+
+/* Admin portal refinement — layered over existing functionality. */
+:root{--admin-focus:#e4bd55;--admin-surface:#111c2b;--admin-stroke:#344259}
+body{overflow-x:hidden}
+#admin-app,.app-body,.main-area,.tab-view,.card{min-width:0}
+.main-area{width:100%;max-width:none!important;min-width:0}
+.sidebar{flex:0 0 var(--sidebar-w)}
+.top-bar{gap:12px;min-width:0}
+.top-left,.top-right{min-width:0}
+.top-right{flex-wrap:wrap;justify-content:flex-end}
+.card{border-color:var(--admin-stroke);box-shadow:0 6px 22px rgba(0,0,0,.12)}
+.card,.admin-item{overflow-wrap:anywhere}
+.tab-view .view-header{align-items:flex-start}
+.tab-view .view-header-text{min-width:0}
+.tab-view .view-header-text h2{line-height:1.2;overflow-wrap:anywhere}
+input,select,textarea,button{font:inherit}
+input,select,textarea{max-width:100%;min-width:0}
+input:disabled,select:disabled,textarea:disabled,button:disabled{cursor:not-allowed;opacity:.65}
+button,a,input,select,textarea{touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--admin-focus)!important;outline-offset:3px}
+.sidebar-btn,.ux-quick-link,.btn-primary,.btn-mini{transition:background-color .16s,border-color .16s,color .16s}
+.sidebar-btn.active{color:#fff!important;border-left-color:var(--admin-focus)!important}
+.sidebar-btn[aria-current="page"]{background:#292b31;color:#fff}
+.form-grid-2,.form-grid-3{min-width:0}
+.form-grid-2>*,.form-grid-3>*{min-width:0}
+table{max-width:100%}
+.main-area :is(.table-wrap,.table-responsive,.data-table-wrap){max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.admin-item-head{flex-wrap:wrap}
+.admin-item-head time,.admin-item-head .admin-item-meta{white-space:normal!important}
+.upload-dropzone{max-width:100%}
+.ux-quick-links{min-width:0}
+@media(max-width:1050px){
+ .main-area{padding:20px!important}
+ .form-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .top-bar{padding-inline:14px}
+}
+@media(max-width:760px){
+ .main-area{padding:14px!important}
+ .top-bar{min-height:60px;height:auto;padding-block:10px}
+ .top-brand-title{font-size:12px}
+ .top-brand-sub{font-size:10px}
+ .top-right{gap:6px}
+ .top-right .btn-live-site,.top-right .btn-logout{padding:8px}
+ .card{padding:16px!important;margin-bottom:16px}
+ .view-header{gap:10px}
+ .form-grid-2,.form-grid-3{grid-template-columns:minmax(0,1fr)!important}
+ .toggle-row{gap:14px;padding:12px}
+ .admin-item{padding:12px}
+ .ux-workspace-bar{gap:10px}
+ .ux-quick-links{max-width:100%;padding-bottom:4px}
+ .auth-card{padding:26px 20px}
+}
+@media(max-width:420px){
+ .top-brand-sub{display:none}
+ .top-brand img{max-height:32px}
+ .top-right{gap:4px}
+ .btn-save-master{padding:9px 10px}
+ .view-header-text h2{font-size:24px!important}
+ .main-area{padding:12px!important}
+ .card{padding:13px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
