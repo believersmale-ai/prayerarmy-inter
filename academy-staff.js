@@ -1,6 +1,8 @@
 // Phase 2: staff-only draft course and lesson management.
 // Disabled by default until migration 006 and staging QA are complete.
 import {Router} from 'express';
+import multer from 'multer';
+import {getDocument} from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {sameOrigin} from './node-auth.js';
 import {check,required,optional,clean,route} from './node-common.js';
 const numericId=value=>{const v=String(value??'');check(/^[1-9]\d{0,18}$/.test(v),400,'Invalid identifier');return v};
@@ -55,6 +57,29 @@ export function createAcademyStaffRouter({db,staff}){
    await conn.commit();
    res.status(201).json({id:String(result.insertId),published:false});
   }catch(e){await conn.rollback();throw e}finally{conn.release()}
+ }));
+
+
+ // Extract text only. The PDF is held in memory and is never publicly served or saved.
+ const pdfUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:12*1024*1024,files:1}});
+ router.post('/import/pdf/preview',pdfUpload.single('file'),route(async(req,res)=>{
+  check(req.file?.buffer,400,'Choose a PDF file');
+  check(req.file.buffer.subarray(0,5).toString('ascii')==='%PDF-',400,'Invalid PDF file');
+  let document;
+  try{
+   document=await getDocument({data:new Uint8Array(req.file.buffer),useSystemFonts:true,disableFontFace:true,isEvalSupported:false}).promise;
+   check(document.numPages<=100,413,'PDF exceeds 100 pages');
+   const pages=[];
+   for(let n=1;n<=document.numPages;n++){
+    const page=await document.getPage(n);
+    const content=await page.getTextContent();
+    pages.push(content.items.map(item=>item.str||'').join(' ').slice(0,15000));
+    page.cleanup();
+   }
+   const text=pages.join('\\n\\n').slice(0,150000);
+   check(text.trim().length>0,422,'No selectable text found. Scanned PDFs need OCR before import.');
+   res.json({pages:document.numPages,text,warning:'Review and edit extracted text before creating draft lessons, courses or questions. Nothing has been saved.'});
+  }finally{if(document)await document.destroy()}
  }));
 
  // Phase 2A: staff assessment authoring. All new assessments remain drafts.
