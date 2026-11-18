@@ -12,6 +12,14 @@ export function createAcademyStudentRouter(db){
   if(!req.publicAccount?.roles?.some(role=>role==='student'||role==='member'))return res.status(403).json({error:'An approved member or student account is required'});
   res.set('Cache-Control','no-store');next();
  });
+ router.get('/dashboard',route(async(req,res)=>{
+  const accountId=req.publicAccount.id;
+  const [enrollments]=await db.execute("SELECT COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed FROM academy_enrollments WHERE account_id=?",[accountId]);
+  const [progress]=await db.execute("SELECT COUNT(*) AS completed_lessons FROM academy_lesson_progress p JOIN academy_enrollments e ON e.id=p.enrollment_id WHERE e.account_id=?",[accountId]);
+  const [attempts]=await db.execute("SELECT COUNT(*) AS total,SUM(CASE WHEN status='graded' THEN 1 ELSE 0 END) AS graded FROM academy_attempts WHERE account_id=?",[accountId]);
+  const [nextLessons]=await db.execute("SELECT c.id AS course_id,c.title AS course_title,l.id AS lesson_id,l.title AS lesson_title FROM academy_enrollments e JOIN academy_courses c ON c.id=e.course_id JOIN academy_lessons l ON l.course_id=c.id AND l.published=1 LEFT JOIN academy_lesson_progress p ON p.enrollment_id=e.id AND p.lesson_id=l.id WHERE e.account_id=? AND e.status='active' AND c.status='published' AND p.id IS NULL ORDER BY e.enrolled_at DESC,l.position,l.id LIMIT 5",[accountId]);
+  res.json({enrollments:Number(enrollments[0].total),completed_courses:Number(enrollments[0].completed||0),completed_lessons:Number(progress[0].completed_lessons),exam_attempts:Number(attempts[0].total),graded_attempts:Number(attempts[0].graded||0),continue_learning:nextLessons.map(l=>({course_id:String(l.course_id),course_title:l.course_title,lesson_id:String(l.lesson_id),lesson_title:l.lesson_title}))});
+ }));
  router.get('/courses',route(async(req,res)=>{
   const [courses]=await db.execute("SELECT id,title,slug,description FROM academy_courses WHERE status='published' ORDER BY id DESC LIMIT 100");
   res.json({courses});
