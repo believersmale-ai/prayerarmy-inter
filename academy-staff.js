@@ -74,7 +74,7 @@ export function createAcademyStaffRouter({db,staff}){
    for(let n=1;n<=document.numPages;n++){
     const page=await document.getPage(n);
     const content=await page.getTextContent();
-    pages.push(content.items.map(item=>item.str||'').join(' ').slice(0,15000));
+    pages.push(content.items.map(item=>(item.str||'')+(item.hasEOL?'\n':' ')).join('').slice(0,15000));
     page.cleanup();
    }
    const text=pages.join('\n\n').slice(0,150000);
