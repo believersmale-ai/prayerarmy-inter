@@ -110,6 +110,15 @@ app.get('/academy-login.css', (req,res)=>res.type('css').set('Cache-Control','pu
 app.get('/academy-design.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-design.css')));
 app.get(['/academy/instructor','/academy/instructor/'], ...staff.permit(), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-instructor.html')));
 app.get(['/academy/admin','/academy/admin/'], ...staff.permit('security'), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-admin.html')));
+// Public Academy catalog: only explicitly published courses, no enrollment or private content.
+app.get('/api/academy/catalog', async (req,res)=>{
+ res.set('Cache-Control','no-store');
+ if(process.env.PAI_ACADEMY_PUBLIC_CATALOG_ENABLED!=='true')return res.status(404).json({error:'Catalog not available'});
+ try{
+  const [rows]=await db.execute("SELECT c.id,c.title,c.slug,c.description,(SELECT COUNT(*) FROM academy_lessons l WHERE l.course_id=c.id AND l.published=1) AS lesson_count FROM academy_courses c WHERE c.status='published' ORDER BY c.id DESC LIMIT 60");
+  res.json({courses:rows.map(c=>({id:String(c.id),title:c.title,slug:c.slug,description:c.description,lesson_count:Number(c.lesson_count)}))});
+ }catch(err){console.error('Academy catalog error:',err.code||err.message);res.status(503).json({error:'Catalog temporarily unavailable'})}
+});
 app.get('/academy-landing.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-landing.css')));
 app.get(['/academy','/academy/'], (req,res)=>res.sendFile(path.join(__dirname,'academy-landing.html')));
 app.get(['/academy/learn','/academy/learn/'], (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy.html')));
