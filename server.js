@@ -263,35 +263,6 @@ app.get('/api/admin/publishing-health', ...staff.permit('settings'), async (req,
   }
 });
 
-// Bundled media visibility is stored in MySQL; hiding never deletes source files.
-// Migration 005 is created non-destructively during normal database setup.
-app.get('/api/admin/hidden-assets', ...staff.permit('media'), async(req,res)=>{
-  try {
-    const [rows]=await db.execute('SELECT filename FROM site_hidden_assets ORDER BY filename');
-    res.setHeader('Cache-Control','no-store');
-    res.json({filenames:rows.map(row=>row.filename)});
-  }catch(err){
-    console.error('Hidden assets list:',err.code||err.message);
-    res.status(503).json({error:'Hidden media storage unavailable. Check migration 005.'});
-  }
-});
-app.put('/api/admin/hidden-assets/:filename', ...staff.permit('media'),requireSettingsOrigin,async(req,res)=>{
-  const filename=String(req.params.filename||'');
-  if(!filename||filename.length>255||filename==='.'||filename==='..'||filename.startsWith('.')||filename.includes('/')||filename.includes(String.fromCharCode(92))||[...filename].some(c=>c.charCodeAt(0)<32)){
-    return res.status(400).json({error:'Invalid bundled media filename'});
-  }
-  if(typeof req.body?.hidden!=='boolean')return res.status(400).json({error:'hidden must be true or false'});
-  try{
-    if(req.body.hidden)await db.execute('INSERT IGNORE INTO site_hidden_assets (filename) VALUES (?)',[filename]);
-    else await db.execute('DELETE FROM site_hidden_assets WHERE filename=?',[filename]);
-    res.setHeader('Cache-Control','no-store');
-    res.json({success:true,filename,hidden:req.body.hidden});
-  }catch(err){
-    console.error('Hidden assets update:',err.code||err.message);
-    res.status(503).json({error:'Unable to save media visibility. Check migration 005.'});
-  }
-});
-
 // ---------- settings ----------
 // Persistent settings: MySQL is authoritative. The bundled JSON is used only to
 // initialise an empty staging settings row, never to overwrite an existing row.
