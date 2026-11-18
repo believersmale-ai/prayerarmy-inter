@@ -21,6 +21,15 @@ export function createAcademyStaffRouter({db,staff}){
   res.setHeader('Cache-Control','no-store');next();
  }));
  router.use((req,res,next)=>['GET','HEAD','OPTIONS'].includes(req.method)?next():sameOrigin(req,res,next));
+ router.get('/overview',route(async(req,res)=>{
+  const [courses]=await db.execute("SELECT status,COUNT(*) AS total FROM academy_courses GROUP BY status");
+  const [enrollments]=await db.execute("SELECT status,COUNT(*) AS total FROM academy_enrollments GROUP BY status");
+  const [assessments]=await db.execute("SELECT status,COUNT(*) AS total FROM academy_assessments GROUP BY status");
+  const [attempts]=await db.execute("SELECT status,COUNT(*) AS total FROM academy_attempts GROUP BY status");
+  const [recent]=await db.execute("SELECT c.id,c.title,c.status,COUNT(e.id) AS enrollments FROM academy_courses c LEFT JOIN academy_enrollments e ON e.course_id=c.id GROUP BY c.id,c.title,c.status ORDER BY c.id DESC LIMIT 8");
+  const tally=rows=>Object.fromEntries(rows.map(r=>[r.status,Number(r.total)]));
+  res.json({courses:tally(courses),enrollments:tally(enrollments),assessments:tally(assessments),attempts:tally(attempts),recent_courses:recent.map(c=>({id:String(c.id),title:c.title,status:c.status,enrollments:Number(c.enrollments)}))});
+ }));
  router.get('/courses',route(async(req,res)=>{
   const [rows]=await db.execute('SELECT id,title,slug,description,status,created_at,updated_at FROM academy_courses ORDER BY id DESC LIMIT 200');
   res.json({courses:rows});
