@@ -16,6 +16,13 @@ This branch starts the Academy from the agreed phased plan. It does **not** depl
 - This is an initial admin workflow, not the complete Academy: course publishing, lesson editing, enrollment, exams, grading and certificates remain pending.
 - Staging browser/database integration tests have not yet been run.
 
+## Student enrollment (merged into main)
+- `academy-student.js` provides published-course listing, enrollment, personal courses and published lesson access for enrolled accounts.
+- `academy.html` serves `/academy`; the API is `/api/public/academy` and reuses the public-account session.
+- Disabled by default: `PAI_ACADEMY_STUDENTS_ENABLED` must explicitly be `true`, and the existing public-account gate must be enabled.
+- Migration 006 and the `academy_enrollments` table must be verified in the **actual production database** before enabling; creating a table in a different database does not apply it to production.
+- No live migration, deployment or end-to-end test has been performed by this commit. Course publishing and exams are not yet implemented.
+
 ## Mandatory next implementation steps
 1. Staging DB backup, apply migration 006 once to staging only and inspect foreign keys.
 2. Finish staff course/lesson/assessment CRUD with audit logs, role checks and explicit admin activation.
