@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import {check,route} from './node-common.js';
+import {sameOrigin} from './node-auth.js';
 const id=v=>{const s=String(v??'');check(/^[1-9][0-9]{0,18}$/.test(s),400,'Invalid identifier');return s};
 export function createAcademyInstructorRouter({db,staff}){
  const router=Router();
@@ -11,6 +12,23 @@ export function createAcademyInstructorRouter({db,staff}){
   check(assignments.length>0,403,'No Academy instructor assignments');
   req.academyCourseIds=new Set(assignments.map(a=>String(a.course_id)));
   res.set('Cache-Control','no-store');next();
+ }));
+ router.get('/courses/:id/announcements',route(async(req,res)=>{
+  const courseId=id(req.params.id);check(req.academyCourseIds.has(courseId),403,'Course is not assigned to you');
+  const [rows]=await db.execute('SELECT id,title,body,published_at FROM academy_announcements WHERE course_id=? ORDER BY published_at DESC,id DESC LIMIT 50',[courseId]);
+  res.json({announcements:rows.map(x=>({...x,id:String(x.id)}))});
+ }));
+ router.post('/courses/:id/announcements',sameOrigin,route(async(req,res)=>{
+  check(process.env.PAI_ACADEMY_ANNOUNCEMENTS_ENABLED==='true',404,'Announcements are unavailable');
+  const courseId=id(req.params.id);check(req.academyCourseIds.has(courseId),403,'Course is not assigned to you');
+  const title=typeof req.body?.title==='string'?req.body.title.trim():'';
+  const body=typeof req.body?.body==='string'?req.body.body.trim():'';
+  check(title.length>=3&&title.length<=180,400,'Title must be 3–180 characters');
+  check(body.length>=3&&body.length<=5000,400,'Message must be 3–5000 characters');
+  const [courses]=await db.execute("SELECT id FROM academy_courses WHERE id=? AND status='published'",[courseId]);
+  check(courses.length===1,409,'Course must be published');
+  const [result]=await db.execute('INSERT INTO academy_announcements(course_id,author_staff_id,title,body,published_at) VALUES (?,?,?,?,UTC_TIMESTAMP())',[courseId,req.staff.user_id,title,body]);
+  res.status(201).json({id:String(result.insertId),published:true});
  }));
  router.get('/courses',route(async(req,res)=>{
   const [rows]=await db.execute("SELECT c.id,c.title,c.description,c.status,COUNT(DISTINCT e.id) AS enrollment_count,COUNT(DISTINCT a.id) AS assessment_count FROM academy_courses c JOIN academy_instructor_assignments i ON i.course_id=c.id LEFT JOIN academy_enrollments e ON e.course_id=c.id LEFT JOIN academy_assessments a ON a.course_id=c.id WHERE i.staff_id=? GROUP BY c.id,c.title,c.description,c.status ORDER BY c.id DESC",[req.staff.user_id]);
