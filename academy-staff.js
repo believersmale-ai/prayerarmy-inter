@@ -171,5 +171,32 @@ export function createAcademyStaffRouter({db,staff}){
    res.status(201).json({id:String(result.insertId)});
   }catch(error){await conn.rollback();throw error}finally{conn.release()}
  }));
+
+ // Staff-only answer key management. Draft assessments and draft courses only.
+ router.get('/questions/:id/options',route(async(req,res)=>{
+  const questionId=numericId(req.params.id);
+  const [questions]=await db.execute("SELECT q.question_type,a.status AS assessment_status,c.status AS course_status FROM academy_questions q JOIN academy_assessments a ON a.id=q.assessment_id JOIN academy_courses c ON c.id=a.course_id WHERE q.id=?",[questionId]);
+  check(questions.length===1,404,'Question not found');
+  const [options]=await db.execute('SELECT id,option_text,is_correct,position FROM academy_options WHERE question_id=? ORDER BY position,id',[questionId]);
+  res.json({question:questions[0],options:options.map(o=>({...o,is_correct:Boolean(o.is_correct)}))});
+ }));
+ router.put('/questions/:id/options',route(async(req,res)=>{
+  const questionId=numericId(req.params.id),options=req.body?.options;
+  check(Array.isArray(options)&&options.length>=2&&options.length<=12,400,'Provide 2 to 12 answer options');
+  const prepared=options.map((o,i)=>({text:required(o?.text,10000,'Answer option'),correct:o?.is_correct===true?1:0,position:i}));
+  const conn=await db.getConnection();
+  try{
+   await conn.beginTransaction();
+   const [rows]=await conn.execute("SELECT q.question_type,a.status AS assessment_status,c.status AS course_status FROM academy_questions q JOIN academy_assessments a ON a.id=q.assessment_id JOIN academy_courses c ON c.id=a.course_id WHERE q.id=? FOR UPDATE",[questionId]);
+   check(rows.length===1,404,'Question not found');
+   check(rows[0].assessment_status==='draft'&&rows[0].course_status==='draft',409,'Answer keys can only be edited in drafts');
+   check(['single_choice','multiple_choice'].includes(rows[0].question_type),400,'Essay questions do not have answer options');
+   const correct=prepared.filter(o=>o.correct).length;
+   check(rows[0].question_type==='single_choice'?correct===1:correct>=1,400,'Select the required correct answer(s)');
+   await conn.execute('DELETE FROM academy_options WHERE question_id=?',[questionId]);
+   for(const option of prepared)await conn.execute('INSERT INTO academy_options(question_id,option_text,is_correct,position) VALUES (?,?,?,?)',[questionId,option.text,option.correct,option.position]);
+   await conn.commit();res.json({success:true,count:prepared.length});
+  }catch(error){await conn.rollback();throw error}finally{conn.release()}
+ }));
  return router;
 }
