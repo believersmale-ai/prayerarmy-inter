@@ -110,7 +110,9 @@ app.get('/academy-login.css', (req,res)=>res.type('css').set('Cache-Control','pu
 app.get('/academy-design.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-design.css')));
 app.get(['/academy/instructor','/academy/instructor/'], ...staff.permit(), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-instructor.html')));
 app.get(['/academy/admin','/academy/admin/'], ...staff.permit('security'), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-admin.html')));
-app.get(['/academy','/academy/'], (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').sendFile(path.join(__dirname,'academy.html')));
+app.get('/academy-landing.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-landing.css')));
+app.get(['/academy','/academy/'], (req,res)=>res.sendFile(path.join(__dirname,'academy-landing.html')));
+app.get(['/academy/learn','/academy/learn/'], (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy.html')));
 app.get(['/church','/church/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'church-management.html')));
 app.get(['/member','/member/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'member-portal.html')));
 registerMediaPosts(app,{db,staff,sameOrigin,uploadDir:UPLOAD_DIR,mediaTypeOf});
