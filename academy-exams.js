@@ -20,7 +20,8 @@ export function createAcademyExamRouter(db){
    const [a]=await conn.execute("SELECT id,course_id,max_attempts,duration_minutes,kind FROM academy_assessments WHERE id=? AND status='active' AND opens_at<=UTC_TIMESTAMP() AND closes_at>UTC_TIMESTAMP() FOR UPDATE",[assessmentId]);
    check(a.length===1,404,'Assessment is not open');await enrolled(conn,a[0].course_id,accountId);
    const [prior]=await conn.execute("SELECT id,attempt_number,status,deadline_at FROM academy_attempts WHERE assessment_id=? AND account_id=? ORDER BY attempt_number DESC FOR UPDATE",[assessmentId,accountId]);
-   const current=prior.find(x=>x.status==='in_progress'&&new Date(x.deadline_at).getTime()>Date.now());
+   const [live]=await conn.execute("SELECT id FROM academy_attempts WHERE assessment_id=? AND account_id=? AND status='in_progress' AND deadline_at>UTC_TIMESTAMP() ORDER BY attempt_number DESC LIMIT 1",[assessmentId,accountId]);
+   const current=prior.find(x=>live.some(y=>String(y.id)===String(x.id)));
    if(current){await conn.commit();return res.json({attempt_id:String(current.id),resumed:true})}
    check(prior.length<Number(a[0].max_attempts),409,'Attempt limit reached');
    const number=prior.length+1;
@@ -34,7 +35,7 @@ export function createAcademyExamRouter(db){
   check(rows.length===1,404,'Attempt not found');
   const attempt=rows[0];
   check(attempt.status==='in_progress',409,'Attempt already submitted');
-  check(new Date(attempt.deadline_at).getTime()>Date.now(),409,'Time expired');
+  const [live]=await db.execute("SELECT 1 FROM academy_attempts WHERE id=? AND deadline_at>UTC_TIMESTAMP()",[attemptId]);check(live.length===1,409,'Time expired');
   const [questions]=await db.execute("SELECT id,question_text,question_type,points,position FROM academy_questions WHERE assessment_id=? ORDER BY position,id",[attempt.assessment_id]);
   for(const q of questions){const [opts]=await db.execute('SELECT id,option_text,position FROM academy_options WHERE question_id=? ORDER BY position,id',[q.id]);q.options=opts.map(o=>({id:String(o.id),text:o.option_text})) ;q.id=String(q.id)}
   res.json({attempt:{id:String(attempt.id),title:attempt.title,deadline_at:attempt.deadline_at},questions,server_time:new Date().toISOString()});
@@ -48,7 +49,7 @@ export function createAcademyExamRouter(db){
    const [rows]=await conn.execute("SELECT t.*,a.result_policy,a.passing_percent FROM academy_attempts t JOIN academy_assessments a ON a.id=t.assessment_id WHERE t.id=? AND t.account_id=? FOR UPDATE",[attemptId,req.publicAccount.id]);
    check(rows.length===1,404,'Attempt not found');
    const attempt=rows[0];check(attempt.status==='in_progress',409,'Attempt already submitted');
-   check(new Date(attempt.deadline_at).getTime()>=Date.now(),409,'Assessment time has expired');
+   const [live]=await conn.execute("SELECT 1 FROM academy_attempts WHERE id=? AND deadline_at>=UTC_TIMESTAMP()",[attemptId]);check(live.length===1,409,'Assessment time has expired');
    const [questions]=await conn.execute('SELECT id,question_type,points FROM academy_questions WHERE assessment_id=?',[attempt.assessment_id]);
    check(questions.length>0,409,'Assessment has no questions');
    let earned=0,possible=0;
