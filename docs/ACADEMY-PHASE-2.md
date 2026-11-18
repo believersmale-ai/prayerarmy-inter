@@ -16,6 +16,14 @@ This branch starts the Academy from the agreed phased plan. It does **not** depl
 - This is an initial admin workflow, not the complete Academy: course publishing, lesson editing, enrollment, exams, grading and certificates remain pending.
 - Staging browser/database integration tests have not yet been run.
 
+## Student enrollment implementation (this branch)
+- `academy-student.js` implements published course catalog, member/student enrollment, personal enrollment list and enrolled-only published lessons.
+- `academy.html` provides the responsive `/academy` student portal.
+- Student APIs are mounted at `/api/public/academy` and reuse the existing public session; no new passwords or independent login.
+- The public account feature must be enabled (`PAI_PUBLIC_ACCOUNTS_ENABLED=true`), and student routes separately require `PAI_ACADEMY_STUDENTS_ENABLED=true`. Keep both disabled until staging QA.
+- Student access requires an active public account with a member or student role. Enrollment only permits `published` courses; course publishing is not yet implemented by the staff UI.
+- The student page renders lesson content as plain text to avoid injecting stored HTML. Rich lesson formatting needs a separately reviewed sanitizer.
+- The migration has **not** been executed; no live database, browser or CI result is claimed.
 ## Student enrollment (merged into main)
 - `academy-student.js` provides published-course listing, enrollment, personal courses and published lesson access for enrolled accounts.
 - `academy.html` serves `/academy`; the API is `/api/public/academy` and reuses the public-account session.
@@ -26,7 +34,7 @@ This branch starts the Academy from the agreed phased plan. It does **not** depl
 ## Mandatory next implementation steps
 1. Staging DB backup, apply migration 006 once to staging only and inspect foreign keys.
 2. Finish staff course/lesson/assessment CRUD with audit logs, role checks and explicit admin activation.
-3. Student enrollment and lesson access restricted to verified, approved, active student accounts.
+3. Test student enrollment and lesson access against verified, approved, active public accounts; decide whether student-only roles are required instead of member-or-student.
 4. Timed assessment engine: use database/server time; enforce opens/closes, duration and max attempts on *every* request and submission; immutable questions after activation; transaction/locking to prevent double attempts.
 5. Grade objective questions on submission; hold essay marks for staff review; release results only according to `result_policy`. Do not leak correct answers before release.
 6. Generate and verify certificates only after verified course completion; revocation and public verification must not disclose student private data.
