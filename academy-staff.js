@@ -21,6 +21,27 @@ export function createAcademyStaffRouter({db,staff}){
   res.setHeader('Cache-Control','no-store');next();
  }));
  router.use((req,res,next)=>['GET','HEAD','OPTIONS'].includes(req.method)?next():sameOrigin(req,res,next));
+ router.get('/courses/:id/instructors',route(async(req,res)=>{
+  const courseId=numericId(req.params.id);
+  const [rows]=await db.execute("SELECT i.staff_id,u.email,i.assigned_at FROM academy_instructor_assignments i JOIN admin_users u ON CAST(u.id AS CHAR)=i.staff_id WHERE i.course_id=? ORDER BY i.assigned_at DESC",[courseId]);
+  res.json({instructors:rows});
+ }));
+ router.post('/courses/:id/instructors',route(async(req,res)=>{
+  check(req.staff?.via==='account'&&req.staff.user_id,403,'Use a personal administrator account');
+  const courseId=numericId(req.params.id),staffId=numericId(req.body?.staff_id);
+  const [staffRows]=await db.execute("SELECT id FROM admin_users WHERE id=? AND is_active=1",[staffId]);
+  check(staffRows.length===1,404,'Active staff account not found');
+  const [courses]=await db.execute('SELECT id FROM academy_courses WHERE id=?',[courseId]);
+  check(courses.length===1,404,'Course not found');
+  await db.execute('INSERT INTO academy_instructor_assignments(course_id,staff_id,assigned_at,assigned_by) VALUES (?,?,UTC_TIMESTAMP(),?) ON DUPLICATE KEY UPDATE id=id',[courseId,staffId,req.staff.user_id]);
+  res.json({assigned:true,course_id:courseId,staff_id:staffId});
+ }));
+ router.delete('/courses/:id/instructors/:staffId',route(async(req,res)=>{
+  check(req.staff?.via==='account'&&req.staff.user_id,403,'Use a personal administrator account');
+  const courseId=numericId(req.params.id),staffId=numericId(req.params.staffId);
+  const [result]=await db.execute('DELETE FROM academy_instructor_assignments WHERE course_id=? AND staff_id=?',[courseId,staffId]);
+  res.json({removed:result.affectedRows>0});
+ }));
  router.get('/overview',route(async(req,res)=>{
   const [courses]=await db.execute("SELECT status,COUNT(*) AS total FROM academy_courses GROUP BY status");
   const [enrollments]=await db.execute("SELECT status,COUNT(*) AS total FROM academy_enrollments GROUP BY status");
