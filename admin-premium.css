@@ -80,3 +80,10 @@ input:focus,textarea:focus,select:focus{border-color:#af8530!important;box-shado
  .form-grid-2,.form-grid-3{grid-template-columns:minmax(0,1fr)!important}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Keyboard access and compact administrative controls */
+.admin-skip-link{position:fixed;z-index:100000;left:16px;top:-100px;background:#fff;color:#16263b;padding:12px 18px;border:2px solid #b68b31;border-radius:9px;font-weight:700;box-shadow:0 6px 24px #0002}
+.admin-skip-link:focus{top:12px}
+#site-manager-main:focus{outline:none}
+.sidebar-btn:focus-visible,.ux-quick-link:focus-visible,.btn-mini:focus-visible,.btn-live-site:focus-visible{outline:3px solid #dfbb70!important;outline-offset:2px!important}
+.sidebar-btn[aria-current="page"]{font-weight:700!important}
