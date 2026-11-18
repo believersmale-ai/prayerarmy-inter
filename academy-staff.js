@@ -77,7 +77,7 @@ export function createAcademyStaffRouter({db,staff}){
     pages.push(content.items.map(item=>item.str||'').join(' ').slice(0,15000));
     page.cleanup();
    }
-   const text=pages.join('\\n\\n').slice(0,150000);
+   const text=pages.join('\n\n').slice(0,150000);
    check(text.trim().length>0,422,'No selectable text found. Scanned PDFs need OCR before import.');
    res.json({pages:document.numPages,text,outline:outlineFromText(text),warning:'Review and edit extracted text before creating draft lessons, courses or questions. Nothing has been saved.'});
   }finally{if(document)await document.destroy()}
@@ -86,7 +86,10 @@ export function createAcademyStaffRouter({db,staff}){
 
  // Review-first import into an existing draft course; atomic and never published.
  router.post('/courses/:id/import-outline',route(async(req,res)=>{
-  const courseId=numericId(req.params.id);
+  const createNew=req.params.id==='new';
+  const courseId=createNew?null:numericId(req.params.id);
+  const course=createNew?draftCourse(req.body?.course):null;
+  if(course)check(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(course.slug),400,'Invalid course slug');
   const lessons=req.body?.lessons,questions=req.body?.questions||[];
   check(Array.isArray(lessons)&&Array.isArray(questions),400,'Invalid outline');
   check(lessons.length<=100&&questions.length<=200&&lessons.length+questions.length>0,400,'Import must contain 1–300 items');
@@ -102,16 +105,23 @@ export function createAcademyStaffRouter({db,staff}){
   const conn=await db.getConnection();
   try{
    await conn.beginTransaction();
-   const [courses]=await conn.execute('SELECT status FROM academy_courses WHERE id=? FOR UPDATE',[courseId]);
-   check(courses[0]?.status==='draft',409,'Import requires a draft course');
+   let targetCourseId=courseId;
+   if(createNew){
+    const [created]=await conn.execute("INSERT INTO academy_courses(title,slug,description,status) VALUES (?,?,?,'draft')",[course.title,course.slug,course.description]);
+    targetCourseId=String(created.insertId);
+   }else{
+    const [courses]=await conn.execute('SELECT status FROM academy_courses WHERE id=? FOR UPDATE',[courseId]);
+    check(courses[0]?.status==='draft',409,'Import requires a draft course');
+   }
    if(assessmentId){
+    check(!createNew,400,'Create the new course before importing assessment questions');
     const [assessments]=await conn.execute('SELECT status FROM academy_assessments WHERE id=? AND course_id=? FOR UPDATE',[assessmentId,courseId]);
     check(assessments[0]?.status==='draft',409,'Choose a draft assessment belonging to this course');
    }
-   for(const item of preparedLessons)await conn.execute('INSERT INTO academy_lessons(course_id,title,content,position,published) VALUES (?,?,?,?,0)',[courseId,item.title,item.content,item.position]);
+   for(const item of preparedLessons)await conn.execute('INSERT INTO academy_lessons(course_id,title,content,position,published) VALUES (?,?,?,?,0)',[targetCourseId,item.title,item.content,item.position]);
    for(const item of preparedQuestions)await conn.execute('INSERT INTO academy_questions(assessment_id,question_text,question_type,points,position) VALUES (?,?,?,?,?)',[assessmentId,item.text,item.type,item.points,item.position]);
    await conn.commit();
-   res.status(201).json({success:true,lessons:preparedLessons.length,questions:preparedQuestions.length,published:false});
+   res.status(201).json({success:true,course_id:targetCourseId,lessons:preparedLessons.length,questions:preparedQuestions.length,published:false});
   }catch(error){await conn.rollback();throw error}finally{conn.release()}
  }));
 
