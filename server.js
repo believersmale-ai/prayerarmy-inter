@@ -98,6 +98,7 @@ content.register(app);
 const church = createChurchManagement(store, staff);
 app.use('/api/church', church.router);
 app.use('/api/academy/staff', createAcademyStaffRouter({db,staff}));
+app.get(['/academy/admin','/academy/admin/'], ...staff.permit('security'), (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy-admin.html')));
 app.get(['/church','/church/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'church-management.html')));
 app.get(['/member','/member/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'member-portal.html')));
 registerMediaPosts(app,{db,staff,sameOrigin,uploadDir:UPLOAD_DIR,mediaTypeOf});
