@@ -199,6 +199,23 @@ export function createAcademyStaffRouter({db,staff}){
   }catch(error){await conn.rollback();throw error}finally{conn.release()}
  }));
 
+
+ router.post('/courses/:id/publish',route(async(req,res)=>{
+  check(process.env.PAI_ACADEMY_PUBLISH_ENABLED==='true',503,'Course publishing is disabled');
+  const courseId=numericId(req.params.id);
+  const conn=await db.getConnection();
+  try{
+   await conn.beginTransaction();
+   const [courses]=await conn.execute('SELECT status FROM academy_courses WHERE id=? FOR UPDATE',[courseId]);
+   check(courses[0]?.status==='draft',409,'Only draft courses can be published');
+   const [lessons]=await conn.execute('SELECT id FROM academy_lessons WHERE course_id=?',[courseId]);
+   check(lessons.length>0,409,'Add at least one lesson before publishing');
+   await conn.execute('UPDATE academy_lessons SET published=1 WHERE course_id=?',[courseId]);
+   await conn.execute("UPDATE academy_courses SET status='published' WHERE id=?",[courseId]);
+   await conn.commit();res.json({success:true,status:'published',lessons_published:lessons.length});
+  }catch(error){await conn.rollback();throw error}finally{conn.release()}
+ }));
+
  // Activate only fully configured assessments, with explicit scheduling.
  router.post('/assessments/:id/activate',route(async(req,res)=>{
   check(process.env.PAI_ACADEMY_EXAMS_ENABLED==='true',503,'Assessment activation is disabled');
