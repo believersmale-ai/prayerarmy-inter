@@ -32,8 +32,7 @@ export function createAcademyExamRouter(db){
  }));
  // Expire only the signed-in student's overdue attempts; no background job needed.
  router.get('/my-attempts',route(async(req,res)=>{
-  await db.execute("UPDATE academy_attempts SET status='expired' WHERE account_id=? AND status='in_progress' AND deadline_at<UTC_TIMESTAMP()",[req.publicAccount.id]);
-  const [rows]=await db.execute("SELECT t.id,t.assessment_id,t.attempt_number,t.status,t.started_at,t.deadline_at,t.submitted_at,t.earned_points,t.possible_points,a.title,a.passing_percent,a.result_policy FROM academy_attempts t JOIN academy_assessments a ON a.id=t.assessment_id WHERE t.account_id=? ORDER BY t.id DESC LIMIT 100",[req.publicAccount.id]);
+  const [rows]=await db.execute("SELECT t.id,t.assessment_id,t.attempt_number,CASE WHEN t.status='in_progress' AND t.deadline_at<UTC_TIMESTAMP() THEN 'expired' ELSE t.status END AS status,t.started_at,t.deadline_at,t.submitted_at,t.earned_points,t.possible_points,a.title,a.passing_percent,a.result_policy FROM academy_attempts t JOIN academy_assessments a ON a.id=t.assessment_id WHERE t.account_id=? ORDER BY t.id DESC LIMIT 100",[req.publicAccount.id]);
   res.json({attempts:rows.map(x=>({id:String(x.id),assessment_id:String(x.assessment_id),title:x.title,attempt_number:x.attempt_number,status:x.status,started_at:x.started_at,deadline_at:x.deadline_at,submitted_at:x.submitted_at,earned_points:x.status==='graded'&&x.result_policy==='immediate'?x.earned_points:null,possible_points:x.status==='graded'&&x.result_policy==='immediate'?x.possible_points:null,percentage:x.status==='graded'&&x.result_policy==='immediate'&&Number(x.possible_points)>0?Math.round(Number(x.earned_points)/Number(x.possible_points)*10000)/100:null,passed:x.status==='graded'&&x.result_policy==='immediate'&&Number(x.possible_points)>0?Number(x.earned_points)/Number(x.possible_points)*100>=Number(x.passing_percent):null}))});
  }));
  router.get('/attempts/:id',route(async(req,res)=>{
@@ -58,6 +57,8 @@ export function createAcademyExamRouter(db){
    const attempt=rows[0];check(attempt.status==='in_progress',409,'Attempt already submitted');
    const [live]=await conn.execute("SELECT 1 FROM academy_attempts WHERE id=? AND deadline_at>=UTC_TIMESTAMP()",[attemptId]);check(live.length===1,409,'Assessment time has expired');
    const [questions]=await conn.execute('SELECT id,question_type,points FROM academy_questions WHERE assessment_id=?',[attempt.assessment_id]);
+   const knownQuestions=new Set(questions.map(q=>String(q.id)));
+   check(Object.keys(answers).every(key=>knownQuestions.has(key)),400,'Unknown question in submitted answers');
    check(questions.length>0,409,'Assessment has no questions');
    let earned=0,possible=0;
    for(const q of questions){
@@ -75,7 +76,7 @@ export function createAcademyExamRouter(db){
    await conn.execute("UPDATE academy_attempts SET status='graded',submitted_at=UTC_TIMESTAMP(),earned_points=?,possible_points=?,graded_at=UTC_TIMESTAMP() WHERE id=?",[earned,possible,attemptId]);
    await conn.commit();
    const percent=possible?Math.round(earned/possible*10000)/100:0;
-   res.json({submitted:true,earned_points:earned,possible_points:possible,percentage:percent,passed:percent>=Number(attempt.passing_percent)});
+   res.json(attempt.result_policy==='immediate'?{submitted:true,earned_points:earned,possible_points:possible,percentage:percent,passed:percent>=Number(attempt.passing_percent)}:{submitted:true,result_pending:true});
   }catch(error){await conn.rollback();throw error}finally{conn.release()}
  }));
  return router;
