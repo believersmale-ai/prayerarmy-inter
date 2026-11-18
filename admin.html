@@ -1228,6 +1228,25 @@
   <link rel="stylesheet" href="media-posts.css">
   <link rel="stylesheet" href="hero-slides.css">
   <link rel="stylesheet" href="/portal-shell.css">
+<style id="pai-admin-layout-repair">
+/* Keep navigation and content side by side at tablet/desktop widths,
+   including browser zoom; earlier 900px rules stacked them unexpectedly. */
+@media (min-width: 701px) {
+  .app-body { display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; align-items:flex-start !important; width:100% !important; min-width:0 !important; }
+  .app-body > .sidebar { position:sticky !important; top:64px !important; flex:0 0 var(--sidebar-w, 288px) !important; width:var(--sidebar-w, 288px) !important; min-width:0 !important; height:calc(100dvh - 64px) !important; max-height:calc(100dvh - 64px) !important; overflow-y:auto !important; overflow-x:hidden !important; display:flex !important; flex-direction:column !important; }
+  .app-body > .main-area { display:block !important; flex:1 1 0 !important; min-width:0 !important; width:auto !important; max-width:none !important; margin:0 !important; padding:24px clamp(18px,3vw,44px) !important; }
+  .main-area > #settings-form { display:block; width:100%; max-width:100%; min-width:0; margin:0; }
+  .main-area .tab-view.active { margin-top:0 !important; }
+  .main-area .tab-view.active > .view-header { margin-top:0 !important; }
+}
+@media (max-width: 700px) {
+  .app-body { display:flex !important; flex-direction:column !important; width:100% !important; min-width:0 !important; }
+  .app-body > .sidebar { position:relative !important; top:auto !important; width:100% !important; max-height:32dvh !important; height:auto !important; overflow-y:auto !important; overflow-x:hidden !important; flex-direction:column !important; flex:0 0 auto !important; }
+  .app-body > .main-area { width:100% !important; max-width:100% !important; min-width:0 !important; margin:0 !important; padding:18px 14px !important; }
+}
+.main-area .card,.main-area .form-grid-2,.main-area .form-grid-3 { min-width:0; max-width:100%; }
+.main-area input,.main-area select,.main-area textarea { max-width:100%; }
+</style>
 </head>
 <body>
 
