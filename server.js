@@ -133,7 +133,7 @@ app.get('/api/academy/catalog/:slug',async(req,res)=>{
   res.json({course:{title:course.title,slug:course.slug,description:course.description,lesson_count:lessons.length,outline:lessons.map(l=>l.title)}});
  }catch(err){console.error('Academy course preview:',err.code||err.message);res.status(503).json({error:'Course preview unavailable'})}
 });
-app.get('/academy-landing.css', (req,res)=>res.type('css').set('Cache-Control','public, max-age=3600').sendFile(path.join(__dirname,'academy-landing.css')));
+app.get('/academy-landing.css', (req,res)=>res.type('css').set('Cache-Control','no-cache, must-revalidate').sendFile(path.join(__dirname,'academy-landing.css')));
 app.get(['/academy','/academy/'], (req,res)=>res.sendFile(path.join(__dirname,'academy-landing.html')));
 app.get(['/academy/learn','/academy/learn/'], (req,res)=>res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'academy.html')));
 app.get(['/church','/church/'], (req,res) => res.set('X-Robots-Tag','noindex, nofollow').set('Cache-Control','no-store').sendFile(path.join(__dirname,'church-management.html')));
