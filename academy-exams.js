@@ -23,11 +23,18 @@ export function createAcademyExamRouter(db){
    const [live]=await conn.execute("SELECT id FROM academy_attempts WHERE assessment_id=? AND account_id=? AND status='in_progress' AND deadline_at>UTC_TIMESTAMP() ORDER BY attempt_number DESC LIMIT 1",[assessmentId,accountId]);
    const current=prior.find(x=>live.some(y=>String(y.id)===String(x.id)));
    if(current){await conn.commit();return res.json({attempt_id:String(current.id),resumed:true})}
+   await conn.execute("UPDATE academy_attempts SET status='expired' WHERE assessment_id=? AND account_id=? AND status='in_progress' AND deadline_at<=UTC_TIMESTAMP()",[assessmentId,accountId]);
    check(prior.length<Number(a[0].max_attempts),409,'Attempt limit reached');
    const number=prior.length+1;
    const [result]=await conn.execute("INSERT INTO academy_attempts(assessment_id,account_id,attempt_number,started_at,deadline_at,status) VALUES (?,?,?,UTC_TIMESTAMP(),LEAST(DATE_ADD(UTC_TIMESTAMP(),INTERVAL ? MINUTE),(SELECT closes_at FROM academy_assessments WHERE id=?)),'in_progress')",[assessmentId,accountId,number,a[0].duration_minutes,assessmentId]);
    await conn.commit();res.status(201).json({attempt_id:String(result.insertId),resumed:false});
   }catch(error){await conn.rollback();throw error}finally{conn.release()}
+ }));
+ // Expire only the signed-in student's overdue attempts; no background job needed.
+ router.get('/my-attempts',route(async(req,res)=>{
+  await db.execute("UPDATE academy_attempts SET status='expired' WHERE account_id=? AND status='in_progress' AND deadline_at<UTC_TIMESTAMP()",[req.publicAccount.id]);
+  const [rows]=await db.execute("SELECT t.id,t.assessment_id,t.attempt_number,t.status,t.started_at,t.deadline_at,t.submitted_at,t.earned_points,t.possible_points,a.title,a.passing_percent,a.result_policy FROM academy_attempts t JOIN academy_assessments a ON a.id=t.assessment_id WHERE t.account_id=? ORDER BY t.id DESC LIMIT 100",[req.publicAccount.id]);
+  res.json({attempts:rows.map(x=>({id:String(x.id),assessment_id:String(x.assessment_id),title:x.title,attempt_number:x.attempt_number,status:x.status,started_at:x.started_at,deadline_at:x.deadline_at,submitted_at:x.submitted_at,earned_points:x.status==='graded'&&x.result_policy==='immediate'?x.earned_points:null,possible_points:x.status==='graded'&&x.result_policy==='immediate'?x.possible_points:null,percentage:x.status==='graded'&&x.result_policy==='immediate'&&Number(x.possible_points)>0?Math.round(Number(x.earned_points)/Number(x.possible_points)*10000)/100:null,passed:x.status==='graded'&&x.result_policy==='immediate'&&Number(x.possible_points)>0?Number(x.earned_points)/Number(x.possible_points)*100>=Number(x.passing_percent):null}))});
  }));
  router.get('/attempts/:id',route(async(req,res)=>{
   const attemptId=id(req.params.id);
