@@ -2215,8 +2215,12 @@ const loadMessagesAdmin = async () => {
       fetch(`${SUPABASE_URL}/rest/v1/messages?select=*&order=created_at.desc&limit=500`),
       fetch(`${SUPABASE_URL}/rest/v1/message_comments?select=*&order=created_at.desc`)
     ]);
-    messagesCache = msgRes.ok ? await msgRes.json() : [];
-    const comments = commentRes.ok ? await commentRes.json() : [];
+    if (!msgRes.ok) throw new Error(`Could not load messages (${msgRes.status}).`);
+    messagesCache = await msgRes.json();
+    if (!Array.isArray(messagesCache)) throw new Error('Messages response was invalid.');
+    // Comments are supplementary; a comments failure must not hide the messages.
+    const commentsData = commentRes.ok ? await commentRes.json().catch(() => []) : [];
+    const comments = Array.isArray(commentsData) ? commentsData : [];
     messageCommentsCache = {};
     comments.forEach((c) => { (messageCommentsCache[c.message_id] ||= []).push(c); });
     // category suggestions + filter
@@ -2225,7 +2229,8 @@ const loadMessagesAdmin = async () => {
     const fc = $('#msg-filter-cat'); if (fc) { const cur = fc.value; fc.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option value="${escAttr(c)}">${escAttr(c)}</option>`).join(''); fc.value = cats.includes(cur) ? cur : ''; }
     renderMessagesAdmin();
   } catch (err) {
-    messagesAdminList.innerHTML = '<p style="font-size:13px;color:#f87171">Could not load messages.</p>';
+    messagesAdminList.innerHTML = `<div role="alert"><p style="font-size:13px;color:#b42318">${escapeAdminHtml(err.message || 'Could not load messages.')}</p><button type="button" class="btn-mini" id="messages-retry">Try again</button></div>`;
+    messagesAdminList.querySelector('#messages-retry')?.addEventListener('click', loadMessagesAdmin, { once: true });
   }
 };
 ['#msg-filter-q', '#msg-filter-cat', '#msg-filter-feat'].forEach((sel) => $(sel)?.addEventListener('input', () => renderMessagesAdmin()));
@@ -2419,6 +2424,7 @@ const loadPrayerRequests = async () => {
   if (!requestsAdminList) return;
   try {
     const { requests } = await callManageContent('list_prayer_requests');
+    if (!Array.isArray(requests)) throw new Error('Prayer requests response was invalid.');
     requestsCache = requests;
     const unread = requests.filter((r) => !r.is_read).length;
     if (requestsBadge) {
@@ -2427,7 +2433,8 @@ const loadPrayerRequests = async () => {
     }
     renderRequests();
   } catch (err) {
-    requestsAdminList.innerHTML = `<p style="font-size:13px;color:#f87171">${escapeAdminHtml(err.message || 'Could not load prayer requests.')} Please refresh and try again.</p>`;
+    requestsAdminList.innerHTML = `<div role="alert"><p style="font-size:13px;color:#b42318">${escapeAdminHtml(err.message || 'Could not load prayer requests.')}</p><button type="button" class="btn-mini" id="requests-retry">Try again</button></div>`;
+    requestsAdminList.querySelector('#requests-retry')?.addEventListener('click', loadPrayerRequests, { once: true });
   }
 };
 ['#req-filter-q', '#req-filter-status'].forEach((sel) => $(sel)?.addEventListener('input', renderRequests));
@@ -2531,11 +2538,13 @@ const loadTestimoniesAdmin = async () => {
   if (!box) return;
   try {
     const { testimonies } = await callManageContent('list_testimonies');
+    if (!Array.isArray(testimonies)) throw new Error('Testimonies response was invalid.');
     testimoniesCache = testimonies;
     setBadge($('#sidebar-testimonies-badge'), testimonies.filter((t) => !t.is_approved).length);
     renderTestimonies();
   } catch (err) {
-    box.innerHTML = `<p style="font-size:13px;color:#f87171">${escapeAdminHtml(err.message || 'Could not load testimonies.')} Please refresh and try again.</p>`;
+    box.innerHTML = `<div role="alert"><p style="font-size:13px;color:#b42318">${escapeAdminHtml(err.message || 'Could not load testimonies.')}</p><button type="button" class="btn-mini" id="testimonies-retry">Try again</button></div>`;
+    box.querySelector('#testimonies-retry')?.addEventListener('click', loadTestimoniesAdmin, { once: true });
   }
 };
 ['#tes-filter-q', '#tes-filter-status'].forEach((sel) => $(sel)?.addEventListener('input', renderTestimonies));
